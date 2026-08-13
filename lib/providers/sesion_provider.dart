@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../config/auth_config.dart';
 import '../models/profesor.dart';
+import '../models/student_knowledge_report.dart';
 import '../models/usuario_sesion.dart';
 
 class SesionProvider extends ChangeNotifier {
@@ -9,11 +10,19 @@ class SesionProvider extends ChangeNotifier {
 
   final AuthConfig _config;
   final List<Profesor> _profesores = [];
+  final List<StudentKnowledgeReport> _reportesConocimiento = [];
   UsuarioSesion? _usuarioActual;
 
   List<Profesor> get profesores => List.unmodifiable(_profesores);
+  List<StudentKnowledgeReport> get reportesConocimiento =>
+      List.unmodifiable(_reportesConocimiento);
   UsuarioSesion? get usuarioActual => _usuarioActual;
   bool get estaAutenticado => _usuarioActual != null;
+
+  void guardarReporteConocimiento(StudentKnowledgeReport reporte) {
+    _reportesConocimiento.add(reporte);
+    notifyListeners();
+  }
 
   String? iniciarSesion({required String usuario, required String password}) {
     final usuarioNormalizado = usuario.trim().toLowerCase();

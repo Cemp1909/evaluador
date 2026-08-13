@@ -4,6 +4,7 @@ import '../config/evaluadores_config.dart';
 import '../services/evaluacion_service.dart';
 import '../widgets/home_action_card.dart';
 import 'clases_screen.dart';
+import 'student_knowledge_report_screen.dart';
 
 class EvaluadorSelectionScreen extends StatelessWidget {
   const EvaluadorSelectionScreen({super.key});
@@ -22,7 +23,7 @@ class EvaluadorSelectionScreen extends StatelessWidget {
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 4),
-          const Text('Selecciona el tipo de capacitación.'),
+          const Text('Selecciona el formato que deseas diligenciar.'),
           const SizedBox(height: 26),
           for (
             var index = 0;
@@ -51,6 +52,16 @@ class EvaluadorSelectionScreen extends StatelessWidget {
             if (index < evaluadoresDisponibles.length - 1)
               const SizedBox(height: 16),
           ],
+          const SizedBox(height: 16),
+          HomeActionCard(
+            icon: Icons.assignment_ind_outlined,
+            title: 'Student Knowledge Report',
+            subtitle: 'Evaluación de conocimientos del estudiante',
+            onTap: () => Navigator.pushNamed(
+              context,
+              StudentKnowledgeReportScreen.routeName,
+            ),
+          ),
         ],
       ),
     );
