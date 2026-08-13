@@ -12,6 +12,7 @@ void main() {
       StudentKnowledgeReport(
         fechaHora: DateTime(2026, 8, 13, 10, 30),
         docente: sesion.usuarioActual!.nombre,
+        profesorEvaluado: 'María González',
         colegio: 'Colegio Central',
         grado: 'Segundo',
         evaluaciones: const {'Commands': 'Buen desempeño'},
@@ -27,6 +28,10 @@ void main() {
     expect(sesion.reportesConocimiento, hasLength(1));
     expect(sesion.reportesConocimiento.single.docente, 'Administrador');
     expect(sesion.reportesConocimiento.single.colegio, 'Colegio Central');
+    expect(
+      sesion.reportesConocimiento.single.profesorEvaluado,
+      'María González',
+    );
     expect(sesion.reportesConocimiento.single.fotosEvidencia, hasLength(2));
   });
 }

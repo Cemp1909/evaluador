@@ -35,6 +35,7 @@ class _StudentKnowledgeReportScreenState
   final _formKey = GlobalKey<FormState>();
   final _colegioController = TextEditingController();
   final _gradoController = TextEditingController();
+  final _profesorEvaluadoController = TextEditingController();
   final _compromisoController = TextEditingController();
   late final Map<String, TextEditingController> _evaluacionControllers = {
     for (final categoria in _categorias) categoria: TextEditingController(),
@@ -51,6 +52,7 @@ class _StudentKnowledgeReportScreenState
   void dispose() {
     _colegioController.dispose();
     _gradoController.dispose();
+    _profesorEvaluadoController.dispose();
     _compromisoController.dispose();
     for (final controller in _evaluacionControllers.values) {
       controller.dispose();
@@ -102,6 +104,16 @@ class _StudentKnowledgeReportScreenState
               ),
             ),
             const SizedBox(height: 18),
+            TextFormField(
+              controller: _profesorEvaluadoController,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Profesor evaluado',
+                prefixIcon: Icon(Icons.person_search_outlined),
+              ),
+              validator: _requerido,
+            ),
+            const SizedBox(height: 14),
             TextFormField(
               controller: _colegioController,
               textCapitalization: TextCapitalization.words,
@@ -270,6 +282,7 @@ class _StudentKnowledgeReportScreenState
       StudentKnowledgeReport(
         fechaHora: _fechaHora,
         docente: docente,
+        profesorEvaluado: _profesorEvaluadoController.text.trim(),
         colegio: _colegioController.text.trim(),
         grado: _gradoController.text.trim(),
         evaluaciones: {

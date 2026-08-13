@@ -4,6 +4,7 @@ class StudentKnowledgeReport {
   const StudentKnowledgeReport({
     required this.fechaHora,
     required this.docente,
+    required this.profesorEvaluado,
     required this.colegio,
     required this.grado,
     required this.evaluaciones,
@@ -17,6 +18,7 @@ class StudentKnowledgeReport {
 
   final DateTime fechaHora;
   final String docente;
+  final String profesorEvaluado;
   final String colegio;
   final String grado;
   final Map<String, String> evaluaciones;
