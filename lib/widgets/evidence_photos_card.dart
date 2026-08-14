@@ -57,7 +57,9 @@ class EvidencePhotosCard extends StatelessWidget {
                           fit: StackFit.expand,
                           children: [
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.small,
+                              ),
                               child: Image.memory(
                                 base64Decode(fotosBase64[index]),
                                 fit: BoxFit.cover,

@@ -24,7 +24,7 @@ class SignatureCaptureDialog extends StatefulWidget {
 class _SignatureCaptureDialogState extends State<SignatureCaptureDialog> {
   late final SignatureController _controller = SignatureController(
     penStrokeWidth: 3,
-    penColor: AppColors.primaryDark,
+    penColor: AppColors.primary,
     exportBackgroundColor: Colors.white,
   );
 
@@ -37,7 +37,9 @@ class _SignatureCaptureDialogState extends State<SignatureCaptureDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+      ),
       title: Text(widget.titulo),
       content: SizedBox(
         width: 520,
@@ -46,17 +48,17 @@ class _SignatureCaptureDialogState extends State<SignatureCaptureDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Firma dentro del recuadro usando el dedo o un lápiz digital.',
+              'Firma dentro del recuadro con el dedo o un lápiz digital.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 14),
             ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppRadius.small),
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border.all(color: AppColors.outline),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(AppRadius.small),
                 ),
                 child: Signature(
                   controller: _controller,
@@ -83,7 +85,7 @@ class _SignatureCaptureDialogState extends State<SignatureCaptureDialog> {
   Future<void> _guardar() async {
     if (_controller.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Primero realiza la firma.')),
+        const SnackBar(content: Text('Primero debes realizar la firma.')),
       );
       return;
     }

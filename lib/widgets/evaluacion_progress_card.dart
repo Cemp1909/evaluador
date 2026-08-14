@@ -20,12 +20,15 @@ class EvaluacionProgressCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primaryDark, AppColors.primary],
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary,
+            AppColors.primary.withValues(alpha: 0.86),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppRadius.medium),
         boxShadow: const [
           BoxShadow(
             color: Color(0x24176B78),
@@ -39,17 +42,10 @@ class EvaluacionProgressCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.fact_check_outlined,
-                  color: Colors.white,
-                ),
+              const Icon(
+                Icons.fact_check_outlined,
+                color: Colors.white,
+                size: 30,
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -58,15 +54,16 @@ class EvaluacionProgressCard extends StatelessWidget {
                   children: [
                     Text(
                       'Progreso de capacitación',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleMedium?.copyWith(color: Colors.white),
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.88),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '$completados de $total contenidos realizados',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.78),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.72),
                       ),
                     ),
                   ],
@@ -76,7 +73,7 @@ class EvaluacionProgressCard extends StatelessWidget {
                 '${(progress * 100).round()}%',
                 style: Theme.of(
                   context,
-                ).textTheme.titleLarge?.copyWith(color: Colors.white),
+                ).textTheme.headlineSmall?.copyWith(color: Colors.white),
               ),
             ],
           ),

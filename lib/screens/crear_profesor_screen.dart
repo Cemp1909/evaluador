@@ -67,7 +67,7 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
                 const SizedBox(height: 6),
                 Text(
                   widget.solicitudPublica
-                      ? 'Completa tus datos. El administrador deberá aprobar tu acceso.'
+                      ? 'Completa tus datos. El administrador debe aprobar tu acceso.'
                       : 'La cuenta quedará pendiente de aprobación del administrador.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
@@ -77,7 +77,7 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: AppColors.successContainer,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(AppRadius.medium),
                     ),
                     child: Row(
                       children: [
@@ -90,10 +90,10 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
                           child: Text(
                             widget.solicitudPublica
                                 ? 'Solicitud enviada. Espera la aprobación del administrador.'
-                                : 'Solicitud de profesor creada correctamente.',
+                                : 'Solicitud del profesor creada correctamente.',
                             style: const TextStyle(
                               color: AppColors.success,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -149,7 +149,7 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
                       return 'Este campo es obligatorio.';
                     }
                     if (value.length < 6) {
-                      return 'Usa al menos 6 caracteres.';
+                      return 'Usa mínimo 6 caracteres.';
                     }
                     return null;
                   },
@@ -160,7 +160,7 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE4F1F2),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(AppRadius.medium),
                     ),
                     child: Row(
                       children: [

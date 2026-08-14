@@ -66,7 +66,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Solicitud de profesor creada correctamente.'),
+      find.text('Solicitud del profesor creada correctamente.'),
       findsOneWidget,
     );
     await tester.pageBack();

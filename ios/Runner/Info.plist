@@ -27,9 +27,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Course Child necesita acceso a la cámara para registrar evidencia fotográfica de la capacitación.</string>
+	<string>Course Child needs camera access to capture photo evidence for the evaluation.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Course Child necesita acceso a tus fotos para adjuntar evidencia de la capacitación.</string>
+	<string>Course Child needs access to your photos to attach evidence to the evaluation.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

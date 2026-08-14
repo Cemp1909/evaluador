@@ -19,8 +19,6 @@ class ClaseCard extends StatelessWidget {
 
   bool get _completa =>
       totalContenidos > 0 && contenidosMarcados == totalContenidos;
-  bool get _iniciada => contenidosMarcados > 0 && !_completa;
-
   @override
   Widget build(BuildContext context) {
     final progress = totalContenidos == 0
@@ -30,12 +28,12 @@ class ClaseCard extends StatelessWidget {
 
     return Card(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(AppRadius.medium),
         side: BorderSide(color: borderColor, width: _completa ? 1.5 : 1),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(AppRadius.medium),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 21),
           child: Row(
@@ -48,7 +46,7 @@ class ClaseCard extends StatelessWidget {
                   color: _completa
                       ? AppColors.successContainer
                       : const Color(0xFFE4F1F2),
-                  borderRadius: BorderRadius.circular(17),
+                  borderRadius: BorderRadius.circular(AppRadius.small),
                 ),
                 alignment: Alignment.center,
                 child: _completa
@@ -69,16 +67,9 @@ class ClaseCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Clase $numero',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ),
-                        _StatusBadge(completa: _completa, iniciada: _iniciada),
-                      ],
+                    Text(
+                      'Clase $numero',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 10),
                     GradientProgressBar(
@@ -101,48 +92,6 @@ class ClaseCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.completa, required this.iniciada});
-
-  final bool completa;
-  final bool iniciada;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = completa
-        ? 'Completa'
-        : iniciada
-        ? 'En curso'
-        : 'Pendiente';
-    final foreground = completa
-        ? AppColors.success
-        : iniciada
-        ? AppColors.primary
-        : const Color(0xFF9A5B13);
-    final background = completa
-        ? AppColors.successContainer
-        : iniciada
-        ? const Color(0xFFDFF1F3)
-        : AppColors.pendingContainer;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );

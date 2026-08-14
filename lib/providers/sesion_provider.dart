@@ -63,7 +63,7 @@ class SesionProvider extends ChangeNotifier {
     }
     if (profesor != null) {
       if (!profesor.aprobado) {
-        return 'Tu solicitud está pendiente de aprobación por el administrador.';
+        return 'Tu solicitud está pendiente de aprobación del administrador.';
       }
       _usuarioActual = UsuarioSesion(
         rol: RolUsuario.profesor,
@@ -77,7 +77,7 @@ class SesionProvider extends ChangeNotifier {
     if (existeUsuarioProfesor) {
       return 'La contraseña del profesor es incorrecta.';
     }
-    return 'No existe un profesor con ese usuario en esta sesión. Primero debe crearlo un administrador o coordinador.';
+    return 'No existe un profesor con ese usuario en esta sesión. Un administrador o coordinador debe crearlo primero.';
   }
 
   String? crearProfesor({
@@ -89,7 +89,7 @@ class SesionProvider extends ChangeNotifier {
     final actual = _usuarioActual;
     if (actual?.rol != RolUsuario.administrador &&
         actual?.rol != RolUsuario.coordinador) {
-      return 'No tienes permisos para crear profesores.';
+      return 'No tienes permiso para crear profesores.';
     }
     final zonaLimpia = actual?.rol == RolUsuario.coordinador
         ? (actual?.zona ?? '').trim()
@@ -166,7 +166,7 @@ class SesionProvider extends ChangeNotifier {
     final index = _profesores.indexWhere(
       (profesor) => profesor.usuario.toLowerCase() == usuario.toLowerCase(),
     );
-    if (index == -1) return 'No se encontró el profesor.';
+    if (index == -1) return 'Profesor no encontrado.';
     _profesores[index] = _profesores[index].copyWith(aprobado: true);
     notifyListeners();
     return null;

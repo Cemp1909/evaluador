@@ -7,6 +7,7 @@ class StudentKnowledgeReport {
     required this.profesorEvaluado,
     required this.colegio,
     required this.grado,
+    required this.periodo,
     required this.evaluaciones,
     required this.compromiso,
     required this.calificacion,
@@ -21,6 +22,7 @@ class StudentKnowledgeReport {
   final String profesorEvaluado;
   final String colegio;
   final String grado;
+  final int periodo;
   final Map<String, String> evaluaciones;
   final String compromiso;
   final CalificacionConocimiento calificacion;

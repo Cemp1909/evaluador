@@ -202,7 +202,7 @@ class EvaluacionService {
     }
 
     if (pendientes.isEmpty) {
-      return 'Todos los contenidos programados fueron enseñados.';
+      return 'Se enseñó todo el contenido programado.';
     }
     return 'No se enseñaron los siguientes contenidos:\n${pendientes.join('\n')}';
   }

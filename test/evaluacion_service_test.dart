@@ -16,7 +16,7 @@ void main() {
     evaluacion = service.actualizarItem(
       evaluacion: evaluacion,
       claseNumero: 1,
-      bloqueNombre: 'Canciones 1',
+      bloqueNombre: 'Songs 1',
       itemTexto: 'Hello song',
       marcado: true,
     );
@@ -24,7 +24,7 @@ void main() {
     final observaciones = service.crearObservacionAutomatica(
       evaluacion.clases.first,
     );
-    expect(observaciones, isNot(contains('Canciones 1: Hello song,')));
+    expect(observaciones, isNot(contains('Songs 1: Hello song,')));
     expect(observaciones, contains('Hello dear teacher'));
   });
 
@@ -63,7 +63,7 @@ void main() {
     evaluacion = service.actualizarItem(
       evaluacion: evaluacion,
       claseNumero: 1,
-      bloqueNombre: 'Canciones 1',
+      bloqueNombre: 'Songs 1',
       itemTexto: 'Hello song',
       marcado: true,
     );

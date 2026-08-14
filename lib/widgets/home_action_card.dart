@@ -21,7 +21,7 @@ class HomeActionCard extends StatelessWidget {
     return Card(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(AppRadius.medium),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
           child: Row(
@@ -35,14 +35,7 @@ class HomeActionCard extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: AppColors.shadow,
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(AppRadius.small),
                 ),
                 child: Icon(icon, color: AppColors.primary, size: 28),
               ),

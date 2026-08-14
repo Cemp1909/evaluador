@@ -60,7 +60,7 @@ class ReportSignatureCard extends StatelessWidget {
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(AppRadius.small),
                   border: Border.all(color: AppColors.outline),
                 ),
                 child: Image.memory(
@@ -73,7 +73,7 @@ class ReportSignatureCard extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onFirmar,
               icon: const Icon(Icons.edit_outlined),
-              label: Text(firmada ? 'Repetir firma' : 'Firmar'),
+              label: Text(firmada ? 'Firmar nuevamente' : 'Firmar'),
             ),
           ],
         ),

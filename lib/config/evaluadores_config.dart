@@ -20,7 +20,7 @@ const _preescolarClases = [
     numero: 1,
     bloques: [
       Bloque(
-        nombre: 'Canciones 1',
+        nombre: 'Songs 1',
         items: [
           ItemReferencia(texto: 'Hello song'),
           ItemReferencia(texto: 'Hello dear teacher'),
@@ -29,7 +29,7 @@ const _preescolarClases = [
         ],
       ),
       Bloque(
-        nombre: 'Canciones 2',
+        nombre: 'Songs 2',
         items: [
           ItemReferencia(texto: 'Hello (Super Simple)'),
           ItemReferencia(texto: 'Hello song for kids'),
@@ -38,15 +38,15 @@ const _preescolarClases = [
         ],
       ),
       Bloque(
-        nombre: 'Diálogos',
+        nombre: 'Dialogues',
         items: [
-          ItemReferencia(texto: 'Prejardín 1'),
-          ItemReferencia(texto: 'Jardín 1'),
+          ItemReferencia(texto: 'Pre-K 1'),
+          ItemReferencia(texto: 'Kindergarten 1'),
         ],
       ),
       Bloque(
-        nombre: 'Comandos',
-        items: [ItemReferencia(texto: 'Página Azul')],
+        nombre: 'Commands',
+        items: [ItemReferencia(texto: 'Blue Page')],
       ),
       Bloque(nombre: 'ABC', items: _abcItems),
     ],
@@ -55,7 +55,7 @@ const _preescolarClases = [
     numero: 2,
     bloques: [
       Bloque(
-        nombre: 'Canciones 1',
+        nombre: 'Songs 1',
         items: [
           ItemReferencia(texto: 'The colors'),
           ItemReferencia(texto: 'Happy fruits'),
@@ -65,7 +65,7 @@ const _preescolarClases = [
         ],
       ),
       Bloque(
-        nombre: 'Canciones 2',
+        nombre: 'Songs 2',
         items: [
           ItemReferencia(texto: 'Point and Touch'),
           ItemReferencia(texto: 'Happy fruits'),
@@ -74,7 +74,7 @@ const _preescolarClases = [
         ],
       ),
       Bloque(
-        nombre: 'Vocabulario',
+        nombre: 'Vocabulary',
         items: [
           ItemReferencia(texto: 'Colors'),
           ItemReferencia(texto: 'Patriotic symbols'),
@@ -88,7 +88,7 @@ const _preescolarClases = [
         ],
       ),
       Bloque(
-        nombre: 'Preguntas de información',
+        nombre: 'Information Questions',
         items: [
           ItemReferencia(texto: 'What is it?'),
           ItemReferencia(texto: 'What ___ is it?'),
@@ -97,10 +97,10 @@ const _preescolarClases = [
         ],
       ),
       Bloque(
-        nombre: 'Diálogos',
+        nombre: 'Dialogues',
         items: [
-          ItemReferencia(texto: 'Transición 1'),
-          ItemReferencia(texto: 'Prejardín 2'),
+          ItemReferencia(texto: 'Transition 1'),
+          ItemReferencia(texto: 'Pre-K 2'),
         ],
       ),
       Bloque(nombre: 'ABC', items: _abcItems),
@@ -110,7 +110,7 @@ const _preescolarClases = [
     numero: 3,
     bloques: [
       Bloque(
-        nombre: 'Canciones',
+        nombre: 'Songs',
         items: [
           ItemReferencia(texto: 'Head and shoulders'),
           ItemReferencia(texto: 'Put on your shoes'),
@@ -118,15 +118,15 @@ const _preescolarClases = [
         ],
       ),
       Bloque(
-        nombre: 'Diálogos',
+        nombre: 'Dialogues',
         items: [
-          ItemReferencia(texto: 'Jardín 2'),
-          ItemReferencia(texto: 'Transición 2'),
+          ItemReferencia(texto: 'Kindergarten 2'),
+          ItemReferencia(texto: 'Transition 2'),
         ],
       ),
       Bloque(
-        nombre: 'Comandos',
-        items: [ItemReferencia(texto: 'Página Verde')],
+        nombre: 'Commands',
+        items: [ItemReferencia(texto: 'Green Page')],
       ),
       Bloque(nombre: 'ABC', items: _abcItems),
     ],
@@ -135,7 +135,7 @@ const _preescolarClases = [
     numero: 4,
     bloques: [
       Bloque(
-        nombre: 'Canciones 1',
+        nombre: 'Songs 1',
         items: [
           ItemReferencia(texto: 'Merry Christmas'),
           ItemReferencia(texto: 'The wheels of the bus'),
@@ -143,7 +143,7 @@ const _preescolarClases = [
         ],
       ),
       Bloque(
-        nombre: 'Canciones 2',
+        nombre: 'Songs 2',
         items: [
           ItemReferencia(texto: 'Jingle bells (rock)'),
           ItemReferencia(texto: 'The wheels of the bus'),
@@ -151,7 +151,7 @@ const _preescolarClases = [
         ],
       ),
       Bloque(
-        nombre: 'Vocabulario',
+        nombre: 'Vocabulary',
         items: [
           ItemReferencia(texto: 'Parts of the house'),
           ItemReferencia(texto: 'Kitchen'),
@@ -165,10 +165,10 @@ const _preescolarClases = [
         ],
       ),
       Bloque(
-        nombre: 'Diálogos',
+        nombre: 'Dialogues',
         items: [
-          ItemReferencia(texto: 'Prejardín 3'),
-          ItemReferencia(texto: 'Jardín 3'),
+          ItemReferencia(texto: 'Pre-K 3'),
+          ItemReferencia(texto: 'Kindergarten 3'),
         ],
       ),
       Bloque(nombre: 'ABC', items: _abcItems),
@@ -178,7 +178,7 @@ const _preescolarClases = [
     numero: 5,
     bloques: [
       Bloque(
-        nombre: 'Canciones 1',
+        nombre: 'Songs 1',
         items: [
           ItemReferencia(texto: 'Rice pudding'),
           ItemReferencia(texto: 'Old McDonald'),
@@ -187,7 +187,7 @@ const _preescolarClases = [
         ],
       ),
       Bloque(
-        nombre: 'Canciones 2',
+        nombre: 'Songs 2',
         items: [
           ItemReferencia(texto: 'Pinocchio'),
           ItemReferencia(texto: 'Old McDonald'),
@@ -196,14 +196,14 @@ const _preescolarClases = [
         ],
       ),
       Bloque(
-        nombre: 'Comandos',
-        items: [ItemReferencia(texto: 'Página Rosada')],
+        nombre: 'Commands',
+        items: [ItemReferencia(texto: 'Pink Page')],
       ),
       Bloque(
-        nombre: 'Diálogos',
+        nombre: 'Dialogues',
         items: [
-          ItemReferencia(texto: 'Transición 3'),
-          ItemReferencia(texto: 'Prejardín 4'),
+          ItemReferencia(texto: 'Transition 3'),
+          ItemReferencia(texto: 'Pre-K 4'),
         ],
       ),
       Bloque(nombre: 'ABC', items: _abcItems),
@@ -213,7 +213,7 @@ const _preescolarClases = [
     numero: 6,
     bloques: [
       Bloque(
-        nombre: 'Canciones 1',
+        nombre: 'Songs 1',
         items: [
           ItemReferencia(texto: 'Rain rain go away'),
           ItemReferencia(texto: "If you're happy"),
@@ -222,7 +222,7 @@ const _preescolarClases = [
         ],
       ),
       Bloque(
-        nombre: 'Canciones 2',
+        nombre: 'Songs 2',
         items: [
           ItemReferencia(texto: 'Jesus is my best friend'),
           ItemReferencia(texto: "If you're happy"),
@@ -231,7 +231,7 @@ const _preescolarClases = [
         ],
       ),
       Bloque(
-        nombre: 'Vocabulario',
+        nombre: 'Vocabulary',
         items: [
           ItemReferencia(texto: 'Classroom'),
           ItemReferencia(texto: 'Geometric figures'),
@@ -247,10 +247,10 @@ const _preescolarClases = [
       ),
       Bloque(nombre: 'ABC', items: _abcItems),
       Bloque(
-        nombre: 'Diálogos',
+        nombre: 'Dialogues',
         items: [
-          ItemReferencia(texto: 'Jardín 4'),
-          ItemReferencia(texto: 'Transición 4'),
+          ItemReferencia(texto: 'Kindergarten 4'),
+          ItemReferencia(texto: 'Transition 4'),
         ],
       ),
     ],
@@ -262,7 +262,7 @@ const _primariaClases = [
     numero: 1,
     bloques: [
       Bloque(
-        nombre: 'Gramática',
+        nombre: 'Grammar',
         items: [
           ItemReferencia(texto: 'a, an, the, R+R-'),
           ItemReferencia(texto: 'or, and'),
@@ -271,7 +271,7 @@ const _primariaClases = [
         ],
       ),
       Bloque(
-        nombre: 'Pregunta',
+        nombre: 'Questions',
         items: [
           ItemReferencia(texto: 'What is it? Is it ___?'),
           ItemReferencia(texto: 'It is ___.'),
@@ -286,7 +286,7 @@ const _primariaClases = [
     numero: 2,
     bloques: [
       Bloque(
-        nombre: 'Gramática',
+        nombre: 'Grammar',
         items: [
           ItemReferencia(texto: 'Demonstrative adjectives'),
           ItemReferencia(texto: 'Prepositions of place'),
@@ -295,7 +295,7 @@ const _primariaClases = [
         ],
       ),
       Bloque(
-        nombre: 'Pregunta',
+        nombre: 'Questions',
         items: [
           ItemReferencia(texto: 'What is this? What is that?'),
           ItemReferencia(texto: 'What are these? What are those?'),
@@ -311,7 +311,7 @@ const _primariaClases = [
     numero: 3,
     bloques: [
       Bloque(
-        nombre: 'Canciones',
+        nombre: 'Songs',
         items: [
           ItemReferencia(texto: 'Iguana'),
           ItemReferencia(texto: 'Crazy witch'),
@@ -319,7 +319,7 @@ const _primariaClases = [
         ],
       ),
       Bloque(
-        nombre: 'Canciones nuevas',
+        nombre: 'New Songs',
         items: [
           ItemReferencia(texto: 'Iguana'),
           ItemReferencia(texto: 'Little chicks'),
@@ -327,17 +327,17 @@ const _primariaClases = [
         ],
       ),
       Bloque(
-        nombre: 'Comandos',
-        items: [ItemReferencia(texto: 'Página Rosada')],
+        nombre: 'Commands',
+        items: [ItemReferencia(texto: 'Pink Page')],
       ),
-      Bloque(nombre: 'Estrategia pedagógica', items: []),
+      Bloque(nombre: 'Teaching Strategy', items: []),
     ],
   ),
   Clase(
     numero: 4,
     bloques: [
       Bloque(
-        nombre: 'Gramática',
+        nombre: 'Grammar',
         items: [
           ItemReferencia(texto: "Can, can't"),
           ItemReferencia(texto: 'Verb to be'),
@@ -347,7 +347,7 @@ const _primariaClases = [
         ],
       ),
       Bloque(
-        nombre: 'Pregunta',
+        nombre: 'Questions',
         items: [
           ItemReferencia(texto: 'Can you ___?'),
           ItemReferencia(texto: 'Whose ___ is this?'),
@@ -360,7 +360,7 @@ const _primariaClases = [
     numero: 5,
     bloques: [
       Bloque(
-        nombre: 'Canciones',
+        nombre: 'Songs',
         items: [
           ItemReferencia(texto: 'Love me do'),
           ItemReferencia(texto: 'Yellow submarine'),
@@ -369,31 +369,31 @@ const _primariaClases = [
         ],
       ),
       Bloque(
-        nombre: 'Comandos',
-        items: [ItemReferencia(texto: 'Páginas Verdes')],
+        nombre: 'Commands',
+        items: [ItemReferencia(texto: 'Green Pages')],
       ),
-      Bloque(nombre: 'Estrategia pedagógica', items: []),
+      Bloque(nombre: 'Teaching Strategy', items: []),
     ],
   ),
   Clase(
     numero: 6,
     bloques: [
       Bloque(
-        nombre: 'Gramática',
+        nombre: 'Grammar',
         items: [
           ItemReferencia(texto: 'Progressive tense: present, past, future'),
           ItemReferencia(texto: 'Present simple rules'),
           ItemReferencia(texto: 'Have - has'),
         ],
       ),
-      Bloque(nombre: 'Pregunta', items: []),
+      Bloque(nombre: 'Questions', items: []),
     ],
   ),
   Clase(
     numero: 7,
     bloques: [
       Bloque(
-        nombre: 'Canciones',
+        nombre: 'Songs',
         items: [
           ItemReferencia(texto: "Can't stop the feeling"),
           ItemReferencia(texto: 'Unstoppable'),
@@ -402,17 +402,17 @@ const _primariaClases = [
         ],
       ),
       Bloque(
-        nombre: 'Comandos',
-        items: [ItemReferencia(texto: 'Página Naranja')],
+        nombre: 'Commands',
+        items: [ItemReferencia(texto: 'Orange Page')],
       ),
-      Bloque(nombre: 'Estrategia pedagógica', items: []),
+      Bloque(nombre: 'Teaching Strategy', items: []),
     ],
   ),
   Clase(
     numero: 8,
     bloques: [
       Bloque(
-        nombre: 'Gramática',
+        nombre: 'Grammar',
         items: [
           ItemReferencia(texto: 'Past simple: regular and irregular verbs'),
           ItemReferencia(texto: 'Prepositions of time'),
@@ -422,7 +422,7 @@ const _primariaClases = [
         ],
       ),
       Bloque(
-        nombre: 'Pregunta',
+        nombre: 'Questions',
         items: [
           ItemReferencia(texto: 'What did you do yesterday?'),
           ItemReferencia(texto: 'When do you usually study?'),
@@ -435,7 +435,7 @@ const _primariaClases = [
     numero: 9,
     bloques: [
       Bloque(
-        nombre: 'Gramática',
+        nombre: 'Grammar',
         items: [
           ItemReferencia(texto: 'Possessive pronouns'),
           ItemReferencia(texto: 'Object pronouns'),
@@ -443,7 +443,7 @@ const _primariaClases = [
         ],
       ),
       Bloque(
-        nombre: 'Pregunta',
+        nombre: 'Questions',
         items: [
           ItemReferencia(texto: 'Who do you play with at break?'),
           ItemReferencia(texto: 'I play with them / him / her.'),
@@ -455,7 +455,7 @@ const _primariaClases = [
     numero: 10,
     bloques: [
       Bloque(
-        nombre: 'Gramática',
+        nombre: 'Grammar',
         items: [
           ItemReferencia(texto: 'Adverbs of frequency'),
           ItemReferencia(texto: 'Do vs. Make'),
@@ -463,7 +463,7 @@ const _primariaClases = [
         ],
       ),
       Bloque(
-        nombre: 'Pregunta',
+        nombre: 'Questions',
         items: [
           ItemReferencia(texto: 'How often do you ___?'),
           ItemReferencia(texto: 'What do you do / make during the day?'),
@@ -477,14 +477,14 @@ const _primariaClases = [
     numero: 11,
     bloques: [
       Bloque(
-        nombre: 'Gramática',
+        nombre: 'Grammar',
         items: [ItemReferencia(texto: 'Comparatives and superlatives')],
       ),
       Bloque(
-        nombre: 'Gramática nueva',
+        nombre: 'New Grammar',
         items: [ItemReferencia(texto: 'Review')],
       ),
-      Bloque(nombre: 'Estrategia pedagógica', items: []),
+      Bloque(nombre: 'Teaching Strategy', items: []),
     ],
   ),
 ];

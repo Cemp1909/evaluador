@@ -80,7 +80,7 @@ class GestionHomeScreen extends StatelessWidget {
             icon: Icons.groups_2_outlined,
             title: 'Lista de profesores',
             subtitle: esAdmin
-                ? 'Consulta todos los profesores creados.'
+                ? 'Consulta todos los profesores registrados.'
                 : 'Consulta los profesores asignados a tu zona.',
             onTap: () =>
                 Navigator.pushNamed(context, ProfesoresScreen.routeName),

@@ -33,19 +33,9 @@ class BloqueCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: marcado
-                        ? AppColors.successContainer
-                        : const Color(0xFFE4F1F2),
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: Icon(
-                    _iconoParaBloque(bloque.nombre),
-                    color: marcado ? AppColors.success : AppColors.primary,
-                  ),
+                Icon(
+                  _iconoParaBloque(bloque.nombre),
+                  color: marcado ? AppColors.success : AppColors.primary,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -67,7 +57,7 @@ class BloqueCard extends StatelessWidget {
                 if (bloque.items.isNotEmpty)
                   TextButton(
                     onPressed: () => onBloqueChanged(!marcado),
-                    child: Text(marcado ? 'Desmarcar' : 'Marcar todo'),
+                    child: Text(marcado ? 'Desmarcar todo' : 'Marcar todo'),
                   ),
               ],
             ),
@@ -98,14 +88,30 @@ class BloqueCard extends StatelessWidget {
 
   IconData _iconoParaBloque(String nombre) {
     final normalizado = nombre.toLowerCase();
-    if (normalizado.contains('cancion')) return Icons.music_note_rounded;
-    if (normalizado.contains('diálogo')) return Icons.forum_outlined;
-    if (normalizado.contains('vocabulario')) return Icons.menu_book_outlined;
-    if (normalizado.contains('pregunta')) return Icons.quiz_outlined;
-    if (normalizado.contains('comando')) return Icons.touch_app_outlined;
-    if (normalizado.contains('gramática')) return Icons.spellcheck_rounded;
+    if (normalizado.contains('cancion') || normalizado.contains('song')) {
+      return Icons.music_note_rounded;
+    }
+    if (normalizado.contains('diálogo') || normalizado.contains('dialogue')) {
+      return Icons.forum_outlined;
+    }
+    if (normalizado.contains('vocabulario') ||
+        normalizado.contains('vocabulary')) {
+      return Icons.menu_book_outlined;
+    }
+    if (normalizado.contains('pregunta') || normalizado.contains('question')) {
+      return Icons.quiz_outlined;
+    }
+    if (normalizado.contains('comando') || normalizado.contains('command')) {
+      return Icons.touch_app_outlined;
+    }
+    if (normalizado.contains('gramática') || normalizado.contains('grammar')) {
+      return Icons.spellcheck_rounded;
+    }
     if (normalizado == 'abc') return Icons.abc_rounded;
-    if (normalizado.contains('estrategia')) return Icons.lightbulb_outline;
+    if (normalizado.contains('estrategia') ||
+        normalizado.contains('strategy')) {
+      return Icons.lightbulb_outline;
+    }
     return Icons.checklist_rounded;
   }
 }
@@ -128,14 +134,14 @@ class _ChecklistItem extends StatelessWidget {
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: checked ? AppColors.successContainer : const Color(0xFFF8FAF9),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppRadius.small),
         border: Border.all(
           color: checked ? const Color(0xFFB9DFCC) : AppColors.outline,
         ),
       ),
       child: InkWell(
         onTap: () => onChanged(!checked),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppRadius.small),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(

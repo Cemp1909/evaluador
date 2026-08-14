@@ -2,11 +2,16 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../models/clase.dart';
 import '../models/evaluacion.dart';
+import '../models/evaluacion_clase.dart';
 import '../models/firma_docente.dart';
 import '../services/evaluacion_service.dart';
+import '../services/pdf_export_service.dart';
+import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bloque_card.dart';
 import '../widgets/evidence_photos_card.dart';
@@ -36,10 +41,23 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
   @override
   void initState() {
     super.initState();
-    final clase = widget.evaluacion.clases.firstWhere(
-      (clase) => clase.claseNumero == widget.plantilla.numero,
+    final clase = _buscarClase(widget.evaluacion);
+    _observacionesController = TextEditingController(
+      text: clase?.observaciones ?? '',
     );
-    _observacionesController = TextEditingController(text: clase.observaciones);
+    if (clase == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No se encontró esta clase. Regresaremos al listado.',
+            ),
+          ),
+        );
+        Navigator.of(context).pop();
+      });
+    }
   }
 
   @override
@@ -50,9 +68,12 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final clase = _evaluacion.clases.firstWhere(
-      (clase) => clase.claseNumero == widget.plantilla.numero,
-    );
+    final clase = _buscarClase(_evaluacion);
+    if (clase == null) {
+      return const Scaffold(
+        body: Center(child: Text('Esta clase ya no está disponible.')),
+      );
+    }
 
     return PopScope(
       canPop: false,
@@ -71,7 +92,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             Text(
-              'Marca cada contenido que fue enseñado durante la clase.',
+              'Marca cada contenido que se enseñó durante la clase.',
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 16),
@@ -108,7 +129,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
               ),
             const SizedBox(height: 8),
             Text(
-              'Contenidos pendientes',
+              'Contenido pendiente',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 10),
@@ -117,7 +138,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(AppRadius.medium),
                 border: Border.all(
                   color: Theme.of(context).colorScheme.outline,
                 ),
@@ -144,7 +165,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
               maxLines: 8,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
-                hintText: 'Escribe aquí las observaciones…',
+                hintText: 'Escribe aquí tus observaciones…',
                 alignLabelWithHint: true,
                 border: OutlineInputBorder(),
               ),
@@ -192,7 +213,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
                     if (clase.firmasAsistentes.isEmpty) ...[
                       const SizedBox(height: 8),
                       Text(
-                        'Aún no hay docentes asistentes registrados.',
+                        'Todavía no se han registrado docentes asistentes.',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
@@ -231,11 +252,44 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
                 _evaluacion = widget.service.eliminarFoto(_evaluacion, index);
               }),
             ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _exportarPdfClase,
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: const Text('Generar PDF de esta clase'),
+            ),
             const SizedBox(height: 32),
           ],
         ),
       ),
     );
+  }
+
+  EvaluacionClase? _buscarClase(Evaluacion evaluacion) {
+    for (final clase in evaluacion.clases) {
+      if (clase.claseNumero == widget.plantilla.numero) return clase;
+    }
+    return null;
+  }
+
+  Future<void> _exportarPdfClase() async {
+    final clase = _buscarClase(_evaluacion);
+    if (clase == null) return;
+    final usuario = context.read<SesionProvider>().usuarioActual;
+    try {
+      await const PdfExportService().compartirClase(
+        evaluacion: _evaluacion,
+        clase: clase,
+        evaluador: usuario?.nombre ?? 'Sin especificar',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo generar el PDF de esta clase.'),
+        ),
+      );
+    }
   }
 
   Future<void> _capturarFirmaRepresentante() async {
@@ -329,16 +383,40 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
       ),
     );
     if (source == null) return;
-    final foto = await _imagePicker.pickImage(
-      source: source,
-      imageQuality: 78,
-      maxWidth: 1600,
+    try {
+      final foto = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 78,
+        maxWidth: 1600,
+      );
+      if (foto == null) {
+        if (mounted) _mostrarErrorPermiso(source);
+        return;
+      }
+      final base64 = base64Encode(await foto.readAsBytes());
+      if (!mounted) return;
+      setState(() {
+        _evaluacion = widget.service.agregarFoto(_evaluacion, base64);
+      });
+    } on PlatformException {
+      if (mounted) _mostrarErrorPermiso(source);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo agregar la foto.')),
+      );
+    }
+  }
+
+  void _mostrarErrorPermiso(ImageSource source) {
+    final recurso = source == ImageSource.camera ? 'La cámara' : 'La galería';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Se necesita acceso a $recurso para agregar una foto. Actívalo en Configuración.',
+        ),
+      ),
     );
-    if (foto == null || !mounted) return;
-    final base64 = base64Encode(await foto.readAsBytes());
-    setState(() {
-      _evaluacion = widget.service.agregarFoto(_evaluacion, base64);
-    });
   }
 }
 
@@ -389,7 +467,7 @@ class _FirmaCard extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(AppRadius.small),
                   border: Border.all(color: AppColors.outline),
                 ),
                 child: Image.memory(
@@ -402,7 +480,7 @@ class _FirmaCard extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onFirmar,
               icon: const Icon(Icons.edit_outlined),
-              label: Text(tieneFirma ? 'Repetir firma' : 'Firmar'),
+              label: Text(tieneFirma ? 'Firmar nuevamente' : 'Firmar'),
             ),
           ],
         ),
@@ -423,7 +501,7 @@ class _FirmaPreview extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAF9),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.small),
         border: Border.all(color: AppColors.outline),
       ),
       child: Row(

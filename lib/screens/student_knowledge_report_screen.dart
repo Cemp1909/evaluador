@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
 
 import '../models/student_knowledge_report.dart';
 import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
+import '../services/pdf_export_service.dart';
 import '../widgets/report_signature_card.dart';
 import '../widgets/evidence_photos_card.dart';
 import '../widgets/signature_capture_dialog.dart';
@@ -42,6 +44,7 @@ class _StudentKnowledgeReportScreenState
   };
   final DateTime _fechaHora = DateTime.now();
   CalificacionConocimiento? _calificacion;
+  int _periodo = 1;
   String? _firmaColegio;
   String? _firmaDocenteColegio;
   String? _firmaCourseChild;
@@ -63,10 +66,12 @@ class _StudentKnowledgeReportScreenState
   @override
   Widget build(BuildContext context) {
     final usuario = context.watch<SesionProvider>().usuarioActual;
-    final docente = usuario?.nombre ?? 'Sin sesión';
+    final docente = usuario?.nombre ?? 'Sin sesión activa';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Student Knowledge Report')),
+      appBar: AppBar(
+        title: const Text('Reporte de conocimiento del estudiante'),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -96,7 +101,7 @@ class _StudentKnowledgeReportScreenState
                     const Divider(height: 24),
                     _InfoRow(
                       icon: Icons.person_outline_rounded,
-                      label: 'Docente Course Child',
+                      label: 'Docente de Course Child',
                       value: docente,
                     ),
                   ],
@@ -104,11 +109,27 @@ class _StudentKnowledgeReportScreenState
               ),
             ),
             const SizedBox(height: 18),
+            DropdownButtonFormField<int>(
+              initialValue: _periodo,
+              decoration: const InputDecoration(
+                labelText: 'Período de evaluación',
+                prefixIcon: Icon(Icons.calendar_view_month_outlined),
+              ),
+              items: [
+                for (var periodo = 1; periodo <= 4; periodo++)
+                  DropdownMenuItem(
+                    value: periodo,
+                    child: Text('Período $periodo'),
+                  ),
+              ],
+              onChanged: (value) => setState(() => _periodo = value ?? 1),
+            ),
+            const SizedBox(height: 14),
             TextFormField(
               controller: _profesorEvaluadoController,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
-                labelText: 'Profesor evaluado',
+                labelText: 'Docente evaluado',
                 prefixIcon: Icon(Icons.person_search_outlined),
               ),
               validator: _requerido,
@@ -135,12 +156,12 @@ class _StudentKnowledgeReportScreenState
             ),
             const SizedBox(height: 28),
             Text(
-              'Student Evaluation',
+              'Evaluación del estudiante',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 6),
             Text(
-              'Escribe lo observado durante la evaluación.',
+              'Describe lo observado durante la evaluación.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 14),
@@ -181,7 +202,7 @@ class _StudentKnowledgeReportScreenState
               children: [
                 Expanded(
                   child: _RatingOption(
-                    label: 'Low\n20–59%',
+                    label: 'Bajo\n20–59%',
                     selected: _calificacion == CalificacionConocimiento.low,
                     onTap: () => _seleccionar(CalificacionConocimiento.low),
                   ),
@@ -197,7 +218,7 @@ class _StudentKnowledgeReportScreenState
                 const SizedBox(width: 10),
                 Expanded(
                   child: _RatingOption(
-                    label: 'High\n80–100%',
+                    label: 'Alto\n80–100%',
                     selected: _calificacion == CalificacionConocimiento.high,
                     onTap: () => _seleccionar(CalificacionConocimiento.high),
                   ),
@@ -217,7 +238,7 @@ class _StudentKnowledgeReportScreenState
             ),
             const SizedBox(height: 14),
             ReportSignatureCard(
-              titulo: "School's Teacher",
+              titulo: 'Docente del colegio',
               firmaBase64: _firmaDocenteColegio,
               onFirmar: () => _firmar(
                 'Firma del docente del colegio',
@@ -226,7 +247,7 @@ class _StudentKnowledgeReportScreenState
             ),
             const SizedBox(height: 14),
             ReportSignatureCard(
-              titulo: "Course Child's Teacher",
+              titulo: 'Docente de Course Child',
               nombre: docente,
               firmaBase64: _firmaCourseChild,
               onFirmar: () => _firmar(
@@ -246,6 +267,12 @@ class _StudentKnowledgeReportScreenState
               onPressed: () => _guardar(docente),
               icon: const Icon(Icons.save_outlined),
               label: const Text('Guardar reporte'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => _exportarPdf(docente),
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: const Text('Generar PDF'),
             ),
           ],
         ),
@@ -279,12 +306,22 @@ class _StudentKnowledgeReportScreenState
     }
 
     context.read<SesionProvider>().guardarReporteConocimiento(
+      _crearReporte(docente),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Reporte guardado correctamente.')),
+    );
+    Navigator.pop(context);
+  }
+
+  StudentKnowledgeReport _crearReporte(String docente) =>
       StudentKnowledgeReport(
         fechaHora: _fechaHora,
         docente: docente,
         profesorEvaluado: _profesorEvaluadoController.text.trim(),
         colegio: _colegioController.text.trim(),
         grado: _gradoController.text.trim(),
+        periodo: _periodo,
         evaluaciones: {
           for (final entry in _evaluacionControllers.entries)
             entry.key: entry.value.text.trim(),
@@ -295,12 +332,25 @@ class _StudentKnowledgeReportScreenState
         firmaDocenteColegio: _firmaDocenteColegio!,
         firmaDocenteCourseChild: _firmaCourseChild!,
         fotosEvidencia: List.unmodifiable(_fotosEvidencia),
-      ),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Reporte guardado correctamente.')),
-    );
-    Navigator.pop(context);
+      );
+
+  Future<void> _exportarPdf(String docente) async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_calificacion == null) {
+      _mensaje('Selecciona una calificación.');
+      return;
+    }
+    if (_firmaColegio == null ||
+        _firmaDocenteColegio == null ||
+        _firmaCourseChild == null) {
+      _mensaje('Debes completar las tres firmas.');
+      return;
+    }
+    try {
+      await const PdfExportService().compartirReporte(_crearReporte(docente));
+    } catch (_) {
+      if (mounted) _mensaje('No se pudo generar el PDF. Intenta nuevamente.');
+    }
   }
 
   Future<void> _seleccionarOrigenFoto() async {
@@ -338,15 +388,31 @@ class _StudentKnowledgeReportScreenState
       ),
     );
     if (source == null) return;
-    final foto = await _imagePicker.pickImage(
-      source: source,
-      imageQuality: 78,
-      maxWidth: 1600,
+    try {
+      final foto = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 78,
+        maxWidth: 1600,
+      );
+      if (foto == null) {
+        if (mounted) _mostrarErrorPermiso(source);
+        return;
+      }
+      final fotoBase64 = base64Encode(await foto.readAsBytes());
+      if (!mounted || _fotosEvidencia.length >= 2) return;
+      setState(() => _fotosEvidencia.add(fotoBase64));
+    } on PlatformException {
+      if (mounted) _mostrarErrorPermiso(source);
+    } catch (_) {
+      if (mounted) _mensaje('No se pudo agregar la foto.');
+    }
+  }
+
+  void _mostrarErrorPermiso(ImageSource source) {
+    final recurso = source == ImageSource.camera ? 'la cámara' : 'la galería';
+    _mensaje(
+      'Se necesita acceso a $recurso para agregar una foto. Actívalo en Configuración.',
     );
-    if (foto == null || !mounted) return;
-    final fotoBase64 = base64Encode(await foto.readAsBytes());
-    if (!mounted || _fotosEvidencia.length >= 2) return;
-    setState(() => _fotosEvidencia.add(fotoBase64));
   }
 
   void _mensaje(String texto) {
@@ -364,7 +430,7 @@ class _StudentKnowledgeReportScreenState
   String _hora(DateTime value) {
     final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
     final minute = value.minute.toString().padLeft(2, '0');
-    return '$hour:$minute ${value.hour >= 12 ? 'p. m.' : 'a. m.'}';
+    return '$hour:$minute ${value.hour >= 12 ? 'p.m.' : 'a.m.'}';
   }
 
   IconData _iconoCategoria(String categoria) => switch (categoria) {
@@ -418,7 +484,7 @@ class _RatingOption extends StatelessWidget {
       duration: const Duration(milliseconds: 220),
       decoration: BoxDecoration(
         color: selected ? AppColors.successContainer : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.small),
         border: Border.all(
           color: selected ? AppColors.success : AppColors.outline,
           width: selected ? 1.5 : 1,
@@ -426,7 +492,7 @@ class _RatingOption extends StatelessWidget {
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.small),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
           child: Column(

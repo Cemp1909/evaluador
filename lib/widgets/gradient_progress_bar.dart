@@ -24,7 +24,7 @@ class GradientProgressBar extends StatelessWidget {
           height: height,
           decoration: BoxDecoration(
             color: trackColor,
-            borderRadius: BorderRadius.circular(height),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
           alignment: Alignment.centerLeft,
           child: AnimatedContainer(
@@ -37,10 +37,7 @@ class GradientProgressBar extends StatelessWidget {
                     ? const [Color(0xFF4AA77E), AppColors.success]
                     : const [AppColors.accent, Color(0xFFFFC25D)],
               ),
-              borderRadius: BorderRadius.circular(height),
-              boxShadow: value > 0
-                  ? const [BoxShadow(color: Color(0x33F29F3D), blurRadius: 6)]
-                  : null,
+              borderRadius: BorderRadius.circular(AppRadius.pill),
             ),
           ),
         );

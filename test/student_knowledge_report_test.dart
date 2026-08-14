@@ -15,6 +15,7 @@ void main() {
         profesorEvaluado: 'María González',
         colegio: 'Colegio Central',
         grado: 'Segundo',
+        periodo: 1,
         evaluaciones: const {'Commands': 'Buen desempeño'},
         compromiso: 'Reforzar vocabulario',
         calificacion: CalificacionConocimiento.high,

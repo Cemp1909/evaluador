@@ -32,12 +32,12 @@ class ProfesoresScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'No hay profesores creados',
+                      'No hay profesores registrados',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Los profesores registrados durante esta sesión aparecerán aquí.',
+                      'Aquí aparecerán los profesores registrados durante esta sesión.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),

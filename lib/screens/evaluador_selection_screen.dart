@@ -23,7 +23,7 @@ class EvaluadorSelectionScreen extends StatelessWidget {
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 4),
-          const Text('Selecciona el formato que deseas diligenciar.'),
+          const Text('Selecciona el formulario que deseas completar.'),
           const SizedBox(height: 26),
           for (
             var index = 0;
@@ -55,8 +55,8 @@ class EvaluadorSelectionScreen extends StatelessWidget {
           const SizedBox(height: 16),
           HomeActionCard(
             icon: Icons.assignment_ind_outlined,
-            title: 'Student Knowledge Report',
-            subtitle: 'Evaluación de conocimientos del estudiante',
+            title: 'Reporte de conocimiento del estudiante',
+            subtitle: 'Evaluación de conocimiento del estudiante',
             onTap: () => Navigator.pushNamed(
               context,
               StudentKnowledgeReportScreen.routeName,

@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 abstract final class AppColors {
   static const primary = Color(0xFF176B78);
-  static const primaryDark = Color(0xFF0E4F59);
-  static const secondary = Color(0xFF4F7E75);
   static const accent = Color(0xFFF29F3D);
   static const background = Color(0xFFF5F8F7);
   static const surface = Color(0xFFFFFFFF);
@@ -13,8 +11,12 @@ abstract final class AppColors {
   static const successContainer = Color(0xFFE1F3EA);
   static const pendingContainer = Color(0xFFFFF1DE);
   static const outline = Color(0xFFD9E4E2);
-  static const shadow = Color(0x24183F43);
-  static const inProgressContainer = Color(0xFFDFF1F3);
+}
+
+abstract final class AppRadius {
+  static const double small = 12;
+  static const double medium = 20;
+  static const double pill = 999;
 }
 
 abstract final class AppTheme {
@@ -23,8 +25,8 @@ abstract final class AppTheme {
       primary: AppColors.primary,
       onPrimary: Colors.white,
       primaryContainer: Color(0xFFD3EEF1),
-      onPrimaryContainer: AppColors.primaryDark,
-      secondary: AppColors.secondary,
+      onPrimaryContainer: AppColors.primary,
+      secondary: AppColors.primary,
       onSecondary: Colors.white,
       tertiary: AppColors.accent,
       onTertiary: Color(0xFF402600),
@@ -54,7 +56,7 @@ abstract final class AppTheme {
         ),
         titleLarge: baseTextTheme.titleLarge?.copyWith(
           color: AppColors.textPrimary,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
         ),
         titleMedium: baseTextTheme.titleMedium?.copyWith(
           color: AppColors.textPrimary,
@@ -69,7 +71,7 @@ abstract final class AppTheme {
           height: 1.4,
         ),
         labelLarge: baseTextTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
         ),
       ),
       appBarTheme: const AppBarTheme(
@@ -82,17 +84,16 @@ abstract final class AppTheme {
         titleTextStyle: TextStyle(
           color: AppColors.textPrimary,
           fontSize: 20,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
         ),
       ),
       cardTheme: CardThemeData(
         color: AppColors.surface,
         surfaceTintColor: Colors.transparent,
-        elevation: 3,
-        shadowColor: AppColors.shadow,
+        elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(AppRadius.medium),
           side: const BorderSide(color: Color(0x99D9E4E2)),
         ),
       ),
@@ -102,9 +103,9 @@ abstract final class AppTheme {
           foregroundColor: const Color(0xFF402600),
           minimumSize: const Size.fromHeight(54),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(AppRadius.medium),
           ),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
       iconButtonTheme: IconButtonThemeData(
@@ -117,14 +118,16 @@ abstract final class AppTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(54),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(AppRadius.medium),
           ),
           side: const BorderSide(color: AppColors.outline),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       checkboxTheme: CheckboxThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.small),
+        ),
         side: const BorderSide(color: AppColors.textSecondary, width: 1.6),
         fillColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
@@ -145,17 +148,27 @@ abstract final class AppTheme {
         ),
         hintStyle: const TextStyle(color: AppColors.textSecondary),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppRadius.medium),
           borderSide: const BorderSide(color: AppColors.outline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppRadius.medium),
           borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: AppColors.primary,
         linearTrackColor: Color(0xFFE5ECEB),
+      ),
+      chipTheme: ChipThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.medium),
+        ),
       ),
     );
   }

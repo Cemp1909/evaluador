@@ -15,8 +15,37 @@ import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
-  runApp(EvaluadorApp(authConfig: AuthConfig.fromMap(dotenv.env)));
+  try {
+    await dotenv.load(fileName: '.env');
+    runApp(EvaluadorApp(authConfig: AuthConfig.fromMap(dotenv.env)));
+  } catch (_) {
+    runApp(const ConfigurationErrorApp());
+  }
+}
+
+class ConfigurationErrorApp extends StatelessWidget {
+  const ConfigurationErrorApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      home: const Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Text(
+                'Configuration failed to load. Please reinstall the app.',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class EvaluadorApp extends StatelessWidget {
@@ -29,7 +58,7 @@ class EvaluadorApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => SesionProvider(authConfig),
       child: MaterialApp(
-        title: 'Course Child - Evaluador',
+        title: 'Course Child - Evaluator',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         initialRoute: LoginScreen.routeName,
