@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'gradient_progress_bar.dart';
 
-class ClaseCard extends StatelessWidget {
+class ClaseCard extends StatefulWidget {
   const ClaseCard({
     super.key,
     required this.numero,
@@ -17,80 +17,100 @@ class ClaseCard extends StatelessWidget {
   final int totalContenidos;
   final VoidCallback onTap;
 
+  @override
+  State<ClaseCard> createState() => _ClaseCardState();
+}
+
+class _ClaseCardState extends State<ClaseCard> {
+  bool _pressed = false;
+
   bool get _completa =>
-      totalContenidos > 0 && contenidosMarcados == totalContenidos;
+      widget.totalContenidos > 0 &&
+      widget.contenidosMarcados == widget.totalContenidos;
+
   @override
   Widget build(BuildContext context) {
-    final progress = totalContenidos == 0
+    final scheme = Theme.of(context).colorScheme;
+    final progress = widget.totalContenidos == 0
         ? 0.0
-        : contenidosMarcados / totalContenidos;
-    final borderColor = _completa ? AppColors.success : AppColors.outline;
+        : widget.contenidosMarcados / widget.totalContenidos;
+    final borderColor = _completa ? AppColors.success : scheme.outline;
 
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.medium),
-        side: BorderSide(color: borderColor, width: _completa ? 1.5 : 1),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.medium),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 21),
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: _completa
-                      ? AppColors.successContainer
-                      : const Color(0xFFE4F1F2),
-                  borderRadius: BorderRadius.circular(AppRadius.small),
-                ),
-                alignment: Alignment.center,
-                child: _completa
-                    ? const Icon(
-                        Icons.check_rounded,
-                        color: AppColors.success,
-                        size: 30,
-                      )
-                    : Text(
-                        '$numero',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: AppColors.primary,
+    return Listener(
+      onPointerDown: (_) => setState(() => _pressed = true),
+      onPointerUp: (_) => setState(() => _pressed = false),
+      onPointerCancel: (_) => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? .988 : 1,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        child: Card(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.medium),
+            side: BorderSide(color: borderColor, width: _completa ? 1.25 : 1),
+          ),
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(AppRadius.medium),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Row(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: _completa
+                          ? AppColors.successContainer
+                          : scheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(AppRadius.small),
+                    ),
+                    alignment: Alignment.center,
+                    child: _completa
+                        ? const Icon(
+                            Icons.check_rounded,
+                            color: AppColors.success,
+                            size: 30,
+                          )
+                        : Text(
+                            '${widget.numero}',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(color: scheme.onPrimaryContainer),
+                          ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Clase ${widget.numero}',
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
-                      ),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Clase $numero',
-                      style: Theme.of(context).textTheme.titleMedium,
+                        const SizedBox(height: AppSpacing.sm),
+                        GradientProgressBar(
+                          value: progress,
+                          height: 9,
+                          complete: _completa,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          '${widget.contenidosMarcados} de ${widget.totalContenidos} contenidos realizados',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 10),
-                    GradientProgressBar(
-                      value: progress,
-                      height: 9,
-                      complete: _completa,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '$contenidosMarcados de $totalContenidos contenidos realizados',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ],
               ),
-              const SizedBox(width: 14),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.textSecondary,
-              ),
-            ],
+            ),
           ),
         ),
       ),

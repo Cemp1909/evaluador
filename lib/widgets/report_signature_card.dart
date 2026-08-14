@@ -21,9 +21,10 @@ class ReportSignatureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final firmada = firmaBase64 != null && firmaBase64!.isNotEmpty;
+    final scheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -31,9 +32,9 @@ class ReportSignatureCard extends StatelessWidget {
               children: [
                 Icon(
                   firmada ? Icons.verified_rounded : Icons.draw_outlined,
-                  color: firmada ? AppColors.success : AppColors.primary,
+                  color: firmada ? AppColors.success : scheme.primary,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,7 +54,7 @@ class ReportSignatureCard extends StatelessWidget {
               ],
             ),
             if (firmada) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               Container(
                 height: 100,
                 width: double.infinity,
@@ -61,7 +62,7 @@ class ReportSignatureCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(AppRadius.small),
-                  border: Border.all(color: AppColors.outline),
+                  border: Border.all(color: scheme.outline),
                 ),
                 child: Image.memory(
                   base64Decode(firmaBase64!),
@@ -69,7 +70,7 @@ class ReportSignatureCard extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
             OutlinedButton.icon(
               onPressed: onFirmar,
               icon: const Icon(Icons.edit_outlined),

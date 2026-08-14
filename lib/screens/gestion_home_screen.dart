@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/usuario_sesion.dart';
 import '../providers/sesion_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/home_action_card.dart';
 import 'crear_profesor_screen.dart';
 import 'evaluador_selection_screen.dart';
@@ -40,22 +41,27 @@ class GestionHomeScreen extends StatelessWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.xs,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
         children: [
           Text(
             'Hola, ${usuario?.nombre ?? ''}',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           if (usuario?.zona != null) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSpacing.xxs),
             Text(usuario!.zona!, style: Theme.of(context).textTheme.bodyLarge),
           ],
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             'Gestiona los profesores disponibles durante esta sesión.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: AppSpacing.xl),
           HomeActionCard(
             icon: Icons.assignment_turned_in_outlined,
             title: 'Evaluaciones',
@@ -65,7 +71,7 @@ class GestionHomeScreen extends StatelessWidget {
               EvaluadorSelectionScreen.routeName,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.md),
           HomeActionCard(
             icon: Icons.person_add_alt_1_rounded,
             title: 'Crear profesor',
@@ -75,7 +81,7 @@ class GestionHomeScreen extends StatelessWidget {
             onTap: () =>
                 Navigator.pushNamed(context, CrearProfesorScreen.routeName),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.md),
           HomeActionCard(
             icon: Icons.groups_2_outlined,
             title: 'Lista de profesores',

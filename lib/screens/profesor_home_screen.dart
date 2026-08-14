@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/sesion_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/home_action_card.dart';
 import 'evaluador_selection_screen.dart';
 import 'login_screen.dart';
@@ -33,23 +34,28 @@ class ProfesorHomeScreen extends StatelessWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.xs,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
         children: [
           Text(
             'Hola, ${usuario?.nombre ?? 'Profesor'}',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             usuario?.zona ?? '',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             'Selecciona una opción para continuar.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: AppSpacing.xl),
           HomeActionCard(
             icon: Icons.assignment_turned_in_outlined,
             title: 'Evaluaciones',

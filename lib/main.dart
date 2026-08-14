@@ -61,6 +61,8 @@ class EvaluadorApp extends StatelessWidget {
         title: 'Course Child - Evaluator',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: ThemeMode.system,
         initialRoute: LoginScreen.routeName,
         routes: {
           LoginScreen.routeName: (_) => const LoginScreen(),

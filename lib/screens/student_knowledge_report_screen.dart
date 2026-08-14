@@ -456,10 +456,11 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Icon(icon, color: AppColors.primary),
-        const SizedBox(width: 14),
+        Icon(icon, color: scheme.primary),
+        const SizedBox(width: 16),
         Expanded(child: Text(label)),
         Text(value, style: Theme.of(context).textTheme.titleMedium),
       ],
@@ -480,13 +481,18 @@ class _RatingOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 190),
+      curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
-        color: selected ? AppColors.successContainer : Colors.white,
+        color: selected
+            ? (dark ? const Color(0xFF17352D) : AppColors.successContainer)
+            : scheme.surface,
         borderRadius: BorderRadius.circular(AppRadius.small),
         border: Border.all(
-          color: selected ? AppColors.success : AppColors.outline,
+          color: selected ? AppColors.success : scheme.outline,
           width: selected ? 1.5 : 1,
         ),
       ),
@@ -502,7 +508,7 @@ class _RatingOption extends StatelessWidget {
                 child: Icon(
                   selected ? Icons.check_circle_rounded : Icons.circle_outlined,
                   key: ValueKey(selected),
-                  color: selected ? AppColors.success : AppColors.textSecondary,
+                  color: selected ? AppColors.success : scheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 8),

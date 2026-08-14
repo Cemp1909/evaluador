@@ -7,13 +7,13 @@ class GradientProgressBar extends StatelessWidget {
     super.key,
     required this.value,
     this.height = 10,
-    this.trackColor = const Color(0xFFE5ECEB),
+    this.trackColor,
     this.complete = false,
   });
 
   final double value;
   final double height;
-  final Color trackColor;
+  final Color? trackColor;
   final bool complete;
 
   @override
@@ -23,19 +23,21 @@ class GradientProgressBar extends StatelessWidget {
         return Container(
           height: height,
           decoration: BoxDecoration(
-            color: trackColor,
+            color:
+                trackColor ??
+                Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
           alignment: Alignment.centerLeft,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 450),
-            curve: Curves.easeOutCubic,
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutExpo,
             width: constraints.maxWidth * value.clamp(0, 1),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: complete
-                    ? const [Color(0xFF4AA77E), AppColors.success]
-                    : const [AppColors.accent, Color(0xFFFFC25D)],
+                    ? const [Color(0xFF3A9A7B), AppColors.success]
+                    : const [Color(0xFF526897), AppColors.primaryLight],
               ),
               borderRadius: BorderRadius.circular(AppRadius.pill),
             ),

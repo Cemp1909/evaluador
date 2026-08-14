@@ -33,15 +33,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       body: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFFEAF4F3),
-              AppColors.background,
-              Color(0xFFFFF7EC),
-            ],
+            colors: dark
+                ? const [Color(0xFF121722), AppColors.darkBackground]
+                : const [Color(0xFFF1F3FA), AppColors.background],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -49,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(AppSpacing.lg),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 460),
                 child: Form(
@@ -62,25 +61,25 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(AppRadius.medium),
                           child: Image.asset(
                             'assets/images/course_child_logo.png',
-                            width: 120,
-                            height: 120,
+                            width: 104,
+                            height: 104,
                             fit: BoxFit.cover,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.lg),
                       Text(
                         'Bienvenido al Evaluador Course Child',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       Text(
                         'Registra capacitaciones y evaluaciones educativas en un solo lugar.',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: AppSpacing.xl),
                       TextFormField(
                         controller: _usuarioController,
                         textInputAction: TextInputAction.next,
@@ -94,7 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ? 'Ingresa tu usuario.'
                             : null,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _ocultarPassword,
@@ -121,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             : null,
                       ),
                       if (_error != null) ...[
-                        const SizedBox(height: 14),
+                        const SizedBox(height: AppSpacing.sm),
                         Text(
                           _error!,
                           style: TextStyle(
@@ -130,13 +129,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.lg),
                       FilledButton.icon(
                         onPressed: _ingresar,
                         icon: const Icon(Icons.login_rounded),
                         label: const Text('Ingresar'),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.sm),
                       OutlinedButton.icon(
                         onPressed: () => Navigator.of(
                           context,
@@ -144,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         icon: const Icon(Icons.person_add_alt_1_rounded),
                         label: const Text('Solicitar acceso como profesor'),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: AppSpacing.lg),
                       Text(
                         'Versión de prueba · Los datos se eliminan al cerrar la app',
                         textAlign: TextAlign.center,

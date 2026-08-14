@@ -97,16 +97,34 @@ class _EstadoAcceso extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      avatar: Icon(
-        aprobado ? Icons.check_circle_outline : Icons.schedule_rounded,
-        size: 18,
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final color = aprobado
+        ? (dark ? const Color(0xFF74CDB0) : AppColors.success)
+        : (dark ? const Color(0xFFF2C46D) : AppColors.warning);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: dark ? .14 : .10),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
-      label: Text(aprobado ? 'Aprobado' : 'Pendiente'),
-      backgroundColor: aprobado
-          ? AppColors.successContainer
-          : AppColors.pendingContainer,
-      side: BorderSide.none,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            aprobado ? 'Aprobado' : 'Pendiente',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

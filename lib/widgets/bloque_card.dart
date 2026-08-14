@@ -22,12 +22,13 @@ class BloqueCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final completados = itemsMarcados.values.where((value) => value).length;
+    final scheme = Theme.of(context).colorScheme;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 18),
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
       clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -35,9 +36,9 @@ class BloqueCard extends StatelessWidget {
               children: [
                 Icon(
                   _iconoParaBloque(bloque.nombre),
-                  color: marcado ? AppColors.success : AppColors.primary,
+                  color: marcado ? AppColors.success : scheme.primary,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,8 +62,8 @@ class BloqueCard extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 12),
-            const Divider(height: 20),
+            const SizedBox(height: AppSpacing.sm),
+            const Divider(height: AppSpacing.lg),
             if (bloque.items.isEmpty)
               _ChecklistItem(
                 label: 'Contenido enseñado',
@@ -73,7 +74,7 @@ class BloqueCard extends StatelessWidget {
               for (final item in bloque.items)
                 Padding(
                   key: ValueKey('${bloque.nombre}-${item.texto}'),
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                   child: _ChecklistItem(
                     label: item.texto,
                     checked: itemsMarcados[item.texto] ?? false,
@@ -129,57 +130,74 @@ class _ChecklistItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 260),
+      duration: const Duration(milliseconds: 200),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
-        color: checked ? AppColors.successContainer : const Color(0xFFF8FAF9),
+        color: checked
+            ? (Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF17352D)
+                  : AppColors.successContainer)
+            : scheme.surfaceContainerHighest.withValues(alpha: .55),
         borderRadius: BorderRadius.circular(AppRadius.small),
         border: Border.all(
-          color: checked ? const Color(0xFFB9DFCC) : AppColors.outline,
+          color: checked
+              ? AppColors.success.withValues(alpha: .45)
+              : scheme.outline,
         ),
       ),
       child: InkWell(
         onTap: () => onChanged(!checked),
         borderRadius: BorderRadius.circular(AppRadius.small),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           child: Row(
             children: [
-              AnimatedScale(
-                scale: checked ? 1.08 : 1,
+              AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                child: Checkbox(
-                  value: checked,
-                  onChanged: (value) => onChanged(value ?? false),
+                curve: Curves.easeOutCubic,
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: checked ? AppColors.success : Colors.transparent,
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(
+                    color: checked ? AppColors.success : scheme.outline,
+                    width: 1.4,
+                  ),
+                ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 160),
+                  transitionBuilder: (child, animation) => ScaleTransition(
+                    scale: CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    ),
+                    child: child,
+                  ),
+                  child: checked
+                      ? const Icon(
+                          Icons.check_rounded,
+                          key: ValueKey('check'),
+                          size: 16,
+                          color: Colors.white,
+                        )
+                      : const SizedBox(key: ValueKey('unchecked')),
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 220),
                   style: Theme.of(context).textTheme.bodyLarge!.copyWith(
-                    color: checked ? AppColors.success : AppColors.textPrimary,
+                    color: checked ? AppColors.success : scheme.onSurface,
                     decoration: checked ? TextDecoration.lineThrough : null,
                     decorationColor: AppColors.success,
                   ),
                   child: Text(label),
                 ),
               ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                transitionBuilder: (child, animation) =>
-                    ScaleTransition(scale: animation, child: child),
-                child: checked
-                    ? const Icon(
-                        Icons.check_circle_rounded,
-                        key: ValueKey('done'),
-                        color: AppColors.success,
-                        size: 22,
-                      )
-                    : const SizedBox(key: ValueKey('empty'), width: 22),
-              ),
-              const SizedBox(width: 6),
             ],
           ),
         ),

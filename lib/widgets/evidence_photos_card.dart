@@ -18,19 +18,17 @@ class EvidencePhotosCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Icon(
-                  Icons.photo_camera_outlined,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(width: 12),
+                Icon(Icons.photo_camera_outlined, color: scheme.primary),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     'Evidencia fotográfica',
@@ -40,13 +38,13 @@ class EvidencePhotosCard extends StatelessWidget {
                 Text('${fotosBase64.length}/2'),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               'Puedes agregar máximo dos fotos por evaluación.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             if (fotosBase64.isNotEmpty) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
                   for (var index = 0; index < fotosBase64.length; index++) ...[
@@ -65,6 +63,18 @@ class EvidencePhotosCard extends StatelessWidget {
                                 fit: BoxFit.cover,
                               ),
                             ),
+                            Positioned.fill(
+                              child: IgnorePointer(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.small,
+                                    ),
+                                    border: Border.all(color: scheme.outline),
+                                  ),
+                                ),
+                              ),
+                            ),
                             Positioned(
                               top: 6,
                               right: 6,
@@ -79,13 +89,13 @@ class EvidencePhotosCard extends StatelessWidget {
                       ),
                     ),
                     if (index == 0 && fotosBase64.length == 2)
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.sm),
                   ],
                 ],
               ),
             ],
             if (fotosBase64.length < 2) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               OutlinedButton.icon(
                 onPressed: onAdd,
                 icon: const Icon(Icons.add_a_photo_outlined),
