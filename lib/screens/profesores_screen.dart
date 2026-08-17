@@ -6,15 +6,31 @@ import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_brand_title.dart';
 
-class ProfesoresScreen extends StatelessWidget {
+class ProfesoresScreen extends StatefulWidget {
   const ProfesoresScreen({super.key});
 
   static const routeName = '/profesores';
 
   @override
+  State<ProfesoresScreen> createState() => _ProfesoresScreenState();
+}
+
+class _ProfesoresScreenState extends State<ProfesoresScreen> {
+  String _busqueda = '';
+  bool? _aprobado;
+
+  @override
   Widget build(BuildContext context) {
     final sesion = context.watch<SesionProvider>();
-    final profesores = sesion.profesoresVisibles();
+    final profesores = sesion.profesoresVisibles().where((profesor) {
+      final texto = _busqueda.trim().toLowerCase();
+      final coincide =
+          texto.isEmpty ||
+          profesor.nombre.toLowerCase().contains(texto) ||
+          profesor.usuario.toLowerCase().contains(texto) ||
+          profesor.zona.toLowerCase().contains(texto);
+      return coincide && (_aprobado == null || profesor.aprobado == _aprobado);
+    }).toList();
     final puedeAprobar = sesion.usuarioActual?.rol == RolUsuario.administrador;
 
     return Scaffold(
@@ -30,6 +46,25 @@ class ProfesoresScreen extends StatelessWidget {
                 Text(
                   'Teacher Roster',
                   style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  onChanged: (value) => setState(() => _busqueda = value),
+                  decoration: const InputDecoration(
+                    labelText: 'Search by name, username or zone',
+                    prefixIcon: Icon(Icons.search_rounded),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SegmentedButton<bool?>(
+                  segments: const [
+                    ButtonSegment(value: null, label: Text('All')),
+                    ButtonSegment(value: true, label: Text('Approved')),
+                    ButtonSegment(value: false, label: Text('Pending')),
+                  ],
+                  selected: {_aprobado},
+                  onSelectionChanged: (values) =>
+                      setState(() => _aprobado = values.first),
                 ),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(

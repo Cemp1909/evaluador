@@ -11,6 +11,8 @@ import 'screens/login_screen.dart';
 import 'screens/profesor_home_screen.dart';
 import 'screens/profesores_screen.dart';
 import 'screens/student_knowledge_report_screen.dart';
+import 'screens/configuracion_notas_screen.dart';
+import 'screens/historial_estudiantes_screen.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -78,6 +80,10 @@ class EvaluadorApp extends StatelessWidget {
           ProfesorHomeScreen.routeName: (_) => const ProfesorHomeScreen(),
           StudentKnowledgeReportScreen.routeName: (_) =>
               const StudentKnowledgeReportScreen(),
+          ConfiguracionNotasScreen.routeName: (_) =>
+              const ConfiguracionNotasScreen(),
+          HistorialEstudiantesScreen.routeName: (_) =>
+              const HistorialEstudiantesScreen(),
         },
       ),
     );

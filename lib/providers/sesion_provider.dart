@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 
 import '../config/auth_config.dart';
 import '../models/profesor.dart';
+import '../models/evaluacion.dart';
+import '../models/configuracion_notas.dart';
+import '../models/student_knowledge_draft.dart';
 import '../models/student_knowledge_report.dart';
 import '../models/usuario_sesion.dart';
 
@@ -11,6 +14,9 @@ class SesionProvider extends ChangeNotifier {
   final AuthConfig _config;
   final List<Profesor> _profesores = [];
   final List<StudentKnowledgeReport> _reportesConocimiento = [];
+  final Map<String, Evaluacion> _borradoresEvaluacion = {};
+  StudentKnowledgeDraft? _borradorConocimiento;
+  ConfiguracionNotas _configuracionNotas = const ConfiguracionNotas();
   UsuarioSesion? _usuarioActual;
 
   List<Profesor> get profesores => List.unmodifiable(_profesores);
@@ -18,6 +24,38 @@ class SesionProvider extends ChangeNotifier {
       List.unmodifiable(_reportesConocimiento);
   UsuarioSesion? get usuarioActual => _usuarioActual;
   bool get estaAutenticado => _usuarioActual != null;
+  StudentKnowledgeDraft? get borradorConocimiento => _borradorConocimiento;
+  ConfiguracionNotas get configuracionNotas => _configuracionNotas;
+
+  Evaluacion? borradorEvaluacion(String tipo) => _borradoresEvaluacion[tipo];
+
+  void guardarBorradorEvaluacion(Evaluacion evaluacion) {
+    _borradoresEvaluacion[evaluacion.evaluadorTipo] = evaluacion;
+    notifyListeners();
+  }
+
+  void guardarBorradorConocimiento(StudentKnowledgeDraft borrador) {
+    _borradorConocimiento = borrador;
+    notifyListeners();
+  }
+
+  void descartarBorradorConocimiento() {
+    _borradorConocimiento = null;
+    notifyListeners();
+  }
+
+  void actualizarConfiguracionNotas(ConfiguracionNotas configuracion) {
+    _configuracionNotas = configuracion;
+    notifyListeners();
+  }
+
+  List<StudentKnowledgeReport> historialEstudiante(String nombre) {
+    final buscado = nombre.trim().toLowerCase();
+    return _reportesConocimiento
+        .where((reporte) => reporte.profesorEvaluado.toLowerCase() == buscado)
+        .toList(growable: false)
+      ..sort((a, b) => b.fechaHora.compareTo(a.fechaHora));
+  }
 
   void guardarReporteConocimiento(StudentKnowledgeReport reporte) {
     _reportesConocimiento.add(reporte);

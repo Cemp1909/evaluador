@@ -141,7 +141,10 @@ class PdfExportService {
     );
   }
 
-  Future<Uint8List> generarReporte(StudentKnowledgeReport reporte) async {
+  Future<Uint8List> generarReporte(
+    StudentKnowledgeReport reporte, {
+    bool resumido = false,
+  }) async {
     final logo = await _cargarLogo();
     final theme = await _cargarTema();
     final document = pw.Document();
@@ -150,11 +153,15 @@ class PdfExportService {
         pageFormat: PdfPageFormat.a4,
         theme: theme,
         margin: const pw.EdgeInsets.all(32),
-        header: (_) =>
-            _encabezado('Reporte de conocimiento del estudiante', logo),
+        header: (context) => context.pageNumber == 1
+            ? pw.SizedBox()
+            : _encabezado('Reporte de conocimiento del estudiante', logo),
         footer: _piePagina,
         build: (_) => [
+          _portadaReporte(reporte, logo, resumido),
+          pw.NewPage(),
           _tarjetaInformacion([
+            ('Identificador', reporte.id),
             ('Fecha y hora', _fechaHora(reporte.fechaHora)),
             ('Período', 'Período ${reporte.periodo}'),
             ('Docente de Course Child', reporte.docente),
@@ -169,10 +176,16 @@ class PdfExportService {
             ),
           ]),
           pw.SizedBox(height: 22),
-          _tituloSeccion('Evaluación del estudiante'),
-          ...reporte.evaluaciones.entries.map(
-            (entry) => _bloqueEvaluacion(entry.key, entry.value),
+          _leyendaNotas(reporte),
+          pw.SizedBox(height: 18),
+          _tituloSeccion(
+            resumido ? 'Resumen de la evaluación' : 'Evaluación del estudiante',
           ),
+          ...reporte.evaluaciones.entries
+              .where(
+                (entry) => !resumido || entry.key == 'Sugerencias automáticas',
+              )
+              .map((entry) => _bloqueEvaluacion(entry.key, entry.value)),
           _bloqueEvaluacion(
             'Compromiso y recomendaciones del docente',
             reporte.compromiso,
@@ -209,6 +222,98 @@ class PdfExportService {
     );
     return document.save();
   }
+
+  pw.Widget _portadaReporte(
+    StudentKnowledgeReport reporte,
+    pw.MemoryImage? logo,
+    bool resumido,
+  ) => pw.Container(
+    height: 680,
+    alignment: pw.Alignment.center,
+    child: pw.Column(
+      mainAxisAlignment: pw.MainAxisAlignment.center,
+      children: [
+        if (logo != null)
+          pw.Image(logo, width: 125, height: 125, fit: pw.BoxFit.contain),
+        pw.SizedBox(height: 28),
+        pw.Text(
+          'COURSE CHILD',
+          style: pw.TextStyle(
+            fontSize: 24,
+            fontWeight: pw.FontWeight.bold,
+            color: _primaryDark,
+          ),
+        ),
+        pw.SizedBox(height: 14),
+        pw.Text(
+          'Reporte de conocimiento del estudiante',
+          textAlign: pw.TextAlign.center,
+          style: pw.TextStyle(
+            fontSize: 21,
+            fontWeight: pw.FontWeight.bold,
+            color: _textPrimary,
+          ),
+        ),
+        pw.SizedBox(height: 9),
+        pw.Text(
+          resumido ? 'Informe resumido' : 'Informe detallado',
+          style: pw.TextStyle(fontSize: 12, color: _textSecondary),
+        ),
+        pw.SizedBox(height: 34),
+        pw.Container(
+          width: 360,
+          padding: const pw.EdgeInsets.all(22),
+          decoration: pw.BoxDecoration(
+            color: _background,
+            borderRadius: pw.BorderRadius.circular(12),
+            border: pw.Border.all(color: _outline),
+          ),
+          child: pw.Column(
+            children: [
+              pw.Text(reporte.profesorEvaluado),
+              pw.SizedBox(height: 8),
+              pw.Text('${reporte.grado} · Período ${reporte.periodo}'),
+              pw.SizedBox(height: 8),
+              pw.Text(reporte.colegio),
+              pw.SizedBox(height: 14),
+              pw.Text(
+                'Nota ${reporte.notaFinal.toStringAsFixed(1)} / 5,0 · ${reporte.desempeno}',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 24),
+        pw.Text(
+          'Identificador local: ${reporte.id}',
+          style: pw.TextStyle(fontSize: 9, color: _textSecondary),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Text(
+          'La verificación mediante QR estará disponible al conectar el sistema institucional.',
+          textAlign: pw.TextAlign.center,
+          style: pw.TextStyle(fontSize: 8.5, color: _textSecondary),
+        ),
+      ],
+    ),
+  );
+
+  pw.Widget _leyendaNotas(StudentKnowledgeReport reporte) => pw.Container(
+    width: double.infinity,
+    padding: const pw.EdgeInsets.all(12),
+    decoration: pw.BoxDecoration(
+      color: PdfColor.fromHex('#EFF5F5'),
+      borderRadius: pw.BorderRadius.circular(8),
+      border: pw.Border.all(color: _outline),
+    ),
+    child: pw.Text(
+      'Escala utilizada: Logrado = ${reporte.configuracionNotas.puntosLogrado.toStringAsFixed(1)} · '
+      'Por reforzar = ${reporte.configuracionNotas.puntosPorReforzar.toStringAsFixed(1)} · '
+      'No logrado = ${reporte.configuracionNotas.puntosNoLogrado.toStringAsFixed(1)} · '
+      'No evaluado no participa en la nota.',
+      style: pw.TextStyle(fontSize: 9, color: _textPrimary),
+    ),
+  );
 
   Iterable<pw.Widget> _clase(EvaluacionClase clase) sync* {
     final total = clase.bloques.fold<int>(

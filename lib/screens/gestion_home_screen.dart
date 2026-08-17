@@ -6,10 +6,12 @@ import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_brand_title.dart';
 import '../widgets/home_action_card.dart';
+import '../widgets/local_mode_banner.dart';
 import 'crear_profesor_screen.dart';
 import 'evaluador_selection_screen.dart';
 import 'login_screen.dart';
 import 'profesores_screen.dart';
+import 'configuracion_notas_screen.dart';
 
 class GestionHomeScreen extends StatelessWidget {
   const GestionHomeScreen.admin({super.key})
@@ -62,6 +64,8 @@ class GestionHomeScreen extends StatelessWidget {
             esAdmin ? 'Administrator overview' : 'Zone coordinator overview',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
+          const SizedBox(height: AppSpacing.md),
+          const LocalModeBanner(),
           const SizedBox(height: AppSpacing.xl),
           HomeActionCard(
             icon: Icons.assignment_turned_in_outlined,
@@ -95,6 +99,19 @@ class GestionHomeScreen extends StatelessWidget {
                 Navigator.pushNamed(context, ProfesoresScreen.routeName),
             accentColor: AppColors.success,
           ),
+          if (esAdmin) ...[
+            const SizedBox(height: AppSpacing.md),
+            HomeActionCard(
+              icon: Icons.tune_rounded,
+              title: 'Configuración de notas',
+              subtitle: 'Ajustar puntajes y rangos de desempeño.',
+              onTap: () => Navigator.pushNamed(
+                context,
+                ConfiguracionNotasScreen.routeName,
+              ),
+              accentColor: AppColors.primary,
+            ),
+          ],
         ],
       ),
     );

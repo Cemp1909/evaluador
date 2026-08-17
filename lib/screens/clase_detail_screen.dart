@@ -10,13 +10,13 @@ import '../models/evaluacion.dart';
 import '../models/evaluacion_clase.dart';
 import '../models/firma_docente.dart';
 import '../services/evaluacion_service.dart';
-import '../services/pdf_export_service.dart';
 import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bloque_card.dart';
 import '../widgets/app_brand_title.dart';
 import '../widgets/evidence_photos_card.dart';
 import '../widgets/signature_capture_dialog.dart';
+import 'clase_pdf_preview_screen.dart';
 
 class ClaseDetailScreen extends StatefulWidget {
   const ClaseDetailScreen({
@@ -239,13 +239,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
                       const SizedBox(height: 14),
                       _FirmaPreview(
                         firma: clase.firmasAsistentes[index],
-                        onRemove: () => setState(() {
-                          _evaluacion = widget.service.eliminarFirmaAsistente(
-                            evaluacion: _evaluacion,
-                            claseNumero: widget.plantilla.numero,
-                            index: index,
-                          );
-                        }),
+                        onRemove: () => _eliminarFirmaAsistente(index),
                       ),
                     ],
                     const SizedBox(height: 16),
@@ -262,9 +256,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
             EvidencePhotosCard(
               fotosBase64: _evaluacion.fotosUrls,
               onAdd: _seleccionarOrigenFoto,
-              onRemove: (index) => setState(() {
-                _evaluacion = widget.service.eliminarFoto(_evaluacion, index);
-              }),
+              onRemove: _eliminarFoto,
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
@@ -313,23 +305,64 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
     final clase = _buscarClase(_evaluacion);
     if (clase == null) return;
     final usuario = context.read<SesionProvider>().usuarioActual;
-    try {
-      await const PdfExportService().compartirClase(
-        evaluacion: _evaluacion,
-        clase: clase,
-        evaluador: usuario?.nombre ?? 'Sin especificar',
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo generar el PDF de esta clase.'),
+    final total = clase.bloques.fold<int>(
+      0,
+      (suma, bloque) =>
+          suma +
+          (bloque.itemsMarcados.isEmpty ? 1 : bloque.itemsMarcados.length),
+    );
+    final realizados = clase.bloques.fold<int>(
+      0,
+      (suma, bloque) =>
+          suma +
+          (bloque.itemsMarcados.isEmpty
+              ? (bloque.marcado ? 1 : 0)
+              : bloque.itemsMarcados.values.where((item) => item).length),
+    );
+    final continuar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Revisar antes de generar'),
+        content: Text(
+          'Clase ${clase.claseNumero}\n'
+          'Contenidos realizados: $realizados de $total\n'
+          'Firma del representante: ${clase.firmaDocenteUrl?.isNotEmpty == true ? 'completa' : 'pendiente'}\n'
+          'Docentes asistentes: ${clase.firmasAsistentes.length}\n'
+          'Fotografías: ${_evaluacion.fotosUrls.length} de 2',
         ),
-      );
-    }
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Volver y corregir'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Ver PDF'),
+          ),
+        ],
+      ),
+    );
+    if (continuar != true || !mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ClasePdfPreviewScreen(
+          evaluacion: _evaluacion,
+          clase: clase,
+          evaluador: usuario?.nombre ?? 'Sin especificar',
+        ),
+      ),
+    );
   }
 
   Future<void> _capturarFirmaRepresentante() async {
+    final claseActual = _buscarClase(_evaluacion);
+    if (claseActual?.firmaDocenteUrl?.isNotEmpty == true) {
+      final reemplazar = await _confirmar(
+        'Reemplazar firma',
+        'Ya existe una firma del docente representante. ¿Deseas reemplazarla?',
+      );
+      if (!reemplazar || !mounted) return;
+    }
     final firma = await SignatureCaptureDialog.show(
       context,
       'Firma del docente representante',
@@ -343,6 +376,52 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
       );
     });
   }
+
+  Future<void> _eliminarFirmaAsistente(int index) async {
+    final confirmar = await _confirmar(
+      'Eliminar firma',
+      '¿Deseas eliminar este docente asistente y su firma?',
+    );
+    if (!confirmar || !mounted) return;
+    setState(() {
+      _evaluacion = widget.service.eliminarFirmaAsistente(
+        evaluacion: _evaluacion,
+        claseNumero: widget.plantilla.numero,
+        index: index,
+      );
+    });
+  }
+
+  Future<void> _eliminarFoto(int index) async {
+    final confirmar = await _confirmar(
+      'Eliminar evidencia',
+      '¿Deseas eliminar esta fotografía? Esta acción no se puede deshacer.',
+    );
+    if (!confirmar || !mounted) return;
+    setState(() {
+      _evaluacion = widget.service.eliminarFoto(_evaluacion, index);
+    });
+  }
+
+  Future<bool> _confirmar(String titulo, String mensaje) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(titulo),
+          content: Text(mensaje),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Confirmar'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
 
   Future<void> _agregarFirmaAsistente() async {
     FocusManager.instance.primaryFocus?.unfocus();

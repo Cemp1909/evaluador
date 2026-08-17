@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../config/evaluadores_config.dart';
 import '../services/evaluacion_service.dart';
+import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_brand_title.dart';
 import '../widgets/home_action_card.dart';
+import '../widgets/local_mode_banner.dart';
 import 'clases_screen.dart';
 import 'student_knowledge_report_screen.dart';
+import 'historial_estudiantes_screen.dart';
 
 class EvaluadorSelectionScreen extends StatelessWidget {
   const EvaluadorSelectionScreen({super.key});
@@ -26,6 +30,8 @@ class EvaluadorSelectionScreen extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text('Select the form you want to complete.'),
+          const SizedBox(height: 16),
+          const LocalModeBanner(),
           const SizedBox(height: 26),
           for (
             var index = 0;
@@ -45,9 +51,11 @@ class EvaluadorSelectionScreen extends StatelessWidget {
               accentColor: index == 0 ? AppColors.accent : AppColors.primary,
               onTap: () {
                 final tipo = evaluadoresDisponibles[index];
-                final evaluacion = EvaluacionService().crearDesdePlantilla(
-                  tipo,
-                );
+                final sesion = context.read<SesionProvider>();
+                final evaluacion =
+                    sesion.borradorEvaluacion(tipo.codigo) ??
+                    EvaluacionService().crearDesdePlantilla(tipo);
+                sesion.guardarBorradorEvaluacion(evaluacion);
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) =>
@@ -70,6 +78,19 @@ class EvaluadorSelectionScreen extends StatelessWidget {
             onTap: () => Navigator.pushNamed(
               context,
               StudentKnowledgeReportScreen.routeName,
+            ),
+          ),
+          const SizedBox(height: 16),
+          HomeActionCard(
+            icon: Icons.history_edu_rounded,
+            title: 'Evaluaciones por período',
+            subtitle: 'Consultar resultados por estudiante, grado y período.',
+            badge: 'Modo local',
+            prominent: true,
+            accentColor: AppColors.primary,
+            onTap: () => Navigator.pushNamed(
+              context,
+              HistorialEstudiantesScreen.routeName,
             ),
           ),
         ],

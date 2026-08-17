@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/evaluacion.dart';
 import '../models/evaluacion_clase.dart';
 import '../models/evaluador_tipo.dart';
 import '../services/evaluacion_service.dart';
+import '../providers/sesion_provider.dart';
 import '../widgets/clase_card.dart';
 import '../widgets/evaluacion_progress_card.dart';
 import '../widgets/app_brand_title.dart';
@@ -114,6 +116,10 @@ class _ClasesScreenState extends State<ClasesScreen> {
     );
     if (resultado != null && mounted) {
       setState(() => _evaluacion = resultado);
+      context.read<SesionProvider>().guardarBorradorEvaluacion(resultado);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Borrador guardado automáticamente.')),
+      );
     }
   }
 }

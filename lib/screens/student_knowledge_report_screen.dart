@@ -8,13 +8,14 @@ import 'package:flutter/services.dart';
 import '../config/plan_estudio_parvulos.dart';
 import '../config/planes_estudio_adicionales.dart';
 import '../models/student_knowledge_report.dart';
+import '../models/student_knowledge_draft.dart';
 import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
-import '../services/pdf_export_service.dart';
 import '../widgets/report_signature_card.dart';
 import '../widgets/evidence_photos_card.dart';
 import '../widgets/signature_capture_dialog.dart';
 import '../widgets/app_brand_title.dart';
+import 'pdf_preview_screen.dart';
 
 class StudentKnowledgeReportScreen extends StatefulWidget {
   const StudentKnowledgeReportScreen({super.key});
@@ -33,6 +34,8 @@ class _StudentKnowledgeReportScreenState
   final _profesorEvaluadoController = TextEditingController();
   final _compromisoController = TextEditingController();
   final DateTime _fechaHora = DateTime.now();
+  late final String _reporteId =
+      'CC-${_fechaHora.millisecondsSinceEpoch.toRadixString(36).toUpperCase()}';
   int _periodo = 1;
   String _grado = 'Párvulos';
   final Map<String, ResultadoContenido> _resultados = {};
@@ -42,6 +45,16 @@ class _StudentKnowledgeReportScreenState
   String? _firmaCourseChild;
   final _imagePicker = ImagePicker();
   final List<String> _fotosEvidencia = [];
+  bool _restaurandoBorrador = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _restaurarBorrador());
+    _colegioController.addListener(_guardarBorrador);
+    _profesorEvaluadoController.addListener(_guardarBorrador);
+    _compromisoController.addListener(_guardarBorrador);
+  }
 
   @override
   void dispose() {
@@ -49,6 +62,53 @@ class _StudentKnowledgeReportScreenState
     _profesorEvaluadoController.dispose();
     _compromisoController.dispose();
     super.dispose();
+  }
+
+  void _restaurarBorrador() {
+    final borrador = context.read<SesionProvider>().borradorConocimiento;
+    if (borrador == null || !mounted) return;
+    _restaurandoBorrador = true;
+    setState(() {
+      _periodo = borrador.periodo;
+      _grado = borrador.grado;
+      _resultados
+        ..clear()
+        ..addAll(borrador.resultados);
+      _itemsHabilitados
+        ..clear()
+        ..addAll(borrador.itemsHabilitados);
+      _firmaColegio = borrador.firmaColegio;
+      _firmaDocenteColegio = borrador.firmaDocenteColegio;
+      _firmaCourseChild = borrador.firmaCourseChild;
+      _fotosEvidencia
+        ..clear()
+        ..addAll(borrador.fotosEvidencia);
+      _colegioController.text = borrador.colegio;
+      _profesorEvaluadoController.text = borrador.profesorEvaluado;
+      _compromisoController.text = borrador.compromiso;
+    });
+    _restaurandoBorrador = false;
+    _mensaje('Borrador restaurado · ${_hora(borrador.actualizadoEn)}');
+  }
+
+  void _guardarBorrador() {
+    if (!mounted || _restaurandoBorrador) return;
+    context.read<SesionProvider>().guardarBorradorConocimiento(
+      StudentKnowledgeDraft(
+        actualizadoEn: DateTime.now(),
+        colegio: _colegioController.text,
+        profesorEvaluado: _profesorEvaluadoController.text,
+        compromiso: _compromisoController.text,
+        periodo: _periodo,
+        grado: _grado,
+        resultados: Map.unmodifiable(_resultados),
+        itemsHabilitados: Set.unmodifiable(_itemsHabilitados),
+        firmaColegio: _firmaColegio,
+        firmaDocenteColegio: _firmaDocenteColegio,
+        firmaCourseChild: _firmaCourseChild,
+        fotosEvidencia: List.unmodifiable(_fotosEvidencia),
+      ),
+    );
   }
 
   @override
@@ -59,6 +119,11 @@ class _StudentKnowledgeReportScreenState
 
     return Scaffold(
       appBar: AppBar(title: const AppBrandTitle(compact: true)),
+      bottomNavigationBar: _ProgressFooter(
+        evaluados: _resultados.length,
+        total: _totalContenidos(plan),
+        nota: _notaFinal,
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -123,6 +188,7 @@ class _StudentKnowledgeReportScreenState
                 _periodo = value ?? 1;
                 _resultados.clear();
                 _itemsHabilitados.clear();
+                _guardarBorrador();
               }),
             ),
             const SizedBox(height: 14),
@@ -165,6 +231,7 @@ class _StudentKnowledgeReportScreenState
                 _grado = value ?? 'Párvulos';
                 _resultados.clear();
                 _itemsHabilitados.clear();
+                _guardarBorrador();
               }),
             ),
             const SizedBox(height: 28),
@@ -186,6 +253,7 @@ class _StudentKnowledgeReportScreenState
                 itemsHabilitados: _itemsHabilitados,
                 onHabilitar: (id) => setState(() {
                   _itemsHabilitados.add(id);
+                  _guardarBorrador();
                 }),
                 onChanged: (id, resultado) => setState(() {
                   if (resultado == null) {
@@ -195,7 +263,11 @@ class _StudentKnowledgeReportScreenState
                     _itemsHabilitados.add(id);
                     _resultados[id] = resultado;
                   }
+                  _guardarBorrador();
                 }),
+                onMarcarTodos: (resultado) =>
+                    _marcarCategoria(categoria, resultado),
+                onLimpiar: () => _limpiarCategoria(categoria),
               ),
               const SizedBox(height: 14),
             ],
@@ -276,6 +348,7 @@ class _StudentKnowledgeReportScreenState
               onFirmar: () => _firmar(
                 'Firma del colegio',
                 (firma) => _firmaColegio = firma,
+                firmaActual: _firmaColegio,
               ),
             ),
             const SizedBox(height: 14),
@@ -285,6 +358,7 @@ class _StudentKnowledgeReportScreenState
               onFirmar: () => _firmar(
                 'Firma del docente del colegio',
                 (firma) => _firmaDocenteColegio = firma,
+                firmaActual: _firmaDocenteColegio,
               ),
             ),
             const SizedBox(height: 14),
@@ -295,15 +369,17 @@ class _StudentKnowledgeReportScreenState
               onFirmar: () => _firmar(
                 'Firma de $docente',
                 (firma) => _firmaCourseChild = firma,
+                firmaActual: _firmaCourseChild,
               ),
             ),
             const SizedBox(height: 18),
             EvidencePhotosCard(
               fotosBase64: _fotosEvidencia,
               onAdd: _seleccionarOrigenFoto,
-              onRemove: (index) =>
-                  setState(() => _fotosEvidencia.removeAt(index)),
+              onRemove: _confirmarEliminarFoto,
             ),
+            const SizedBox(height: 18),
+            _ValidationCard(pendientes: _validacionesPendientes()),
             const SizedBox(height: 28),
             FilledButton.icon(
               onPressed: () => _guardar(docente),
@@ -324,11 +400,93 @@ class _StudentKnowledgeReportScreenState
 
   Future<void> _firmar(
     String titulo,
-    void Function(String firma) asignar,
-  ) async {
+    void Function(String firma) asignar, {
+    String? firmaActual,
+  }) async {
+    if (firmaActual?.isNotEmpty == true) {
+      final reemplazar = await _confirmar(
+        'Reemplazar firma',
+        'Ya existe una firma registrada. ¿Deseas reemplazarla?',
+      );
+      if (!reemplazar || !mounted) return;
+    }
     final firma = await SignatureCaptureDialog.show(context, titulo);
-    if (firma != null && mounted) setState(() => asignar(firma));
+    if (firma != null && mounted) {
+      setState(() => asignar(firma));
+      _guardarBorrador();
+    }
   }
+
+  Future<void> _marcarCategoria(
+    CategoriaPlanEstudio categoria,
+    ResultadoContenido resultado,
+  ) async {
+    final confirmar = await _confirmar(
+      'Aplicar resultado al tema',
+      '¿Deseas marcar todos los contenidos de ${categoria.nombre} como ${_nombreResultado(resultado)}?',
+    );
+    if (!confirmar || !mounted) return;
+    setState(() {
+      for (final item in categoria.items) {
+        final id = _idItem(_periodo, categoria.nombre, item);
+        _itemsHabilitados.add(id);
+        _resultados[id] = resultado;
+      }
+    });
+    _guardarBorrador();
+  }
+
+  Future<void> _limpiarCategoria(CategoriaPlanEstudio categoria) async {
+    final confirmar = await _confirmar(
+      'Limpiar resultados',
+      '¿Deseas eliminar los resultados registrados en ${categoria.nombre}?',
+    );
+    if (!confirmar || !mounted) return;
+    setState(() {
+      for (final item in categoria.items) {
+        final id = _idItem(_periodo, categoria.nombre, item);
+        _itemsHabilitados.remove(id);
+        _resultados.remove(id);
+      }
+    });
+    _guardarBorrador();
+  }
+
+  Future<void> _confirmarEliminarFoto(int index) async {
+    final confirmar = await _confirmar(
+      'Eliminar evidencia',
+      '¿Deseas eliminar esta fotografía? Esta acción no se puede deshacer.',
+    );
+    if (!confirmar || !mounted) return;
+    setState(() => _fotosEvidencia.removeAt(index));
+    _guardarBorrador();
+  }
+
+  Future<bool> _confirmar(String titulo, String mensaje) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(titulo),
+          content: Text(mensaje),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Confirmar'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+
+  String _nombreResultado(ResultadoContenido resultado) => switch (resultado) {
+    ResultadoContenido.logrado => 'Logrado',
+    ResultadoContenido.porReforzar => 'Por reforzar',
+    ResultadoContenido.noLogrado => 'No logrado',
+  };
 
   void _guardar(String docente) {
     if (!_formKey.currentState!.validate()) return;
@@ -346,6 +504,7 @@ class _StudentKnowledgeReportScreenState
     context.read<SesionProvider>().guardarReporteConocimiento(
       _crearReporte(docente),
     );
+    context.read<SesionProvider>().descartarBorradorConocimiento();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Reporte guardado correctamente.')),
     );
@@ -354,6 +513,7 @@ class _StudentKnowledgeReportScreenState
 
   StudentKnowledgeReport _crearReporte(String docente) =>
       StudentKnowledgeReport(
+        id: _reporteId,
         fechaHora: _fechaHora,
         docente: docente,
         profesorEvaluado: _profesorEvaluadoController.text.trim(),
@@ -367,6 +527,7 @@ class _StudentKnowledgeReportScreenState
         totalContenidos: _totalContenidos(
           planesEstudioPorGrado[_grado]![_periodo]!,
         ),
+        configuracionNotas: context.read<SesionProvider>().configuracionNotas,
         firmaColegio: _firmaColegio!,
         firmaDocenteColegio: _firmaDocenteColegio!,
         firmaDocenteCourseChild: _firmaCourseChild!,
@@ -552,11 +713,51 @@ class _StudentKnowledgeReportScreenState
       _mensaje('Debes completar las tres firmas.');
       return;
     }
-    try {
-      await const PdfExportService().compartirReporte(_crearReporte(docente));
-    } catch (_) {
-      if (mounted) _mensaje('No se pudo generar el PDF. Intenta nuevamente.');
-    }
+    final reporte = _crearReporte(docente);
+    final continuar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Revisar antes de generar'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Docente: ${reporte.profesorEvaluado}'),
+              Text('Colegio: ${reporte.colegio}'),
+              Text('${reporte.grado} · Período ${reporte.periodo}'),
+              Text('Nota: ${reporte.notaFinal.toStringAsFixed(1)} / 5,0'),
+              Text('Desempeño: ${reporte.desempeno}'),
+              Text(
+                'Cobertura: ${reporte.contenidosEvaluados} de ${reporte.totalContenidos}',
+              ),
+              Text('Firmas: completas'),
+              Text('Fotografías: ${reporte.fotosEvidencia.length} de 2'),
+              const SizedBox(height: 12),
+              const Text(
+                'Podrás elegir un informe resumido o detallado en la vista previa.',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Volver y corregir'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Ver PDF'),
+          ),
+        ],
+      ),
+    );
+    if (continuar != true || !mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PdfPreviewScreen(reporte: reporte),
+      ),
+    );
   }
 
   Future<void> _seleccionarOrigenFoto() async {
@@ -607,6 +808,7 @@ class _StudentKnowledgeReportScreenState
       final fotoBase64 = base64Encode(await foto.readAsBytes());
       if (!mounted || _fotosEvidencia.length >= 2) return;
       setState(() => _fotosEvidencia.add(fotoBase64));
+      _guardarBorrador();
     } on PlatformException {
       if (mounted) _mostrarErrorPermiso(source);
     } catch (_) {
@@ -644,9 +846,47 @@ class _StudentKnowledgeReportScreenState
     (total, categoria) => total + categoria.items.length,
   );
 
-  double get _notaFinal => calcularNotaConocimiento(_resultados.values);
+  double get _notaFinal => calcularNotaConocimiento(
+    _resultados.values,
+    context.read<SesionProvider>().configuracionNotas,
+  );
 
-  String get _desempeno => desempenoParaNota(_notaFinal);
+  String get _desempeno => desempenoParaNota(
+    _notaFinal,
+    context.read<SesionProvider>().configuracionNotas,
+  );
+
+  List<String> _validacionesPendientes() {
+    final pendientes = <String>[];
+    if (_profesorEvaluadoController.text.trim().isEmpty) {
+      pendientes.add('Falta el nombre del docente evaluado.');
+    }
+    if (_colegioController.text.trim().isEmpty) {
+      pendientes.add('Falta el colegio.');
+    }
+    if (_resultados.isEmpty) {
+      pendientes.add('No hay contenidos calificados.');
+    }
+    final sinResultado = _itemsHabilitados.difference(_resultados.keys.toSet());
+    if (sinResultado.isNotEmpty) {
+      pendientes.add(
+        '${sinResultado.length} contenidos activados no tienen resultado.',
+      );
+    }
+    if (_compromisoController.text.trim().isEmpty) {
+      pendientes.add('Faltan las recomendaciones del docente.');
+    }
+    final firmas = [
+      _firmaColegio,
+      _firmaDocenteColegio,
+      _firmaCourseChild,
+    ].where((firma) => firma?.isNotEmpty == true).length;
+    if (firmas < 3) pendientes.add('Faltan ${3 - firmas} firmas.');
+    if (_fotosEvidencia.isEmpty) {
+      pendientes.add('No se han agregado fotografías de evidencia (opcional).');
+    }
+    return pendientes;
+  }
 }
 
 String _idItem(int periodo, String categoria, ItemPlanEstudio item) =>
@@ -667,6 +907,8 @@ class _CategoriaPlanCard extends StatelessWidget {
     required this.itemsHabilitados,
     required this.onHabilitar,
     required this.onChanged,
+    required this.onMarcarTodos,
+    required this.onLimpiar,
   });
 
   final CategoriaPlanEstudio categoria;
@@ -675,6 +917,8 @@ class _CategoriaPlanCard extends StatelessWidget {
   final Set<String> itemsHabilitados;
   final ValueChanged<String> onHabilitar;
   final void Function(String id, ResultadoContenido? resultado) onChanged;
+  final ValueChanged<ResultadoContenido> onMarcarTodos;
+  final VoidCallback onLimpiar;
 
   @override
   Widget build(BuildContext context) {
@@ -723,6 +967,39 @@ class _CategoriaPlanCard extends StatelessWidget {
               ],
             ),
             const Divider(height: AppSpacing.lg),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                PopupMenuButton<ResultadoContenido>(
+                  onSelected: onMarcarTodos,
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: ResultadoContenido.logrado,
+                      child: Text('Todo como Logrado'),
+                    ),
+                    PopupMenuItem(
+                      value: ResultadoContenido.porReforzar,
+                      child: Text('Todo como Por reforzar'),
+                    ),
+                    PopupMenuItem(
+                      value: ResultadoContenido.noLogrado,
+                      child: Text('Todo como No logrado'),
+                    ),
+                  ],
+                  child: const Chip(
+                    avatar: Icon(Icons.done_all_rounded, size: 18),
+                    label: Text('Evaluar todo el tema'),
+                  ),
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.restart_alt_rounded, size: 18),
+                  label: const Text('Limpiar'),
+                  onPressed: onLimpiar,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
             for (var index = 0; index < categoria.items.length; index++) ...[
               if (categoria.items[index].tema != null &&
                   (index == 0 ||
@@ -933,6 +1210,87 @@ class _NotaCard extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ProgressFooter extends StatelessWidget {
+  const _ProgressFooter({
+    required this.evaluados,
+    required this.total,
+    required this.nota,
+  });
+
+  final int evaluados;
+  final int total;
+  final double nota;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: Container(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: Text('Evaluados: $evaluados de $total')),
+          Text(
+            nota == 0
+                ? 'Nota: —'
+                : 'Nota provisional: ${nota.toStringAsFixed(1)}',
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ValidationCard extends StatelessWidget {
+  const _ValidationCard({required this.pendientes});
+
+  final List<String> pendientes;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                pendientes.isEmpty
+                    ? Icons.verified_rounded
+                    : Icons.fact_check_outlined,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                pendientes.isEmpty
+                    ? 'Reporte listo para revisar'
+                    : 'Revisión del reporte',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
+          if (pendientes.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            for (final pendiente in pendientes)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Text('• $pendiente'),
+              ),
+          ],
         ],
       ),
     ),

@@ -1,6 +1,9 @@
 import 'package:evaluador_app/config/auth_config.dart';
 import 'package:evaluador_app/models/usuario_sesion.dart';
 import 'package:evaluador_app/providers/sesion_provider.dart';
+import 'package:evaluador_app/models/configuracion_notas.dart';
+import 'package:evaluador_app/models/student_knowledge_draft.dart';
+import 'package:evaluador_app/models/student_knowledge_report.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -131,5 +134,29 @@ void main() {
       ),
       contains('ya está en uso'),
     );
+  });
+
+  test('conserva borrador y configuración durante la sesión', () {
+    final sesion = SesionProvider(AuthConfig.test);
+    sesion.guardarBorradorConocimiento(
+      StudentKnowledgeDraft(
+        actualizadoEn: DateTime(2026, 8, 17),
+        colegio: 'Colegio Central',
+        profesorEvaluado: 'Laura',
+        compromiso: '',
+        periodo: 2,
+        grado: 'Jardín',
+        resultados: const {'item': ResultadoContenido.logrado},
+        itemsHabilitados: const {'item'},
+      ),
+    );
+    sesion.actualizarConfiguracionNotas(
+      const ConfiguracionNotas(puntosPorReforzar: 3.5),
+    );
+
+    expect(sesion.borradorConocimiento?.grado, 'Jardín');
+    expect(sesion.configuracionNotas.puntosPorReforzar, 3.5);
+    sesion.descartarBorradorConocimiento();
+    expect(sesion.borradorConocimiento, isNull);
   });
 }

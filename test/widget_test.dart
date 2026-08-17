@@ -9,17 +9,20 @@ void main() {
     await tester.pumpWidget(const EvaluadorApp());
 
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Usuario'),
+      find.widgetWithText(TextFormField, 'Username'),
       'usuario_inexistente',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Contraseña'),
+      find.widgetWithText(TextFormField, 'Password'),
       'cualquiera',
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Ingresar'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pump();
 
-    expect(find.textContaining('No existe un profesor'), findsOneWidget);
+    expect(
+      find.textContaining('No teacher with that username'),
+      findsOneWidget,
+    );
     expect(find.text('Inicio'), findsNothing);
   });
 
@@ -29,72 +32,69 @@ void main() {
     await tester.pumpWidget(const EvaluadorApp());
 
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Usuario'),
+      find.widgetWithText(TextFormField, 'Username'),
       'admin',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Contraseña'),
+      find.widgetWithText(TextFormField, 'Password'),
       'cambiar_esto',
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Ingresar'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Administración'), findsOneWidget);
-    expect(find.text('Evaluaciones'), findsOneWidget);
-    await tester.tap(find.text('Crear profesor'));
+    expect(find.text('Hello, Administrador'), findsOneWidget);
+    expect(find.text('Evaluations'), findsOneWidget);
+    await tester.tap(find.text('Create teacher'));
     await tester.pumpAndSettle();
 
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Nombre completo'),
+      find.widgetWithText(TextFormField, 'Full name'),
       'Laura Gómez',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Usuario'),
+      find.widgetWithText(TextFormField, 'Username'),
       'laura',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Contraseña'),
+      find.widgetWithText(TextFormField, 'Password'),
       'prueba123',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Zona'),
+      find.widgetWithText(TextFormField, 'Zone'),
       'Zona Norte',
     );
-    final crearButton = find.widgetWithText(FilledButton, 'Crear solicitud');
+    final crearButton = find.widgetWithText(FilledButton, 'Create request');
     await tester.ensureVisible(crearButton);
     await tester.tap(crearButton);
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Solicitud del profesor creada correctamente.'),
-      findsOneWidget,
-    );
+    expect(find.text('Teacher request created successfully.'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Lista de profesores'));
+    await tester.tap(find.text('Teacher list'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Aprobar'));
+    await tester.tap(find.text('Approve'));
     await tester.pumpAndSettle();
-    expect(find.text('Aprobado'), findsOneWidget);
+    expect(find.text('Approved'), findsWidgets);
     await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.logout_rounded));
     await tester.pumpAndSettle();
 
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Usuario'),
+      find.widgetWithText(TextFormField, 'Username'),
       'laura',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Contraseña'),
+      find.widgetWithText(TextFormField, 'Password'),
       'prueba123',
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Ingresar'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Hola, Laura Gómez'), findsOneWidget);
+    expect(find.text('Hello, Laura Gómez'), findsOneWidget);
     expect(find.text('Zona Norte'), findsOneWidget);
-    expect(find.text('Evaluaciones'), findsOneWidget);
+    expect(find.text('Evaluations'), findsOneWidget);
   });
 
   testWidgets('el coordinador tiene acceso al flujo de evaluaciones', (
@@ -102,21 +102,21 @@ void main() {
   ) async {
     await tester.pumpWidget(const EvaluadorApp());
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Usuario'),
+      find.widgetWithText(TextFormField, 'Username'),
       'coordinador',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Contraseña'),
+      find.widgetWithText(TextFormField, 'Password'),
       'cambiar_esto',
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Ingresar'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Coordinación'), findsOneWidget);
-    expect(find.text('Evaluaciones'), findsOneWidget);
-    await tester.tap(find.text('Evaluaciones'));
+    expect(find.text('Hello, Coordinador de zona'), findsOneWidget);
+    expect(find.text('Evaluations'), findsOneWidget);
+    await tester.tap(find.text('Evaluations'));
     await tester.pumpAndSettle();
-    expect(find.text('Capacitación Preescolar'), findsOneWidget);
-    expect(find.text('Capacitación Primaria'), findsOneWidget);
+    expect(find.text('Training Preschool'), findsOneWidget);
+    expect(find.text('Training Primary'), findsOneWidget);
   });
 }

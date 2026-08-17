@@ -1,5 +1,6 @@
 import 'package:evaluador_app/config/auth_config.dart';
 import 'package:evaluador_app/models/student_knowledge_report.dart';
+import 'package:evaluador_app/models/configuracion_notas.dart';
 import 'package:evaluador_app/providers/sesion_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -15,6 +16,25 @@ void main() {
     expect(nota, 3.5);
     expect(desempenoParaNota(nota), 'Básico');
     expect(calcularNotaConocimiento(const []), 0);
+  });
+
+  test('calcula con una escala configurada por el administrador', () {
+    const configuracion = ConfiguracionNotas(
+      puntosLogrado: 5,
+      puntosPorReforzar: 4,
+      puntosNoLogrado: 2,
+      inicioSuperior: 4.7,
+      inicioAlto: 4.2,
+      inicioBasico: 3.2,
+    );
+    final nota = calcularNotaConocimiento(const [
+      ResultadoContenido.logrado,
+      ResultadoContenido.porReforzar,
+      ResultadoContenido.noLogrado,
+    ], configuracion);
+
+    expect(nota, 3.7);
+    expect(desempenoParaNota(nota, configuracion), 'Básico');
   });
 
   test('guarda el reporte en memoria con el nombre de la sesión', () {
@@ -47,5 +67,6 @@ void main() {
       'María González',
     );
     expect(sesion.reportesConocimiento.single.fotosEvidencia, hasLength(2));
+    expect(sesion.historialEstudiante('maría gonzález'), hasLength(1));
   });
 }
