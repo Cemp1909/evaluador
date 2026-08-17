@@ -161,14 +161,22 @@ class PdfExportService {
             ('Docente evaluado', reporte.profesorEvaluado),
             ('Colegio', reporte.colegio),
             ('Grado', reporte.grado),
-            ('Calificación', _calificacion(reporte.calificacion)),
-          ], calificacion: reporte.calificacion),
+            ('Nota final', '${reporte.notaFinal.toStringAsFixed(1)} / 5,0'),
+            ('Desempeño', reporte.desempeno),
+            (
+              'Cobertura',
+              '${reporte.contenidosEvaluados} de ${reporte.totalContenidos} contenidos evaluados',
+            ),
+          ]),
           pw.SizedBox(height: 22),
           _tituloSeccion('Evaluación del estudiante'),
           ...reporte.evaluaciones.entries.map(
             (entry) => _bloqueEvaluacion(entry.key, entry.value),
           ),
-          _bloqueEvaluacion('Commitment', reporte.compromiso),
+          _bloqueEvaluacion(
+            'Compromiso y recomendaciones del docente',
+            reporte.compromiso,
+          ),
           pw.SizedBox(height: 8),
           _tituloSeccion('Firmas'),
           pw.Row(
@@ -784,6 +792,8 @@ class PdfExportService {
     'Grammar' => 'G',
     'Dialogue' => 'D',
     'Recommendations' => 'R',
+    'Sugerencias automáticas' => 'S',
+    'Compromiso y recomendaciones del docente' => 'C',
     'Commitment' => 'CM',
     _ => 'i',
   };

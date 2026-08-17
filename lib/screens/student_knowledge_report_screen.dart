@@ -33,10 +33,10 @@ class _StudentKnowledgeReportScreenState
   final _profesorEvaluadoController = TextEditingController();
   final _compromisoController = TextEditingController();
   final DateTime _fechaHora = DateTime.now();
-  CalificacionConocimiento? _calificacion;
   int _periodo = 1;
   String _grado = 'Párvulos';
-  final Set<String> _itemsAprobados = {};
+  final Map<String, ResultadoContenido> _resultados = {};
+  final Set<String> _itemsHabilitados = {};
   String? _firmaColegio;
   String? _firmaDocenteColegio;
   String? _firmaCourseChild;
@@ -121,7 +121,8 @@ class _StudentKnowledgeReportScreenState
               ],
               onChanged: (value) => setState(() {
                 _periodo = value ?? 1;
-                _itemsAprobados.clear();
+                _resultados.clear();
+                _itemsHabilitados.clear();
               }),
             ),
             const SizedBox(height: 14),
@@ -162,7 +163,8 @@ class _StudentKnowledgeReportScreenState
               ],
               onChanged: (value) => setState(() {
                 _grado = value ?? 'Párvulos';
-                _itemsAprobados.clear();
+                _resultados.clear();
+                _itemsHabilitados.clear();
               }),
             ),
             const SizedBox(height: 28),
@@ -172,7 +174,7 @@ class _StudentKnowledgeReportScreenState
             ),
             const SizedBox(height: 6),
             Text(
-              'Marca cada contenido que el estudiante reconoce o realiza correctamente.',
+              'Selecciona el resultado observado en cada contenido. Los contenidos no evaluados no afectan la nota.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 14),
@@ -180,12 +182,18 @@ class _StudentKnowledgeReportScreenState
               _CategoriaPlanCard(
                 categoria: categoria,
                 periodo: _periodo,
-                seleccionados: _itemsAprobados,
-                onChanged: (id, seleccionado) => setState(() {
-                  if (seleccionado) {
-                    _itemsAprobados.add(id);
+                resultados: _resultados,
+                itemsHabilitados: _itemsHabilitados,
+                onHabilitar: (id) => setState(() {
+                  _itemsHabilitados.add(id);
+                }),
+                onChanged: (id, resultado) => setState(() {
+                  if (resultado == null) {
+                    _resultados.remove(id);
+                    _itemsHabilitados.remove(id);
                   } else {
-                    _itemsAprobados.remove(id);
+                    _itemsHabilitados.add(id);
+                    _resultados[id] = resultado;
                   }
                 }),
               ),
@@ -212,6 +220,29 @@ class _StudentKnowledgeReportScreenState
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
+            Text(
+              'Sugerencias automáticas',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(AppRadius.medium),
+                border: Border.all(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: .25),
+                ),
+              ),
+              child: Text(
+                _sugerenciasAutomaticas(plan),
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
             TextFormField(
               controller: _compromisoController,
               minLines: 3,
@@ -226,36 +257,15 @@ class _StudentKnowledgeReportScreenState
             ),
             const SizedBox(height: 28),
             Text(
-              'Calificación general',
+              'Resultado automático',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _RatingOption(
-                    label: 'Bajo\n20–59%',
-                    selected: _calificacion == CalificacionConocimiento.low,
-                    onTap: () => _seleccionar(CalificacionConocimiento.low),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _RatingOption(
-                    label: 'Regular\n60–79%',
-                    selected: _calificacion == CalificacionConocimiento.regular,
-                    onTap: () => _seleccionar(CalificacionConocimiento.regular),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _RatingOption(
-                    label: 'Alto\n80–100%',
-                    selected: _calificacion == CalificacionConocimiento.high,
-                    onTap: () => _seleccionar(CalificacionConocimiento.high),
-                  ),
-                ),
-              ],
+            _NotaCard(
+              nota: _notaFinal,
+              desempeno: _desempeno,
+              evaluados: _resultados.length,
+              total: _totalContenidos(plan),
             ),
             const SizedBox(height: 28),
             Text('Firmas', style: Theme.of(context).textTheme.headlineSmall),
@@ -312,10 +322,6 @@ class _StudentKnowledgeReportScreenState
     );
   }
 
-  void _seleccionar(CalificacionConocimiento value) {
-    setState(() => _calificacion = value);
-  }
-
   Future<void> _firmar(
     String titulo,
     void Function(String firma) asignar,
@@ -326,8 +332,8 @@ class _StudentKnowledgeReportScreenState
 
   void _guardar(String docente) {
     if (!_formKey.currentState!.validate()) return;
-    if (_calificacion == null) {
-      _mensaje('Selecciona una calificación.');
+    if (_resultados.isEmpty) {
+      _mensaje('Evalúa al menos un contenido para calcular la nota.');
       return;
     }
     if (_firmaColegio == null ||
@@ -356,7 +362,11 @@ class _StudentKnowledgeReportScreenState
         periodo: _periodo,
         evaluaciones: _resumenEvaluacion(),
         compromiso: _compromisoController.text.trim(),
-        calificacion: _calificacion!,
+        nota: _notaFinal,
+        contenidosEvaluados: _resultados.length,
+        totalContenidos: _totalContenidos(
+          planesEstudioPorGrado[_grado]![_periodo]!,
+        ),
         firmaColegio: _firmaColegio!,
         firmaDocenteColegio: _firmaDocenteColegio!,
         firmaDocenteCourseChild: _firmaCourseChild!,
@@ -368,6 +378,7 @@ class _StudentKnowledgeReportScreenState
     return {
       for (final categoria in plan.categorias)
         categoria.nombre: _resumenCategoria(categoria),
+      'Sugerencias automáticas': _sugerenciasAutomaticas(plan),
     };
   }
 
@@ -375,19 +386,17 @@ class _StudentKnowledgeReportScreenState
     if (categoria.nombre == 'Vocabulary') {
       return _resumenVocabularioPorTemas(categoria);
     }
-    final logrados = <String>[];
-    final porReforzar = <String>[];
+    final grupos = <ResultadoContenido?, List<String>>{
+      ResultadoContenido.logrado: [],
+      ResultadoContenido.porReforzar: [],
+      ResultadoContenido.noLogrado: [],
+      null: [],
+    };
     for (final item in categoria.items) {
-      final lista =
-          _itemsAprobados.contains(_idItem(_periodo, categoria.nombre, item))
-          ? logrados
-          : porReforzar;
-      lista.add(item.ingles);
+      final resultado = _resultados[_idItem(_periodo, categoria.nombre, item)];
+      grupos[resultado]!.add(item.ingles);
     }
-    return 'Evaluados satisfactoriamente: '
-        '${logrados.isEmpty ? 'Ninguno' : logrados.join(', ')}.\n'
-        'No evaluados: '
-        '${porReforzar.isEmpty ? 'Ninguno' : porReforzar.join(', ')}.';
+    return _textoGruposResultado(grupos);
   }
 
   String _resumenVocabularioPorTemas(CategoriaPlanEstudio categoria) {
@@ -400,25 +409,30 @@ class _StudentKnowledgeReportScreenState
 
     return porTema.entries
         .map((entrada) {
-          final evaluados = <String>[];
-          final noEvaluados = <String>[];
+          final grupos = <ResultadoContenido?, List<String>>{
+            ResultadoContenido.logrado: [],
+            ResultadoContenido.porReforzar: [],
+            ResultadoContenido.noLogrado: [],
+            null: [],
+          };
           for (final item in entrada.value) {
-            final destino =
-                _itemsAprobados.contains(
-                  _idItem(_periodo, categoria.nombre, item),
-                )
-                ? evaluados
-                : noEvaluados;
-            destino.add(item.ingles);
+            final resultado =
+                _resultados[_idItem(_periodo, categoria.nombre, item)];
+            grupos[resultado]!.add(item.ingles);
           }
-          return '${entrada.key}:\n'
-              'Evaluados satisfactoriamente: '
-              '${evaluados.isEmpty ? 'Ninguno' : evaluados.join(', ')}.\n'
-              'No evaluados: '
-              '${noEvaluados.isEmpty ? 'Ninguno' : noEvaluados.join(', ')}.';
+          return '${entrada.key}:\n${_textoGruposResultado(grupos)}';
         })
         .join('\n\n');
   }
+
+  String _textoGruposResultado(Map<ResultadoContenido?, List<String>> grupos) =>
+      'Logrados: ${_listaOninguno(grupos[ResultadoContenido.logrado]!)}.\n'
+      'Por reforzar: ${_listaOninguno(grupos[ResultadoContenido.porReforzar]!)}.\n'
+      'No logrados: ${_listaOninguno(grupos[ResultadoContenido.noLogrado]!)}.\n'
+      'No evaluados: ${_listaOninguno(grupos[null]!)}.';
+
+  String _listaOninguno(List<String> valores) =>
+      valores.isEmpty ? 'Ninguno' : valores.join(', ');
 
   String _observacionAutomatica(PeriodoPlanEstudio plan) {
     final pendientes = <String>[];
@@ -435,7 +449,7 @@ class _StudentKnowledgeReportScreenState
       }
       final noEvaluados = categoria.items
           .where((item) {
-            return !_itemsAprobados.contains(
+            return !_resultados.containsKey(
               _idItem(plan.numero, categoria.nombre, item),
             );
           })
@@ -458,7 +472,7 @@ class _StudentKnowledgeReportScreenState
   ) {
     final porTema = <String, List<String>>{};
     for (final item in categoria.items) {
-      if (_itemsAprobados.contains(_idItem(periodo, categoria.nombre, item))) {
+      if (_resultados.containsKey(_idItem(periodo, categoria.nombre, item))) {
         continue;
       }
       porTema
@@ -470,10 +484,66 @@ class _StudentKnowledgeReportScreenState
         .join('\n');
   }
 
+  String _sugerenciasAutomaticas(PeriodoPlanEstudio plan) {
+    if (_resultados.isEmpty) {
+      return 'Aún no hay contenidos calificados. Selecciona los contenidos que vas a evaluar para generar sugerencias.';
+    }
+
+    final porResultado = <ResultadoContenido, List<String>>{
+      ResultadoContenido.logrado: [],
+      ResultadoContenido.porReforzar: [],
+      ResultadoContenido.noLogrado: [],
+    };
+    for (final categoria in plan.categorias) {
+      for (final item in categoria.items) {
+        final resultado =
+            _resultados[_idItem(plan.numero, categoria.nombre, item)];
+        if (resultado == null) continue;
+        final ubicacion = categoria.nombre == 'Vocabulary' && item.tema != null
+            ? '${item.tema}: ${item.ingles}'
+            : '${categoria.nombre}: ${item.ingles}';
+        porResultado[resultado]!.add(ubicacion);
+      }
+    }
+
+    final sugerencias = <String>[
+      switch (_desempeno) {
+        'Superior' =>
+          'Resultado general excelente (${_notaFinal.toStringAsFixed(1)}/5,0). Mantener la práctica y avanzar con contenidos nuevos.',
+        'Alto' =>
+          'Resultado general alto (${_notaFinal.toStringAsFixed(1)}/5,0). Continuar practicando y reforzar los puntos señalados.',
+        'Básico' =>
+          'Resultado general medio (${_notaFinal.toStringAsFixed(1)}/5,0). Se recomienda repasar los temas en proceso de aprendizaje.',
+        _ =>
+          'Resultado general crítico (${_notaFinal.toStringAsFixed(1)}/5,0). Se recomienda estudiar nuevamente y practicar con acompañamiento.',
+      },
+    ];
+
+    final noLogrados = porResultado[ResultadoContenido.noLogrado]!;
+    if (noLogrados.isNotEmpty) {
+      sugerencias.add(
+        'CRÍTICO — Estudiar nuevamente y repasar con acompañamiento:\n• ${noLogrados.join('\n• ')}',
+      );
+    }
+    final porReforzar = porResultado[ResultadoContenido.porReforzar]!;
+    if (porReforzar.isNotEmpty) {
+      sugerencias.add(
+        'EN PROCESO — Practicar y reforzar estos contenidos:\n• ${porReforzar.join('\n• ')}',
+      );
+    }
+    final logrados = porResultado[ResultadoContenido.logrado]!;
+    if (logrados.isNotEmpty) {
+      sugerencias.add(
+        'EXCELENTE — Mantener y continuar practicando:\n• ${logrados.join('\n• ')}',
+      );
+    }
+    return sugerencias.join('\n\n');
+  }
+
   Future<void> _exportarPdf(String docente) async {
     if (!_formKey.currentState!.validate()) return;
-    if (_calificacion == null) {
-      _mensaje('Selecciona una calificación.');
+    if (_resultados.isEmpty) {
+      _mensaje('Evalúa al menos un contenido para calcular la nota.');
       return;
     }
     if (_firmaColegio == null ||
@@ -568,6 +638,15 @@ class _StudentKnowledgeReportScreenState
     final minute = value.minute.toString().padLeft(2, '0');
     return '$hour:$minute ${value.hour >= 12 ? 'p.m.' : 'a.m.'}';
   }
+
+  int _totalContenidos(PeriodoPlanEstudio plan) => plan.categorias.fold(
+    0,
+    (total, categoria) => total + categoria.items.length,
+  );
+
+  double get _notaFinal => calcularNotaConocimiento(_resultados.values);
+
+  String get _desempeno => desempenoParaNota(_notaFinal);
 }
 
 String _idItem(int periodo, String categoria, ItemPlanEstudio item) =>
@@ -584,14 +663,18 @@ class _CategoriaPlanCard extends StatelessWidget {
   const _CategoriaPlanCard({
     required this.categoria,
     required this.periodo,
-    required this.seleccionados,
+    required this.resultados,
+    required this.itemsHabilitados,
+    required this.onHabilitar,
     required this.onChanged,
   });
 
   final CategoriaPlanEstudio categoria;
   final int periodo;
-  final Set<String> seleccionados;
-  final void Function(String id, bool seleccionado) onChanged;
+  final Map<String, ResultadoContenido> resultados;
+  final Set<String> itemsHabilitados;
+  final ValueChanged<String> onHabilitar;
+  final void Function(String id, ResultadoContenido? resultado) onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -601,7 +684,7 @@ class _CategoriaPlanCard extends StatelessWidget {
       _ => AppColors.primary,
     };
     final completados = categoria.items.where((item) {
-      return seleccionados.contains(_idItem(periodo, categoria.nombre, item));
+      return resultados.containsKey(_idItem(periodo, categoria.nombre, item));
     }).length;
 
     return Card(
@@ -631,7 +714,7 @@ class _CategoriaPlanCard extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       Text(
-                        '$completados de ${categoria.items.length} contenidos logrados',
+                        '$completados de ${categoria.items.length} contenidos evaluados',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -664,7 +747,16 @@ class _CategoriaPlanCard extends StatelessWidget {
               ],
               _ItemPlanTile(
                 item: categoria.items[index],
-                seleccionado: seleccionados.contains(
+                habilitado: itemsHabilitados.contains(
+                  _idItem(periodo, categoria.nombre, categoria.items[index]),
+                ),
+                resultado:
+                    resultados[_idItem(
+                      periodo,
+                      categoria.nombre,
+                      categoria.items[index],
+                    )],
+                onHabilitar: () => onHabilitar(
                   _idItem(periodo, categoria.nombre, categoria.items[index]),
                 ),
                 onChanged: (value) => onChanged(
@@ -685,13 +777,17 @@ class _CategoriaPlanCard extends StatelessWidget {
 class _ItemPlanTile extends StatelessWidget {
   const _ItemPlanTile({
     required this.item,
-    required this.seleccionado,
+    required this.habilitado,
+    required this.resultado,
+    required this.onHabilitar,
     required this.onChanged,
   });
 
   final ItemPlanEstudio item;
-  final bool seleccionado;
-  final ValueChanged<bool> onChanged;
+  final bool habilitado;
+  final ResultadoContenido? resultado;
+  final VoidCallback onHabilitar;
+  final ValueChanged<ResultadoContenido?> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -699,57 +795,148 @@ class _ItemPlanTile extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       decoration: BoxDecoration(
-        color: seleccionado
+        color: resultado == ResultadoContenido.logrado
             ? AppColors.successContainer
             : scheme.surfaceContainerHighest.withValues(alpha: .42),
         borderRadius: BorderRadius.circular(AppRadius.small),
         border: Border.all(
-          color: seleccionado
+          color: resultado == ResultadoContenido.logrado
               ? AppColors.success.withValues(alpha: .45)
               : scheme.outlineVariant,
         ),
       ),
-      child: InkWell(
-        onTap: () => onChanged(!seleccionado),
-        borderRadius: BorderRadius.circular(AppRadius.small),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            children: [
-              Checkbox(
-                value: seleccionado,
-                onChanged: (value) => onChanged(value ?? false),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              item.ingles,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            if (!item.soloIngles &&
+                (item.pronunciacion != null || item.espanol != null))
+              Text(
+                [
+                  if (item.pronunciacion != null) '/${item.pronunciacion}/',
+                  if (item.espanol != null) item.espanol!,
+                ].join(' · '),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.ingles,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (!item.soloIngles &&
-                        (item.pronunciacion != null || item.espanol != null))
-                      Text(
-                        [
-                          if (item.pronunciacion != null)
-                            '/${item.pronunciacion}/',
-                          if (item.espanol != null) item.espanol!,
-                        ].join(' · '),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                  ],
-                ),
+            const SizedBox(height: 8),
+            if (!habilitado)
+              OutlinedButton.icon(
+                onPressed: onHabilitar,
+                icon: const Icon(Icons.fact_check_outlined),
+                label: const Text('Evaluar este contenido'),
+              )
+            else
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _ResultadoChip(
+                    label: 'Logrado',
+                    icon: Icons.check_circle_outline,
+                    selected: resultado == ResultadoContenido.logrado,
+                    onTap: () => onChanged(ResultadoContenido.logrado),
+                  ),
+                  _ResultadoChip(
+                    label: 'Por reforzar',
+                    icon: Icons.change_circle_outlined,
+                    selected: resultado == ResultadoContenido.porReforzar,
+                    onTap: () => onChanged(ResultadoContenido.porReforzar),
+                  ),
+                  _ResultadoChip(
+                    label: 'No logrado',
+                    icon: Icons.cancel_outlined,
+                    selected: resultado == ResultadoContenido.noLogrado,
+                    onTap: () => onChanged(ResultadoContenido.noLogrado),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.close_rounded, size: 17),
+                    label: const Text('Cancelar evaluación'),
+                    onPressed: () => onChanged(null),
+                  ),
+                ],
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
+}
+
+class _ResultadoChip extends StatelessWidget {
+  const _ResultadoChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ChoiceChip(
+    selected: selected,
+    onSelected: (_) => onTap(),
+    avatar: Icon(icon, size: 17),
+    label: Text(label),
+    visualDensity: VisualDensity.compact,
+  );
+}
+
+class _NotaCard extends StatelessWidget {
+  const _NotaCard({
+    required this.nota,
+    required this.desempeno,
+    required this.evaluados,
+    required this.total,
+  });
+
+  final double nota;
+  final String desempeno;
+  final int evaluados;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 31,
+            backgroundColor: AppColors.primary,
+            child: Text(
+              nota == 0 ? '—' : nota.toStringAsFixed(1),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(desempeno, style: Theme.of(context).textTheme.titleLarge),
+                Text('Nota calculada sobre 5,0'),
+                Text('$evaluados de $total contenidos evaluados'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _InfoRow extends StatelessWidget {
@@ -773,59 +960,6 @@ class _InfoRow extends StatelessWidget {
         Expanded(child: Text(label)),
         Text(value, style: Theme.of(context).textTheme.titleMedium),
       ],
-    );
-  }
-}
-
-class _RatingOption extends StatelessWidget {
-  const _RatingOption({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 190),
-      curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        color: selected
-            ? (dark ? const Color(0xFF17352D) : AppColors.successContainer)
-            : scheme.surface,
-        borderRadius: BorderRadius.circular(AppRadius.small),
-        border: Border.all(
-          color: selected ? AppColors.success : scheme.outline,
-          width: selected ? 1.5 : 1,
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.small),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-          child: Column(
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: Icon(
-                  selected ? Icons.check_circle_rounded : Icons.circle_outlined,
-                  key: ValueKey(selected),
-                  color: selected ? AppColors.success : scheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(label, textAlign: TextAlign.center),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

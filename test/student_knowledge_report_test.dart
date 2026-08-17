@@ -4,6 +4,19 @@ import 'package:evaluador_app/providers/sesion_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('calcula la nota sin contar contenidos no evaluados', () {
+    final nota = calcularNotaConocimiento(const [
+      ResultadoContenido.logrado,
+      ResultadoContenido.logrado,
+      ResultadoContenido.porReforzar,
+      ResultadoContenido.noLogrado,
+    ]);
+
+    expect(nota, 3.5);
+    expect(desempenoParaNota(nota), 'Básico');
+    expect(calcularNotaConocimiento(const []), 0);
+  });
+
   test('guarda el reporte en memoria con el nombre de la sesión', () {
     final sesion = SesionProvider(AuthConfig.test);
     sesion.iniciarSesion(usuario: 'admin', password: 'cambiar_esto');
