@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_brand_title.dart';
 import '../widgets/home_action_card.dart';
 import 'evaluador_selection_screen.dart';
 import 'login_screen.dart';
@@ -18,10 +19,10 @@ class ProfesorHomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Inicio'),
+        title: const AppBrandTitle(),
         actions: [
           IconButton(
-            tooltip: 'Cerrar sesión',
+            tooltip: 'Sign out',
             onPressed: () {
               context.read<SesionProvider>().cerrarSesion();
               Navigator.of(
@@ -42,8 +43,8 @@ class ProfesorHomeScreen extends StatelessWidget {
         ),
         children: [
           Text(
-            'Hola, ${usuario?.nombre ?? 'Profesor'}',
-            style: Theme.of(context).textTheme.headlineSmall,
+            'Hello, ${usuario?.nombre ?? 'Teacher'}',
+            style: Theme.of(context).textTheme.displaySmall,
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
@@ -52,18 +53,19 @@ class ProfesorHomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Selecciona una opción para continuar.',
+            'Select an option to continue.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: AppSpacing.xl),
           HomeActionCard(
             icon: Icons.assignment_turned_in_outlined,
-            title: 'Evaluaciones',
-            subtitle: 'Inicia una capacitación de Preescolar o Primaria.',
+            title: 'Evaluations',
+            subtitle: 'Start a Preschool or Primary training session.',
             onTap: () => Navigator.pushNamed(
               context,
               EvaluadorSelectionScreen.routeName,
             ),
+            accentColor: AppColors.primary,
           ),
         ],
       ),

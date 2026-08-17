@@ -5,6 +5,7 @@ import '../models/evaluador_tipo.dart';
 import '../services/evaluacion_service.dart';
 import '../widgets/clase_card.dart';
 import '../widgets/evaluacion_progress_card.dart';
+import '../widgets/app_brand_title.dart';
 import 'clase_detail_screen.dart';
 
 class ClasesScreen extends StatefulWidget {
@@ -37,18 +38,18 @@ class _ClasesScreenState extends State<ClasesScreen> {
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Clases')),
+      appBar: AppBar(title: const AppBrandTitle()),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
             Text(
-              widget.tipo.nombre,
+              _nombreTipo(widget.tipo.nombre),
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 6),
             Text(
-              'Revisa el avance y selecciona una clase para continuar.',
+              'Review progress and select a class to continue.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 22),
@@ -57,10 +58,7 @@ class _ClasesScreenState extends State<ClasesScreen> {
               total: totalContenidos,
             ),
             const SizedBox(height: 28),
-            Text(
-              'Plan de clases',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            Text('Class plan', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 14),
             for (var index = 0; index < widget.tipo.clases.length; index++) ...[
               ClaseCard(
@@ -81,6 +79,11 @@ class _ClasesScreenState extends State<ClasesScreen> {
       ),
     );
   }
+
+  String _nombreTipo(String nombre) => nombre
+      .replaceAll('Capacitación', 'Training')
+      .replaceAll('Preescolar', 'Preschool')
+      .replaceAll('Primaria', 'Primary');
 
   int _totalContenidosClase(EvaluacionClase clase) => clase.bloques.fold<int>(
     0,

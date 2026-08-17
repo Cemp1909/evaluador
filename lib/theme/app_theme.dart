@@ -2,26 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 abstract final class AppColors {
-  static const primary = Color(0xFF17213C);
-  static const primaryLight = Color(0xFF334264);
+  static const primary = Color(0xFF010A25);
+  static const primaryLight = Color(0xFF17213C);
   static const accent = Color(0xFFFF725E);
 
-  static const neutral50 = Color(0xFFFAFAFB);
-  static const neutral100 = Color(0xFFF4F4F6);
-  static const neutral200 = Color(0xFFE8E8EC);
-  static const neutral300 = Color(0xFFD4D5DB);
-  static const neutral400 = Color(0xFFA5A7B1);
-  static const neutral500 = Color(0xFF777A87);
-  static const neutral600 = Color(0xFF595C68);
-  static const neutral700 = Color(0xFF3E414B);
-  static const neutral800 = Color(0xFF282A32);
-  static const neutral900 = Color(0xFF18191E);
+  static const neutral50 = Color(0xFFF9F9FF);
+  static const neutral100 = Color(0xFFF1F3FF);
+  static const neutral200 = Color(0xFFEAEDFC);
+  static const neutral300 = Color(0xFFDFE2F0);
+  static const neutral400 = Color(0xFFC6C6CE);
+  static const neutral500 = Color(0xFF76767E);
+  static const neutral600 = Color(0xFF5D5E66);
+  static const neutral700 = Color(0xFF45464D);
+  static const neutral800 = Color(0xFF2C303B);
+  static const neutral900 = Color(0xFF171B25);
 
   static const background = neutral50;
   static const surface = Color(0xFFFFFFFF);
   static const textPrimary = neutral900;
   static const textSecondary = neutral600;
-  static const outline = neutral200;
+  static const outline = neutral400;
 
   static const success = Color(0xFF268065);
   static const successContainer = Color(0xFFE7F4EF);
@@ -29,16 +29,16 @@ abstract final class AppColors {
   static const pendingContainer = Color(0xFFFFF2D8);
   static const error = Color(0xFFB84A56);
 
-  static const darkBackground = Color(0xFF0E1015);
-  static const darkSurface = Color(0xFF161920);
-  static const darkSurfaceHigh = Color(0xFF1D212A);
-  static const darkOutline = Color(0xFF2B303B);
+  static const darkBackground = Color(0xFF080C17);
+  static const darkSurface = Color(0xFF101522);
+  static const darkSurfaceHigh = Color(0xFF1A2030);
+  static const darkOutline = Color(0xFF343B4C);
 }
 
 abstract final class AppRadius {
-  static const double small = 12;
-  static const double medium = 16;
-  static const double button = 13;
+  static const double small = 8;
+  static const double medium = 8;
+  static const double button = pill;
   static const double pill = 999;
 }
 
@@ -64,7 +64,7 @@ abstract final class AppTheme {
       onPrimary: dark ? AppColors.primary : Colors.white,
       primaryContainer: dark
           ? const Color(0xFF263354)
-          : const Color(0xFFE9EDFA),
+          : const Color(0xFFDAE1FF),
       onPrimaryContainer: dark ? const Color(0xFFDDE5FF) : AppColors.primary,
       secondary: AppColors.accent,
       onSecondary: Colors.white,
@@ -82,12 +82,12 @@ abstract final class AppTheme {
       onSurface: dark ? const Color(0xFFE8E9EE) : AppColors.textPrimary,
       surfaceContainerHighest: dark
           ? AppColors.darkSurfaceHigh
-          : AppColors.neutral100,
+          : AppColors.neutral300,
       onSurfaceVariant: dark
           ? const Color(0xFFAEB2BD)
           : AppColors.textSecondary,
       outline: dark ? AppColors.darkOutline : AppColors.outline,
-      outlineVariant: dark ? const Color(0xFF242933) : AppColors.neutral100,
+      outlineVariant: dark ? const Color(0xFF242B3A) : AppColors.neutral300,
       shadow: Colors.black,
       scrim: Colors.black,
       inverseSurface: dark ? AppColors.neutral100 : AppColors.neutral900,
@@ -186,11 +186,11 @@ abstract final class AppTheme {
         color: scheme.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 1,
-        shadowColor: Colors.black.withValues(alpha: dark ? .22 : .055),
+        shadowColor: AppColors.primary.withValues(alpha: dark ? .20 : .08),
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.medium),
-          side: BorderSide(color: scheme.outline),
+          side: BorderSide(color: scheme.outlineVariant),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -270,19 +270,19 @@ abstract final class AppTheme {
           color: scheme.primary,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.button),
+          borderRadius: BorderRadius.circular(AppRadius.small),
           borderSide: BorderSide(color: scheme.outline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.button),
+          borderRadius: BorderRadius.circular(AppRadius.small),
           borderSide: BorderSide(color: scheme.primary, width: 1.4),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.button),
+          borderRadius: BorderRadius.circular(AppRadius.small),
           borderSide: BorderSide(color: scheme.error.withValues(alpha: .7)),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.button),
+          borderRadius: BorderRadius.circular(AppRadius.small),
           borderSide: BorderSide(color: scheme.error, width: 1.4),
         ),
       ),

@@ -22,7 +22,7 @@ class BloqueCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final completados = itemsMarcados.values.where((value) => value).length;
-    final scheme = Theme.of(context).colorScheme;
+    final categoryColor = _colorParaBloque(bloque.nombre);
 
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -34,9 +34,18 @@ class BloqueCard extends StatelessWidget {
           children: [
             Row(
               children: [
+                Container(
+                  width: 4,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: categoryColor,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
                 Icon(
                   _iconoParaBloque(bloque.nombre),
-                  color: marcado ? AppColors.success : scheme.primary,
+                  color: marcado ? AppColors.success : categoryColor,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
@@ -49,7 +58,7 @@ class BloqueCard extends StatelessWidget {
                       ),
                       if (bloque.items.isNotEmpty)
                         Text(
-                          '$completados de ${bloque.items.length} contenidos',
+                          '$completados of ${bloque.items.length} items',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                     ],
@@ -58,7 +67,7 @@ class BloqueCard extends StatelessWidget {
                 if (bloque.items.isNotEmpty)
                   TextButton(
                     onPressed: () => onBloqueChanged(!marcado),
-                    child: Text(marcado ? 'Desmarcar todo' : 'Marcar todo'),
+                    child: Text(marcado ? 'Clear all' : 'Select all'),
                   ),
               ],
             ),
@@ -66,7 +75,7 @@ class BloqueCard extends StatelessWidget {
             const Divider(height: AppSpacing.lg),
             if (bloque.items.isEmpty)
               _ChecklistItem(
-                label: 'Contenido enseñado',
+                label: 'Content taught',
                 checked: marcado,
                 onChanged: onBloqueChanged,
               )
@@ -114,6 +123,18 @@ class BloqueCard extends StatelessWidget {
       return Icons.lightbulb_outline;
     }
     return Icons.checklist_rounded;
+  }
+
+  Color _colorParaBloque(String nombre) {
+    final normalizado = nombre.toLowerCase();
+    if (normalizado.contains('vocabulary') ||
+        normalizado.contains('vocabulario')) {
+      return AppColors.accent;
+    }
+    if (normalizado.contains('command') || normalizado.contains('comando')) {
+      return AppColors.success;
+    }
+    return AppColors.primary;
   }
 }
 

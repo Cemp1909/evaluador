@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/usuario_sesion.dart';
 import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_brand_title.dart';
 import '../widgets/home_action_card.dart';
 import 'crear_profesor_screen.dart';
 import 'evaluador_selection_screen.dart';
@@ -30,10 +31,10 @@ class GestionHomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(esAdmin ? 'Administración' : 'Coordinación'),
+        title: const AppBrandTitle(),
         actions: [
           IconButton(
-            tooltip: 'Cerrar sesión',
+            tooltip: 'Sign out',
             onPressed: () => _cerrarSesion(context),
             icon: const Icon(Icons.logout_rounded),
           ),
@@ -49,8 +50,8 @@ class GestionHomeScreen extends StatelessWidget {
         ),
         children: [
           Text(
-            'Hola, ${usuario?.nombre ?? ''}',
-            style: Theme.of(context).textTheme.headlineSmall,
+            'Hello, ${usuario?.nombre ?? ''}',
+            style: Theme.of(context).textTheme.displaySmall,
           ),
           if (usuario?.zona != null) ...[
             const SizedBox(height: AppSpacing.xxs),
@@ -58,38 +59,41 @@ class GestionHomeScreen extends StatelessWidget {
           ],
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Gestiona los profesores disponibles durante esta sesión.',
+            esAdmin ? 'Administrator overview' : 'Zone coordinator overview',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: AppSpacing.xl),
           HomeActionCard(
             icon: Icons.assignment_turned_in_outlined,
-            title: 'Evaluaciones',
-            subtitle: 'Inicia una capacitación de Preescolar o Primaria.',
+            title: 'Evaluations',
+            subtitle: 'Start a Preschool or Primary training session.',
             onTap: () => Navigator.pushNamed(
               context,
               EvaluadorSelectionScreen.routeName,
             ),
+            accentColor: AppColors.primary,
           ),
           const SizedBox(height: AppSpacing.md),
           HomeActionCard(
             icon: Icons.person_add_alt_1_rounded,
-            title: 'Crear profesor',
+            title: 'Create teacher',
             subtitle: esAdmin
-                ? 'Registra un profesor y asígnale una zona.'
-                : 'Registra un profesor para ${usuario?.zona ?? 'tu zona'}.',
+                ? 'Register a teacher and assign a zone.'
+                : 'Register a teacher for ${usuario?.zona ?? 'your zone'}.',
             onTap: () =>
                 Navigator.pushNamed(context, CrearProfesorScreen.routeName),
+            accentColor: AppColors.accent,
           ),
           const SizedBox(height: AppSpacing.md),
           HomeActionCard(
             icon: Icons.groups_2_outlined,
-            title: 'Lista de profesores',
+            title: 'Teacher list',
             subtitle: esAdmin
-                ? 'Consulta todos los profesores registrados.'
-                : 'Consulta los profesores asignados a tu zona.',
+                ? 'View all registered teachers.'
+                : 'View teachers assigned to your zone.',
             onTap: () =>
                 Navigator.pushNamed(context, ProfesoresScreen.routeName),
+            accentColor: AppColors.success,
           ),
         ],
       ),

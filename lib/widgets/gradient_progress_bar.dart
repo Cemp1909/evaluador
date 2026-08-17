@@ -37,7 +37,7 @@ class GradientProgressBar extends StatelessWidget {
               gradient: LinearGradient(
                 colors: complete
                     ? const [Color(0xFF3A9A7B), AppColors.success]
-                    : const [Color(0xFF526897), AppColors.primaryLight],
+                    : const [AppColors.primaryLight, AppColors.accent],
               ),
               borderRadius: BorderRadius.circular(AppRadius.pill),
             ),

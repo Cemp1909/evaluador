@@ -14,6 +14,7 @@ import '../services/pdf_export_service.dart';
 import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bloque_card.dart';
+import '../widgets/app_brand_title.dart';
 import '../widgets/evidence_photos_card.dart';
 import '../widgets/signature_capture_dialog.dart';
 
@@ -82,7 +83,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Clase ${widget.plantilla.numero}'),
+          title: const AppBrandTitle(compact: true),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.of(context).pop(_evaluacion),
@@ -91,6 +92,11 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            Text(
+              'Clase ${widget.plantilla.numero}',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               'Marca cada contenido que se enseñó durante la clase.',
               style: Theme.of(context).textTheme.bodyLarge,
@@ -144,7 +150,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
                 ),
               ),
               child: Text(
-                widget.service.crearObservacionAutomatica(clase),
+                _crearObservacionAutomatica(clase),
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
             ),
@@ -163,12 +169,20 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
               controller: _observacionesController,
               minLines: 4,
               maxLines: 8,
+              textInputAction: TextInputAction.done,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Escribe aquí tus observaciones…',
                 alignLabelWithHint: true,
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  tooltip: 'Terminar de escribir',
+                  onPressed: () =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
+                  icon: const Icon(Icons.check_rounded),
+                ),
               ),
+              onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
               onChanged: (texto) {
                 _evaluacion = widget.service.actualizarObservaciones(
                   evaluacion: _evaluacion,
@@ -272,6 +286,29 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
     return null;
   }
 
+  String _crearObservacionAutomatica(EvaluacionClase clase) {
+    final pendientes = <String>[];
+    for (final bloque in clase.bloques) {
+      if (bloque.itemsMarcados.isEmpty) {
+        if (!bloque.marcado) {
+          pendientes.add('• ${bloque.bloqueNombre}: no se enseñó.');
+        }
+        continue;
+      }
+      final items = bloque.itemsMarcados.entries
+          .where((entry) => !entry.value)
+          .map((entry) => entry.key)
+          .toList();
+      if (items.isNotEmpty) {
+        pendientes.add('• ${bloque.bloqueNombre}: ${items.join(', ')}.');
+      }
+    }
+    if (pendientes.isEmpty) {
+      return 'Se enseñó todo el contenido programado.';
+    }
+    return 'No se enseñaron los siguientes contenidos:\n${pendientes.join('\n')}';
+  }
+
   Future<void> _exportarPdfClase() async {
     final clase = _buscarClase(_evaluacion);
     if (clase == null) return;
@@ -308,34 +345,17 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
   }
 
   Future<void> _agregarFirmaAsistente() async {
-    final nombreController = TextEditingController();
+    FocusManager.instance.primaryFocus?.unfocus();
     final nombre = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Docente asistente'),
-        content: TextField(
-          controller: nombreController,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(labelText: 'Nombre completo'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final valor = nombreController.text.trim();
-              if (valor.isNotEmpty) Navigator.pop(context, valor);
-            },
-            child: const Text('Continuar'),
-          ),
-        ],
-      ),
+      builder: (_) => const _NombreDocenteDialog(),
     );
-    nombreController.dispose();
     if (nombre == null || !mounted) return;
+
+    FocusManager.instance.primaryFocus?.unfocus();
+    await WidgetsBinding.instance.endOfFrame;
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (!mounted) return;
 
     final firma = await SignatureCaptureDialog.show(
       context,
@@ -409,13 +429,62 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
   }
 
   void _mostrarErrorPermiso(ImageSource source) {
-    final recurso = source == ImageSource.camera ? 'La cámara' : 'La galería';
+    final recurso = source == ImageSource.camera ? 'la cámara' : 'la galería';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           'Se necesita acceso a $recurso para agregar una foto. Actívalo en Configuración.',
         ),
       ),
+    );
+  }
+}
+
+class _NombreDocenteDialog extends StatefulWidget {
+  const _NombreDocenteDialog();
+
+  @override
+  State<_NombreDocenteDialog> createState() => _NombreDocenteDialogState();
+}
+
+class _NombreDocenteDialogState extends State<_NombreDocenteDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _continuar() {
+    final nombre = _controller.text.trim();
+    if (nombre.isEmpty) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    Navigator.of(context).pop(nombre);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Docente asistente'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.words,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _continuar(),
+        decoration: const InputDecoration(labelText: 'Nombre completo'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            FocusManager.instance.primaryFocus?.unfocus();
+            Navigator.of(context).pop();
+          },
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _continuar, child: const Text('Continuar')),
+      ],
     );
   }
 }

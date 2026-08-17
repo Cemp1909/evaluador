@@ -9,12 +9,18 @@ class HomeActionCard extends StatefulWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.badge,
+    this.accentColor,
+    this.prominent = false,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final String? badge;
+  final Color? accentColor;
+  final bool prominent;
 
   @override
   State<HomeActionCard> createState() => _HomeActionCardState();
@@ -27,6 +33,7 @@ class _HomeActionCardState extends State<HomeActionCard> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final accent = widget.accentColor ?? AppColors.accent;
     return Listener(
       onPointerDown: (_) => setState(() => _pressed = true),
       onPointerUp: (_) => setState(() => _pressed = false),
@@ -44,13 +51,23 @@ class _HomeActionCardState extends State<HomeActionCard> {
               child: Row(
                 children: [
                   Container(
-                    width: 56,
-                    height: 56,
+                    width: 4,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: accent,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Container(
+                    width: widget.prominent ? 48 : 56,
+                    height: widget.prominent ? 48 : 56,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: dark
-                            ? const [Color(0xFF293656), Color(0xFF202632)]
-                            : const [Color(0xFFE8EDFB), Color(0xFFF6F1FF)],
+                        colors: [
+                          accent.withValues(alpha: dark ? .22 : .18),
+                          accent.withValues(alpha: dark ? .08 : .06),
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -72,6 +89,27 @@ class _HomeActionCardState extends State<HomeActionCard> {
                           widget.subtitle,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
+                        if (widget.badge != null) ...[
+                          const SizedBox(height: AppSpacing.sm),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: dark ? .18 : .12),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.pill,
+                              ),
+                            ),
+                            child: Text(
+                              widget.badge!,
+                              style: Theme.of(
+                                context,
+                              ).textTheme.labelMedium?.copyWith(color: accent),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

@@ -35,6 +35,7 @@ class _ClaseCardState extends State<ClaseCard> {
         ? 0.0
         : widget.contenidosMarcados / widget.totalContenidos;
     final borderColor = _completa ? AppColors.success : scheme.outline;
+    final inProgress = widget.contenidosMarcados > 0 && !_completa;
 
     return Listener(
       onPointerDown: (_) => setState(() => _pressed = true),
@@ -56,6 +57,16 @@ class _ClaseCardState extends State<ClaseCard> {
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: Row(
                 children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 4,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _completa ? AppColors.success : AppColors.accent,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutCubic,
@@ -86,7 +97,7 @@ class _ClaseCardState extends State<ClaseCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Clase ${widget.numero}',
+                          'Class ${widget.numero}',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: AppSpacing.sm),
@@ -97,22 +108,65 @@ class _ClaseCardState extends State<ClaseCard> {
                         ),
                         const SizedBox(height: AppSpacing.xs),
                         Text(
-                          '${widget.contenidosMarcados} de ${widget.totalContenidos} contenidos realizados',
+                          '${widget.contenidosMarcados} of ${widget.totalContenidos} items completed',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: scheme.onSurfaceVariant,
+                  _StatusBadge(
+                    label: _completa
+                        ? 'Completed'
+                        : inProgress
+                        ? 'In progress'
+                        : 'Pending',
+                    color: _completa
+                        ? AppColors.success
+                        : inProgress
+                        ? AppColors.accent
+                        : scheme.onSurfaceVariant,
                   ),
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .11),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: color, fontSize: 10),
+          ),
+        ],
       ),
     );
   }
