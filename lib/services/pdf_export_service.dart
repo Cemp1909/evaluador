@@ -5,6 +5,7 @@ import 'package:printing/printing.dart';
 import 'package:flutter/services.dart';
 
 import '../models/evaluacion.dart';
+import '../models/evaluacion_bloque.dart';
 import '../models/evaluacion_clase.dart';
 import '../models/student_knowledge_report.dart';
 
@@ -56,7 +57,7 @@ class PdfExportService {
         ),
         footer: _piePagina,
         build: (_) => [
-          _tarjetaInformacion([
+          _tarjetaResumenClase([
             ('Evaluador', evaluador),
             (
               'Colegio',
@@ -220,23 +221,9 @@ class PdfExportService {
       'Clase ${clase.claseNumero} · $completos de $total contenidos realizados',
     );
     for (final bloque in clase.bloques) {
-      final items = bloque.itemsMarcados.entries
-          .map((item) => '${item.value ? '[X]' : '[ ]'} ${item.key}')
-          .join('\n');
-      yield pw.Container(
-        width: double.infinity,
-        margin: const pw.EdgeInsets.only(bottom: 8),
-        padding: const pw.EdgeInsets.all(9),
-        decoration: pw.BoxDecoration(
-          border: pw.Border.all(color: PdfColors.grey300),
-        ),
-        child: pw.Text(
-          '${bloque.marcado ? '[X]' : '[ ]'} ${bloque.bloqueNombre}'
-          '${items.isEmpty ? '' : '\n$items'}',
-        ),
-      );
+      yield _tarjetaBloqueClase(bloque);
     }
-    yield _seccion('Recomendación automática', _observacionAutomatica(clase));
+    yield _recomendacionClase(_observacionAutomatica(clase));
     yield _seccion(
       'Observaciones de la clase',
       clase.observaciones.trim().isEmpty
@@ -251,6 +238,212 @@ class PdfExportService {
     }
     yield pw.SizedBox(height: 12);
   }
+
+  pw.Widget _tarjetaResumenClase(List<(String, String)> values) => pw.Container(
+    width: double.infinity,
+    padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    decoration: pw.BoxDecoration(
+      color: PdfColors.white,
+      borderRadius: pw.BorderRadius.circular(9),
+      border: pw.Border.all(color: _outline, width: .8),
+      boxShadow: [
+        pw.BoxShadow(
+          color: PdfColor.fromHex('#E9EEEE'),
+          blurRadius: 4,
+          offset: const PdfPoint(0, -2),
+        ),
+      ],
+    ),
+    child: pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        for (var index = 0; index < values.length; index++) ...[
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  values[index].$1.toUpperCase(),
+                  style: pw.TextStyle(
+                    fontSize: 7.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: _textSecondary,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  values[index].$2,
+                  style: pw.TextStyle(fontSize: 9.5, color: _textPrimary),
+                ),
+              ],
+            ),
+          ),
+          if (index < values.length - 1) pw.SizedBox(width: 12),
+        ],
+      ],
+    ),
+  );
+
+  pw.Widget _tarjetaBloqueClase(EvaluacionBloque bloque) {
+    final items = bloque.itemsMarcados.entries.toList();
+    final total = items.isEmpty ? 1 : items.length;
+    final realizados = items.isEmpty
+        ? (bloque.marcado ? 1 : 0)
+        : items.where((item) => item.value).length;
+    return pw.Container(
+      width: double.infinity,
+      margin: const pw.EdgeInsets.only(bottom: 10),
+      padding: const pw.EdgeInsets.all(12),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.white,
+        borderRadius: pw.BorderRadius.circular(9),
+        border: pw.Border.all(color: _outline, width: .8),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            children: [
+              pw.Expanded(
+                child: pw.Text(
+                  bloque.bloqueNombre,
+                  style: pw.TextStyle(
+                    fontSize: 11,
+                    fontWeight: pw.FontWeight.bold,
+                    color: _textPrimary,
+                  ),
+                ),
+              ),
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 3,
+                ),
+                decoration: pw.BoxDecoration(
+                  color: realizados == total
+                      ? PdfColor.fromHex('#DDF3EC')
+                      : _background,
+                  borderRadius: pw.BorderRadius.circular(20),
+                ),
+                child: pw.Text(
+                  '$realizados/$total',
+                  style: pw.TextStyle(
+                    fontSize: 8,
+                    fontWeight: pw.FontWeight.bold,
+                    color: realizados == total ? _success : _textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 7),
+          pw.Divider(color: _outline, thickness: .6, height: 1),
+          pw.SizedBox(height: 7),
+          if (items.isEmpty)
+            _filaCheck(bloque.bloqueNombre, bloque.marcado)
+          else
+            for (final item in items) ...[
+              _filaCheck(item.key, item.value),
+              if (item != items.last) pw.SizedBox(height: 6),
+            ],
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _filaCheck(String texto, bool marcado) => pw.Row(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      pw.Container(
+        width: 11,
+        height: 11,
+        alignment: pw.Alignment.center,
+        decoration: pw.BoxDecoration(
+          color: marcado ? _primary : PdfColors.white,
+          borderRadius: pw.BorderRadius.circular(1.5),
+          border: pw.Border.all(
+            color: marcado ? _primary : _textSecondary,
+            width: .8,
+          ),
+        ),
+        child: marcado
+            ? pw.Text(
+                'X',
+                style: pw.TextStyle(
+                  color: PdfColors.white,
+                  fontSize: 6.5,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              )
+            : null,
+      ),
+      pw.SizedBox(width: 9),
+      pw.Expanded(
+        child: pw.Text(
+          texto,
+          style: pw.TextStyle(
+            fontSize: 9,
+            color: marcado ? _textPrimary : _textSecondary,
+          ),
+        ),
+      ),
+    ],
+  );
+
+  pw.Widget _recomendacionClase(String contenido) => pw.Container(
+    width: double.infinity,
+    margin: const pw.EdgeInsets.only(top: 5, bottom: 12),
+    padding: const pw.EdgeInsets.all(13),
+    decoration: pw.BoxDecoration(
+      color: PdfColor.fromHex('#FFF4E5'),
+      borderRadius: pw.BorderRadius.circular(8),
+      border: pw.Border.all(color: PdfColor.fromHex('#F7C98F'), width: .8),
+    ),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Row(
+          children: [
+            pw.Container(
+              width: 16,
+              height: 16,
+              alignment: pw.Alignment.center,
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: _accent, width: 1),
+                shape: pw.BoxShape.circle,
+              ),
+              child: pw.Text(
+                'i',
+                style: pw.TextStyle(
+                  color: _accent,
+                  fontSize: 8,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+            pw.SizedBox(width: 8),
+            pw.Text(
+              'Recomendación automática',
+              style: pw.TextStyle(
+                fontSize: 10.5,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColor.fromHex('#8A4B12'),
+              ),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 7),
+        pw.Text(
+          contenido,
+          style: pw.TextStyle(
+            fontSize: 9,
+            lineSpacing: 2.5,
+            color: _textPrimary,
+          ),
+        ),
+      ],
+    ),
+  );
 
   pw.Widget _encabezado(String titulo, pw.MemoryImage? logo) => pw.Container(
     margin: const pw.EdgeInsets.only(bottom: 20),
