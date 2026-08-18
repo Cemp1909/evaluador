@@ -37,8 +37,10 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
         widget.reporte,
         resumido: _resumido,
       ),
-      pdfFileName:
-          '${widget.reporte.id}_${_resumido ? 'resumido' : 'detallado'}.pdf',
+      pdfFileName: const PdfExportService().nombreArchivoReporte(
+        widget.reporte,
+        resumido: _resumido,
+      ),
       canChangePageFormat: false,
       canChangeOrientation: false,
       canDebug: false,

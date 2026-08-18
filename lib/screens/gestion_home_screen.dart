@@ -30,6 +30,25 @@ class GestionHomeScreen extends StatelessWidget {
     final sesion = context.watch<SesionProvider>();
     final usuario = sesion.usuarioActual;
     final esAdmin = rolEsperado == RolUsuario.administrador;
+    final reportes = sesion.reportesConocimiento;
+    final promedio = reportes.isEmpty
+        ? 0.0
+        : reportes.fold<double>(
+                0,
+                (total, reporte) => total + reporte.notaFinal,
+              ) /
+              reportes.length;
+    final contenidosCriticos = reportes.fold<int>(
+      0,
+      (total, reporte) =>
+          total +
+          reporte.resultadosContenido.values
+              .where((resultado) => resultado.name == 'noLogrado')
+              .length,
+    );
+    final pendientesAprobacion = reportes
+        .where((reporte) => !reporte.aprobadoPorCoordinador)
+        .length;
 
     return Scaffold(
       appBar: AppBar(
@@ -66,6 +85,42 @@ class GestionHomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           const LocalModeBanner(),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            'Indicadores de la sesión',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.8,
+            children: [
+              _IndicadorCard(
+                titulo: 'Evaluaciones',
+                valor: '${reportes.length}',
+                icono: Icons.assignment_turned_in_outlined,
+              ),
+              _IndicadorCard(
+                titulo: 'Nota promedio',
+                valor: reportes.isEmpty ? '—' : promedio.toStringAsFixed(1),
+                icono: Icons.analytics_outlined,
+              ),
+              _IndicadorCard(
+                titulo: 'Contenidos críticos',
+                valor: '$contenidosCriticos',
+                icono: Icons.warning_amber_rounded,
+              ),
+              _IndicadorCard(
+                titulo: 'Por aprobar',
+                valor: '$pendientesAprobacion',
+                icono: Icons.pending_actions_outlined,
+              ),
+            ],
+          ),
           const SizedBox(height: AppSpacing.xl),
           HomeActionCard(
             icon: Icons.assignment_turned_in_outlined,
@@ -123,4 +178,39 @@ class GestionHomeScreen extends StatelessWidget {
       context,
     ).pushNamedAndRemoveUntil(LoginScreen.routeName, (_) => false);
   }
+}
+
+class _IndicadorCard extends StatelessWidget {
+  const _IndicadorCard({
+    required this.titulo,
+    required this.valor,
+    required this.icono,
+  });
+
+  final String titulo;
+  final String valor;
+  final IconData icono;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Icon(icono),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(valor, style: Theme.of(context).textTheme.titleLarge),
+                Text(titulo, style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

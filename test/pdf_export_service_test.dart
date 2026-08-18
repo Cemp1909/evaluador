@@ -68,4 +68,31 @@ void main() {
       expect(bytes.length, greaterThan(1000));
     },
   );
+
+  test('crea un nombre profesional para el reporte estudiantil', () {
+    final reporte = StudentKnowledgeReport(
+      fechaHora: DateTime(2026, 8, 17),
+      docente: 'Laura',
+      profesorEvaluado: 'María Pérez',
+      colegio: 'Colegio Central',
+      grado: 'Transición',
+      periodo: 3,
+      evaluaciones: const {},
+      compromiso: 'Practicar',
+      nota: 4.5,
+      firmaColegio: '',
+      firmaDocenteColegio: '',
+      firmaDocenteCourseChild: '',
+    );
+
+    final nombre = const PdfExportService().nombreArchivoReporte(
+      reporte,
+      resumido: true,
+    );
+    expect(
+      nombre,
+      startsWith('CourseChild_maria_perez_transicion_P3_20260817'),
+    );
+    expect(nombre, endsWith('_resumido.pdf'));
+  });
 }

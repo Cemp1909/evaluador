@@ -43,6 +43,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Hello, Administrador'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -600));
+    await tester.pumpAndSettle();
     expect(find.text('Evaluations'), findsOneWidget);
     await tester.tap(find.text('Create teacher'));
     await tester.pumpAndSettle();
@@ -113,6 +115,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Hello, Coordinador de zona'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -600));
+    await tester.pumpAndSettle();
     expect(find.text('Evaluations'), findsOneWidget);
     await tester.tap(find.text('Evaluations'));
     await tester.pumpAndSettle();

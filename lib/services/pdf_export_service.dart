@@ -136,10 +136,15 @@ class PdfExportService {
     final bytes = await generarReporte(reporte);
     await Printing.sharePdf(
       bytes: bytes,
-      filename:
-          'student_knowledge_period_${reporte.periodo}_${_fechaArchivo(reporte.fechaHora)}.pdf',
+      filename: nombreArchivoReporte(reporte),
     );
   }
+
+  String nombreArchivoReporte(
+    StudentKnowledgeReport reporte, {
+    bool resumido = false,
+  }) =>
+      'CourseChild_${_archivo(reporte.profesorEvaluado)}_${_archivo(reporte.grado)}_P${reporte.periodo}_${_fechaArchivo(reporte.fechaHora)}${resumido ? '_resumido' : '_detallado'}.pdf';
 
   Future<Uint8List> generarReporte(
     StudentKnowledgeReport reporte, {
@@ -170,6 +175,12 @@ class PdfExportService {
             ('Grado', reporte.grado),
             ('Nota final', '${reporte.notaFinal.toStringAsFixed(1)} / 5,0'),
             ('Desempeño', reporte.desempeno),
+            (
+              'Aprobación',
+              reporte.aprobadoPorCoordinador
+                  ? 'Aprobado por ${reporte.nombreCoordinador}'
+                  : 'Pendiente de aprobación del coordinador',
+            ),
             (
               'Cobertura',
               '${reporte.contenidosEvaluados} de ${reporte.totalContenidos} contenidos evaluados',
@@ -214,9 +225,19 @@ class PdfExportService {
               ),
             ],
           ),
+          if (reporte.aprobadoPorCoordinador) ...[
+            pw.SizedBox(height: 12),
+            _tarjetaFirma(
+              '${reporte.nombreCoordinador} · Coordinador aprobador',
+              reporte.firmaCoordinador!,
+            ),
+          ],
           pw.NewPage(),
           _tituloSeccion('Evidencia fotográfica'),
-          _cuadriculaFotos(reporte.fotosEvidencia),
+          _cuadriculaFotos(
+            reporte.fotosEvidencia,
+            referencias: reporte.referenciasFotos,
+          ),
         ],
       ),
     );
@@ -842,7 +863,11 @@ class PdfExportService {
   pw.Widget _imagenes(List<String> values, {required double height}) =>
       _cuadriculaFotos(values, height: height);
 
-  pw.Widget _cuadriculaFotos(List<String> values, {double height = 205}) {
+  pw.Widget _cuadriculaFotos(
+    List<String> values, {
+    double height = 205,
+    List<String?> referencias = const [],
+  }) {
     final images = values.map(_imagen).whereType<pw.MemoryImage>().toList();
     if (images.isEmpty) {
       return pw.Container(
@@ -861,11 +886,11 @@ class PdfExportService {
     return pw.Wrap(
       spacing: 12,
       runSpacing: 12,
-      children: images
+      children: images.indexed
           .map(
-            (image) => pw.Container(
+            (entry) => pw.Container(
               width: 245,
-              height: height,
+              height: height + 24,
               padding: const pw.EdgeInsets.all(4),
               decoration: pw.BoxDecoration(
                 color: PdfColors.white,
@@ -879,10 +904,24 @@ class PdfExportService {
                   ),
                 ],
               ),
-              child: pw.ClipRRect(
-                horizontalRadius: 7,
-                verticalRadius: 7,
-                child: pw.Image(image, fit: pw.BoxFit.cover),
+              child: pw.Column(
+                children: [
+                  pw.Expanded(
+                    child: pw.ClipRRect(
+                      horizontalRadius: 7,
+                      verticalRadius: 7,
+                      child: pw.Image(entry.$2, fit: pw.BoxFit.cover),
+                    ),
+                  ),
+                  pw.SizedBox(height: 5),
+                  pw.Text(
+                    entry.$1 < referencias.length
+                        ? (referencias[entry.$1] ?? 'Evidencia general')
+                        : 'Evidencia general',
+                    maxLines: 1,
+                    style: pw.TextStyle(fontSize: 8, color: _textSecondary),
+                  ),
+                ],
               ),
             ),
           )
@@ -954,8 +993,20 @@ class PdfExportService {
       '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year} ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
   String _fechaArchivo(DateTime value) =>
       '${value.year}${value.month.toString().padLeft(2, '0')}${value.day.toString().padLeft(2, '0')}';
-  String _archivo(String value) =>
-      value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+  String _archivo(String value) {
+    final normalizado = value
+        .toLowerCase()
+        .replaceAll(RegExp('[áàäâ]'), 'a')
+        .replaceAll(RegExp('[éèëê]'), 'e')
+        .replaceAll(RegExp('[íìïî]'), 'i')
+        .replaceAll(RegExp('[óòöô]'), 'o')
+        .replaceAll(RegExp('[úùüû]'), 'u')
+        .replaceAll('ñ', 'n');
+    return normalizado
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+  }
+
   String _tituloTipo(String value) => switch (value) {
     'capacitacion_preescolar' => 'Capacitación Preescolar',
     'capacitacion_primaria' => 'Capacitación Primaria',

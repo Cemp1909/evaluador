@@ -40,11 +40,13 @@ class _StudentKnowledgeReportScreenState
   String _grado = 'Párvulos';
   final Map<String, ResultadoContenido> _resultados = {};
   final Set<String> _itemsHabilitados = {};
+  final Map<String, String> _comentariosContenido = {};
   String? _firmaColegio;
   String? _firmaDocenteColegio;
   String? _firmaCourseChild;
   final _imagePicker = ImagePicker();
   final List<String> _fotosEvidencia = [];
+  final List<String?> _referenciasFotos = [];
   bool _restaurandoBorrador = false;
 
   @override
@@ -83,6 +85,12 @@ class _StudentKnowledgeReportScreenState
       _fotosEvidencia
         ..clear()
         ..addAll(borrador.fotosEvidencia);
+      _comentariosContenido
+        ..clear()
+        ..addAll(borrador.comentariosContenido);
+      _referenciasFotos
+        ..clear()
+        ..addAll(borrador.referenciasFotos);
       _colegioController.text = borrador.colegio;
       _profesorEvaluadoController.text = borrador.profesorEvaluado;
       _compromisoController.text = borrador.compromiso;
@@ -107,6 +115,8 @@ class _StudentKnowledgeReportScreenState
         firmaDocenteColegio: _firmaDocenteColegio,
         firmaCourseChild: _firmaCourseChild,
         fotosEvidencia: List.unmodifiable(_fotosEvidencia),
+        comentariosContenido: Map.unmodifiable(_comentariosContenido),
+        referenciasFotos: List.unmodifiable(_referenciasFotos),
       ),
     );
   }
@@ -244,12 +254,34 @@ class _StudentKnowledgeReportScreenState
               'Selecciona el resultado observado en cada contenido. Los contenidos no evaluados no afectan la nota.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+            if (_pendientesPeriodoAnterior().isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Card(
+                color: Theme.of(context).colorScheme.tertiaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Pendientes del período anterior',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      for (final contenido in _pendientesPeriodoAnterior())
+                        Text('• $contenido'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             for (final categoria in plan.categorias) ...[
               _CategoriaPlanCard(
                 categoria: categoria,
                 periodo: _periodo,
                 resultados: _resultados,
+                comentarios: _comentariosContenido,
                 itemsHabilitados: _itemsHabilitados,
                 onHabilitar: (id) => setState(() {
                   _itemsHabilitados.add(id);
@@ -268,6 +300,7 @@ class _StudentKnowledgeReportScreenState
                 onMarcarTodos: (resultado) =>
                     _marcarCategoria(categoria, resultado),
                 onLimpiar: () => _limpiarCategoria(categoria),
+                onComentario: (id, item) => _editarComentario(id, item),
               ),
               const SizedBox(height: 14),
             ],
@@ -447,6 +480,7 @@ class _StudentKnowledgeReportScreenState
         final id = _idItem(_periodo, categoria.nombre, item);
         _itemsHabilitados.remove(id);
         _resultados.remove(id);
+        _comentariosContenido.remove(id);
       }
     });
     _guardarBorrador();
@@ -458,7 +492,10 @@ class _StudentKnowledgeReportScreenState
       '¿Deseas eliminar esta fotografía? Esta acción no se puede deshacer.',
     );
     if (!confirmar || !mounted) return;
-    setState(() => _fotosEvidencia.removeAt(index));
+    setState(() {
+      _fotosEvidencia.removeAt(index);
+      if (index < _referenciasFotos.length) _referenciasFotos.removeAt(index);
+    });
     _guardarBorrador();
   }
 
@@ -487,6 +524,45 @@ class _StudentKnowledgeReportScreenState
     ResultadoContenido.porReforzar => 'Por reforzar',
     ResultadoContenido.noLogrado => 'No logrado',
   };
+
+  Future<void> _editarComentario(String id, ItemPlanEstudio item) async {
+    final controller = TextEditingController(text: _comentariosContenido[id]);
+    final comentario = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Comentario · ${item.ingles}'),
+        content: TextField(
+          controller: controller,
+          minLines: 3,
+          maxLines: 5,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Ejemplo: Confunde blue con green.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (comentario == null || !mounted) return;
+    setState(() {
+      if (comentario.isEmpty) {
+        _comentariosContenido.remove(id);
+      } else {
+        _comentariosContenido[id] = comentario;
+      }
+    });
+    _guardarBorrador();
+  }
 
   void _guardar(String docente) {
     if (!_formKey.currentState!.validate()) return;
@@ -532,6 +608,10 @@ class _StudentKnowledgeReportScreenState
         firmaDocenteColegio: _firmaDocenteColegio!,
         firmaDocenteCourseChild: _firmaCourseChild!,
         fotosEvidencia: List.unmodifiable(_fotosEvidencia),
+        resultadosContenido: Map.unmodifiable(_resultados),
+        nombresContenido: _nombresContenido(),
+        comentariosContenido: Map.unmodifiable(_comentariosContenido),
+        referenciasFotos: List.unmodifiable(_referenciasFotos),
       );
 
   Map<String, String> _resumenEvaluacion() {
@@ -539,6 +619,13 @@ class _StudentKnowledgeReportScreenState
     return {
       for (final categoria in plan.categorias)
         categoria.nombre: _resumenCategoria(categoria),
+      if (_comentariosContenido.isNotEmpty)
+        'Comentarios individuales': _comentariosContenido.entries
+            .map(
+              (entry) =>
+                  '${_nombresContenido()[entry.key] ?? entry.key}: ${entry.value}',
+            )
+            .join('\n'),
       'Sugerencias automáticas': _sugerenciasAutomaticas(plan),
     };
   }
@@ -663,7 +750,9 @@ class _StudentKnowledgeReportScreenState
         final ubicacion = categoria.nombre == 'Vocabulary' && item.tema != null
             ? '${item.tema}: ${item.ingles}'
             : '${categoria.nombre}: ${item.ingles}';
-        porResultado[resultado]!.add(ubicacion);
+        porResultado[resultado]!.add(
+          '$ubicacion — ${_orientacionPedagogica(categoria.nombre, resultado)}',
+        );
       }
     }
 
@@ -699,6 +788,25 @@ class _StudentKnowledgeReportScreenState
       );
     }
     return sugerencias.join('\n\n');
+  }
+
+  String _orientacionPedagogica(
+    String categoria,
+    ResultadoContenido resultado,
+  ) {
+    final accion = switch (resultado) {
+      ResultadoContenido.logrado => 'mantener el avance',
+      ResultadoContenido.porReforzar => 'practicar y reforzar',
+      ResultadoContenido.noLogrado => 'estudiar nuevamente con acompañamiento',
+    };
+    return switch (categoria) {
+      'Songs' => '$accion mediante repetición, ritmo y pronunciación',
+      'Commands' => '$accion con instrucciones breves y respuesta física',
+      'Vocabulary' => '$accion con imágenes, objetos y tarjetas visuales',
+      'Dialogue' => '$accion mediante preguntas y respuestas guiadas',
+      'Grammar' => '$accion usando ejemplos y estructuras cortas',
+      _ => '$accion mediante actividades prácticas',
+    };
   }
 
   Future<void> _exportarPdf(String docente) async {
@@ -807,7 +915,12 @@ class _StudentKnowledgeReportScreenState
       }
       final fotoBase64 = base64Encode(await foto.readAsBytes());
       if (!mounted || _fotosEvidencia.length >= 2) return;
-      setState(() => _fotosEvidencia.add(fotoBase64));
+      final referencia = await _seleccionarReferenciaFoto();
+      if (!mounted) return;
+      setState(() {
+        _fotosEvidencia.add(fotoBase64);
+        _referenciasFotos.add(referencia);
+      });
       _guardarBorrador();
     } on PlatformException {
       if (mounted) _mostrarErrorPermiso(source);
@@ -821,6 +934,54 @@ class _StudentKnowledgeReportScreenState
     _mensaje(
       'Se necesita acceso a $recurso para agregar una foto. Actívalo en Configuración.',
     );
+  }
+
+  Future<String?> _seleccionarReferenciaFoto() async {
+    final opciones = _nombresContenido().entries
+        .where((entry) => _resultados.containsKey(entry.key))
+        .toList();
+    return showModalBottomSheet<String?>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.only(bottom: 20),
+          children: [
+            const ListTile(
+              title: Text('¿A qué contenido corresponde la foto?'),
+              subtitle: Text('Esta referencia aparecerá en el PDF.'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.collections_outlined),
+              title: const Text('Evidencia general'),
+              onTap: () => Navigator.pop(context, 'Evidencia general'),
+            ),
+            for (final opcion in opciones)
+              ListTile(
+                leading: const Icon(Icons.label_outline),
+                title: Text(opcion.value),
+                onTap: () => Navigator.pop(context, opcion.value),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Map<String, String> _nombresContenido() {
+    final plan = planesEstudioPorGrado[_grado]![_periodo]!;
+    return {
+      for (final categoria in plan.categorias)
+        for (final item in categoria.items)
+          _idItem(
+            _periodo,
+            categoria.nombre,
+            item,
+          ): categoria.nombre == 'Vocabulary' && item.tema != null
+              ? '${item.tema} · ${item.ingles}'
+              : '${categoria.nombre} · ${item.ingles}',
+    };
   }
 
   void _mensaje(String texto) {
@@ -887,6 +1048,31 @@ class _StudentKnowledgeReportScreenState
     }
     return pendientes;
   }
+
+  List<String> _pendientesPeriodoAnterior() {
+    if (_periodo <= 1 || _profesorEvaluadoController.text.trim().isEmpty) {
+      return const [];
+    }
+    final reportes = context.read<SesionProvider>().historialEstudiante(
+      _profesorEvaluadoController.text,
+    );
+    StudentKnowledgeReport? anterior;
+    for (final reporte in reportes) {
+      if (reporte.grado == _grado && reporte.periodo == _periodo - 1) {
+        anterior = reporte;
+        break;
+      }
+    }
+    if (anterior == null) return const [];
+    return anterior.resultadosContenido.entries
+        .where(
+          (entry) =>
+              entry.value == ResultadoContenido.noLogrado ||
+              entry.value == ResultadoContenido.porReforzar,
+        )
+        .map((entry) => anterior!.nombresContenido[entry.key] ?? entry.key)
+        .toList(growable: false);
+  }
 }
 
 String _idItem(int periodo, String categoria, ItemPlanEstudio item) =>
@@ -904,21 +1090,25 @@ class _CategoriaPlanCard extends StatelessWidget {
     required this.categoria,
     required this.periodo,
     required this.resultados,
+    required this.comentarios,
     required this.itemsHabilitados,
     required this.onHabilitar,
     required this.onChanged,
     required this.onMarcarTodos,
     required this.onLimpiar,
+    required this.onComentario,
   });
 
   final CategoriaPlanEstudio categoria;
   final int periodo;
   final Map<String, ResultadoContenido> resultados;
+  final Map<String, String> comentarios;
   final Set<String> itemsHabilitados;
   final ValueChanged<String> onHabilitar;
   final void Function(String id, ResultadoContenido? resultado) onChanged;
   final ValueChanged<ResultadoContenido> onMarcarTodos;
   final VoidCallback onLimpiar;
+  final void Function(String id, ItemPlanEstudio item) onComentario;
 
   @override
   Widget build(BuildContext context) {
@@ -932,120 +1122,111 @@ class _CategoriaPlanCard extends StatelessWidget {
     }).length;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 4,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
+      child: ExpansionTile(
+        initiallyExpanded: categoria.nombre == 'Commands',
+        leading: Icon(_iconoCategoria(categoria.nombre), color: color),
+        title: Text(
+          categoria.nombre,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        subtitle: Text(
+          '$completados de ${categoria.items.length} contenidos evaluados',
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              PopupMenuButton<ResultadoContenido>(
+                onSelected: onMarcarTodos,
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: ResultadoContenido.logrado,
+                    child: Text('Todo como Logrado'),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Icon(_iconoCategoria(categoria.nombre), color: color),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        categoria.nombre,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      Text(
-                        '$completados de ${categoria.items.length} contenidos evaluados',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
+                  PopupMenuItem(
+                    value: ResultadoContenido.porReforzar,
+                    child: Text('Todo como Por reforzar'),
                   ),
-                ),
-              ],
-            ),
-            const Divider(height: AppSpacing.lg),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                PopupMenuButton<ResultadoContenido>(
-                  onSelected: onMarcarTodos,
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
-                      value: ResultadoContenido.logrado,
-                      child: Text('Todo como Logrado'),
-                    ),
-                    PopupMenuItem(
-                      value: ResultadoContenido.porReforzar,
-                      child: Text('Todo como Por reforzar'),
-                    ),
-                    PopupMenuItem(
-                      value: ResultadoContenido.noLogrado,
-                      child: Text('Todo como No logrado'),
-                    ),
-                  ],
-                  child: const Chip(
-                    avatar: Icon(Icons.done_all_rounded, size: 18),
-                    label: Text('Evaluar todo el tema'),
+                  PopupMenuItem(
+                    value: ResultadoContenido.noLogrado,
+                    child: Text('Todo como No logrado'),
                   ),
-                ),
-                ActionChip(
-                  avatar: const Icon(Icons.restart_alt_rounded, size: 18),
-                  label: const Text('Limpiar'),
-                  onPressed: onLimpiar,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            for (var index = 0; index < categoria.items.length; index++) ...[
-              if (categoria.items[index].tema != null &&
-                  (index == 0 ||
-                      categoria.items[index - 1].tema !=
-                          categoria.items[index].tema)) ...[
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.only(
-                      top: AppSpacing.xs,
-                      bottom: AppSpacing.sm,
-                    ),
-                    child: Text(
-                      categoria.items[index].tema!,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-              _ItemPlanTile(
-                item: categoria.items[index],
-                habilitado: itemsHabilitados.contains(
-                  _idItem(periodo, categoria.nombre, categoria.items[index]),
-                ),
-                resultado:
-                    resultados[_idItem(
-                      periodo,
-                      categoria.nombre,
-                      categoria.items[index],
-                    )],
-                onHabilitar: () => onHabilitar(
-                  _idItem(periodo, categoria.nombre, categoria.items[index]),
-                ),
-                onChanged: (value) => onChanged(
-                  _idItem(periodo, categoria.nombre, categoria.items[index]),
-                  value,
+                ],
+                child: const Chip(
+                  avatar: Icon(Icons.done_all_rounded, size: 18),
+                  label: Text('Evaluar todo el tema'),
                 ),
               ),
-              if (index != categoria.items.length - 1)
-                const SizedBox(height: AppSpacing.xs),
+              ActionChip(
+                avatar: const Icon(Icons.restart_alt_rounded, size: 18),
+                label: const Text('Limpiar'),
+                onPressed: onLimpiar,
+              ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          for (var index = 0; index < categoria.items.length; index++) ...[
+            if (categoria.items[index].tema != null &&
+                (index == 0 ||
+                    categoria.items[index - 1].tema !=
+                        categoria.items[index].tema)) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    top: AppSpacing.xs,
+                    bottom: AppSpacing.sm,
+                  ),
+                  child: Text(
+                    categoria.items[index].tema!,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            _ItemPlanTile(
+              item: categoria.items[index],
+              comentario:
+                  comentarios[_idItem(
+                    periodo,
+                    categoria.nombre,
+                    categoria.items[index],
+                  )],
+              habilitado: itemsHabilitados.contains(
+                _idItem(periodo, categoria.nombre, categoria.items[index]),
+              ),
+              resultado:
+                  resultados[_idItem(
+                    periodo,
+                    categoria.nombre,
+                    categoria.items[index],
+                  )],
+              onHabilitar: () => onHabilitar(
+                _idItem(periodo, categoria.nombre, categoria.items[index]),
+              ),
+              onChanged: (value) => onChanged(
+                _idItem(periodo, categoria.nombre, categoria.items[index]),
+                value,
+              ),
+              onComentario: () => onComentario(
+                _idItem(periodo, categoria.nombre, categoria.items[index]),
+                categoria.items[index],
+              ),
+            ),
+            if (index != categoria.items.length - 1)
+              const SizedBox(height: AppSpacing.xs),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -1056,15 +1237,19 @@ class _ItemPlanTile extends StatelessWidget {
     required this.item,
     required this.habilitado,
     required this.resultado,
+    required this.comentario,
     required this.onHabilitar,
     required this.onChanged,
+    required this.onComentario,
   });
 
   final ItemPlanEstudio item;
   final bool habilitado;
   final ResultadoContenido? resultado;
+  final String? comentario;
   final VoidCallback onHabilitar;
   final ValueChanged<ResultadoContenido?> onChanged;
+  final VoidCallback onComentario;
 
   @override
   Widget build(BuildContext context) {
@@ -1139,6 +1324,26 @@ class _ItemPlanTile extends StatelessWidget {
                   ),
                 ],
               ),
+            if (habilitado && resultado != null) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: onComentario,
+                icon: const Icon(Icons.comment_outlined, size: 18),
+                label: Text(
+                  comentario?.isNotEmpty == true
+                      ? 'Editar comentario'
+                      : 'Agregar comentario',
+                ),
+              ),
+              if (comentario?.isNotEmpty == true)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    comentario!,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+            ],
           ],
         ),
       ),

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/student_knowledge_report.dart';
 import '../providers/sesion_provider.dart';
 import 'pdf_preview_screen.dart';
+import 'comparacion_periodos_screen.dart';
 
 class HistorialEstudiantesScreen extends StatefulWidget {
   const HistorialEstudiantesScreen({super.key});
@@ -108,10 +109,19 @@ class _HistorialEstudiantesScreenState
                     '${reporte.colegio} · ${reporte.desempeno}',
                   ),
                   isThreeLine: true,
-                  trailing: const Icon(Icons.picture_as_pdf_outlined),
+                  trailing: IconButton(
+                    tooltip: 'Ver PDF',
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => PdfPreviewScreen(reporte: reporte),
+                      ),
+                    ),
+                  ),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => PdfPreviewScreen(reporte: reporte),
+                      builder: (_) =>
+                          ComparacionPeriodosScreen(reporteBase: reporte),
                     ),
                   ),
                 ),

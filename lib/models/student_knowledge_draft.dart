@@ -14,6 +14,8 @@ class StudentKnowledgeDraft {
     this.firmaDocenteColegio,
     this.firmaCourseChild,
     this.fotosEvidencia = const [],
+    this.comentariosContenido = const {},
+    this.referenciasFotos = const [],
   });
 
   final DateTime actualizadoEn;
@@ -28,4 +30,6 @@ class StudentKnowledgeDraft {
   final String? firmaDocenteColegio;
   final String? firmaCourseChild;
   final List<String> fotosEvidencia;
+  final Map<String, String> comentariosContenido;
+  final List<String?> referenciasFotos;
 }

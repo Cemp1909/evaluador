@@ -51,6 +51,13 @@ class StudentKnowledgeReport {
     required this.firmaDocenteColegio,
     required this.firmaDocenteCourseChild,
     this.fotosEvidencia = const [],
+    this.resultadosContenido = const {},
+    this.nombresContenido = const {},
+    this.comentariosContenido = const {},
+    this.referenciasFotos = const [],
+    this.firmaCoordinador,
+    this.nombreCoordinador,
+    this.fechaAprobacion,
   });
 
   final String id;
@@ -71,6 +78,15 @@ class StudentKnowledgeReport {
   final String firmaDocenteColegio;
   final String firmaDocenteCourseChild;
   final List<String> fotosEvidencia;
+  final Map<String, ResultadoContenido> resultadosContenido;
+  final Map<String, String> nombresContenido;
+  final Map<String, String> comentariosContenido;
+  final List<String?> referenciasFotos;
+  final String? firmaCoordinador;
+  final String? nombreCoordinador;
+  final DateTime? fechaAprobacion;
+
+  bool get aprobadoPorCoordinador => firmaCoordinador?.isNotEmpty == true;
 
   double get notaFinal =>
       nota ??
@@ -82,4 +98,36 @@ class StudentKnowledgeReport {
       };
 
   String get desempeno => desempenoParaNota(notaFinal, configuracionNotas);
+
+  StudentKnowledgeReport copyWith({
+    String? firmaCoordinador,
+    String? nombreCoordinador,
+    DateTime? fechaAprobacion,
+  }) => StudentKnowledgeReport(
+    id: id,
+    fechaHora: fechaHora,
+    docente: docente,
+    profesorEvaluado: profesorEvaluado,
+    colegio: colegio,
+    grado: grado,
+    periodo: periodo,
+    evaluaciones: evaluaciones,
+    compromiso: compromiso,
+    nota: nota,
+    calificacion: calificacion,
+    contenidosEvaluados: contenidosEvaluados,
+    totalContenidos: totalContenidos,
+    configuracionNotas: configuracionNotas,
+    firmaColegio: firmaColegio,
+    firmaDocenteColegio: firmaDocenteColegio,
+    firmaDocenteCourseChild: firmaDocenteCourseChild,
+    fotosEvidencia: fotosEvidencia,
+    resultadosContenido: resultadosContenido,
+    nombresContenido: nombresContenido,
+    comentariosContenido: comentariosContenido,
+    referenciasFotos: referenciasFotos,
+    firmaCoordinador: firmaCoordinador ?? this.firmaCoordinador,
+    nombreCoordinador: nombreCoordinador ?? this.nombreCoordinador,
+    fechaAprobacion: fechaAprobacion ?? this.fechaAprobacion,
+  );
 }

@@ -62,6 +62,26 @@ class SesionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  String? aprobarReporteConocimiento({
+    required String reporteId,
+    required String firma,
+  }) {
+    if (_usuarioActual?.rol != RolUsuario.coordinador) {
+      return 'Solo un coordinador puede aprobar este reporte.';
+    }
+    final index = _reportesConocimiento.indexWhere(
+      (reporte) => reporte.id == reporteId,
+    );
+    if (index == -1) return 'Reporte no encontrado.';
+    _reportesConocimiento[index] = _reportesConocimiento[index].copyWith(
+      firmaCoordinador: firma,
+      nombreCoordinador: _usuarioActual!.nombre,
+      fechaAprobacion: DateTime.now(),
+    );
+    notifyListeners();
+    return null;
+  }
+
   String? iniciarSesion({required String usuario, required String password}) {
     final usuarioNormalizado = usuario.trim().toLowerCase();
     _usuarioActual = null;

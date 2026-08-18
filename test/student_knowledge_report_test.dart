@@ -69,4 +69,42 @@ void main() {
     expect(sesion.reportesConocimiento.single.fotosEvidencia, hasLength(2));
     expect(sesion.historialEstudiante('maría gonzález'), hasLength(1));
   });
+
+  test('el coordinador aprueba y firma un reporte guardado', () {
+    final sesion = SesionProvider(AuthConfig.test);
+    sesion.guardarReporteConocimiento(
+      StudentKnowledgeReport(
+        id: 'CC-PRUEBA',
+        fechaHora: DateTime(2026, 8, 17),
+        docente: 'Evaluador',
+        profesorEvaluado: 'Laura',
+        colegio: 'Colegio Central',
+        grado: 'Jardín',
+        periodo: 2,
+        evaluaciones: const {},
+        compromiso: 'Practicar',
+        nota: 4.2,
+        firmaColegio: 'firma-1',
+        firmaDocenteColegio: 'firma-2',
+        firmaDocenteCourseChild: 'firma-3',
+      ),
+    );
+
+    expect(
+      sesion.aprobarReporteConocimiento(
+        reporteId: 'CC-PRUEBA',
+        firma: 'firma-coordinador',
+      ),
+      contains('Solo un coordinador'),
+    );
+    sesion.iniciarSesion(usuario: 'coordinador', password: 'cambiar_esto');
+    expect(
+      sesion.aprobarReporteConocimiento(
+        reporteId: 'CC-PRUEBA',
+        firma: 'firma-coordinador',
+      ),
+      isNull,
+    );
+    expect(sesion.reportesConocimiento.single.aprobadoPorCoordinador, isTrue);
+  });
 }
