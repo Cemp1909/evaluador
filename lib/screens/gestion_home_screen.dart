@@ -12,6 +12,8 @@ import 'evaluador_selection_screen.dart';
 import 'login_screen.dart';
 import 'profesores_screen.dart';
 import 'configuracion_notas_screen.dart';
+import 'panel_colegios_screen.dart';
+import 'agenda_visitas_screen.dart';
 
 class GestionHomeScreen extends StatelessWidget {
   const GestionHomeScreen.admin({super.key})
@@ -153,6 +155,24 @@ class GestionHomeScreen extends StatelessWidget {
             onTap: () =>
                 Navigator.pushNamed(context, ProfesoresScreen.routeName),
             accentColor: AppColors.success,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          HomeActionCard(
+            icon: Icons.domain_outlined,
+            title: 'Panel de colegios',
+            subtitle: 'Consulta resultados consolidados por institución.',
+            onTap: () =>
+                Navigator.pushNamed(context, PanelColegiosScreen.routeName),
+            accentColor: AppColors.primary,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          HomeActionCard(
+            icon: Icons.calendar_month_outlined,
+            title: 'Agenda de evaluaciones',
+            subtitle: 'Programa visitas y seguimientos por colegio.',
+            onTap: () =>
+                Navigator.pushNamed(context, AgendaVisitasScreen.routeName),
+            accentColor: AppColors.accent,
           ),
           if (esAdmin) ...[
             const SizedBox(height: AppSpacing.md),

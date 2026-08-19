@@ -13,6 +13,8 @@ import 'screens/profesores_screen.dart';
 import 'screens/student_knowledge_report_screen.dart';
 import 'screens/configuracion_notas_screen.dart';
 import 'screens/historial_estudiantes_screen.dart';
+import 'screens/panel_colegios_screen.dart';
+import 'screens/agenda_visitas_screen.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -65,6 +67,7 @@ class EvaluadorApp extends StatelessWidget {
         theme: AppTheme.light,
         darkTheme: AppTheme.dark,
         themeMode: ThemeMode.light,
+        builder: (context, child) => _ProteccionSesion(child: child!),
         initialRoute: LoginScreen.routeName,
         routes: {
           LoginScreen.routeName: (_) => const LoginScreen(),
@@ -84,8 +87,85 @@ class EvaluadorApp extends StatelessWidget {
               const ConfiguracionNotasScreen(),
           HistorialEstudiantesScreen.routeName: (_) =>
               const HistorialEstudiantesScreen(),
+          PanelColegiosScreen.routeName: (_) => const PanelColegiosScreen(),
+          AgendaVisitasScreen.routeName: (_) => const AgendaVisitasScreen(),
         },
       ),
     );
   }
+}
+
+class _ProteccionSesion extends StatefulWidget {
+  const _ProteccionSesion({required this.child});
+  final Widget child;
+
+  @override
+  State<_ProteccionSesion> createState() => _ProteccionSesionState();
+}
+
+class _ProteccionSesionState extends State<_ProteccionSesion>
+    with WidgetsBindingObserver {
+  DateTime? _salioEn;
+  bool _ocultarContenido = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _salioEn ??= DateTime.now();
+      if (mounted) setState(() => _ocultarContenido = true);
+      return;
+    }
+    if (state != AppLifecycleState.resumed) return;
+    final tiempoFuera = _salioEn == null
+        ? Duration.zero
+        : DateTime.now().difference(_salioEn!);
+    _salioEn = null;
+    if (mounted) setState(() => _ocultarContenido = false);
+    if (tiempoFuera >= const Duration(minutes: 5) &&
+        context.read<SesionProvider>().estaAutenticado) {
+      context.read<SesionProvider>().cerrarSesion();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(LoginScreen.routeName, (_) => false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('La sesión se cerró por seguridad.')),
+        );
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      widget.child,
+      if (_ocultarContenido)
+        const ColoredBox(
+          color: AppColors.primary,
+          child: Center(
+            child: Icon(
+              Icons.lock_outline_rounded,
+              color: Colors.white,
+              size: 52,
+            ),
+          ),
+        ),
+    ],
+  );
 }

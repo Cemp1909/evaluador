@@ -48,6 +48,7 @@ class _StudentKnowledgeReportScreenState
   final List<String> _fotosEvidencia = [];
   final List<String?> _referenciasFotos = [];
   bool _restaurandoBorrador = false;
+  bool _modoRapido = false;
 
   @override
   void initState() {
@@ -245,6 +246,18 @@ class _StudentKnowledgeReportScreenState
               }),
             ),
             const SizedBox(height: 28),
+            Card(
+              child: SwitchListTile(
+                value: _modoRapido,
+                onChanged: (value) => setState(() => _modoRapido = value),
+                secondary: const Icon(Icons.bolt_rounded),
+                title: const Text('Modo de evaluación rápida'),
+                subtitle: const Text(
+                  'Muestra las tres calificaciones directamente y reduce los toques necesarios.',
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             Text(
               'Plan de estudio · Período $_periodo',
               style: Theme.of(context).textTheme.headlineSmall,
@@ -283,6 +296,7 @@ class _StudentKnowledgeReportScreenState
                 resultados: _resultados,
                 comentarios: _comentariosContenido,
                 itemsHabilitados: _itemsHabilitados,
+                modoRapido: _modoRapido,
                 onHabilitar: (id) => setState(() {
                   _itemsHabilitados.add(id);
                   _guardarBorrador();
@@ -564,7 +578,7 @@ class _StudentKnowledgeReportScreenState
     _guardarBorrador();
   }
 
-  void _guardar(String docente) {
+  Future<void> _guardar(String docente) async {
     if (!_formKey.currentState!.validate()) return;
     if (_resultados.isEmpty) {
       _mensaje('Evalúa al menos un contenido para calcular la nota.');
@@ -577,15 +591,61 @@ class _StudentKnowledgeReportScreenState
       return;
     }
 
-    context.read<SesionProvider>().guardarReporteConocimiento(
-      _crearReporte(docente),
-    );
+    final reporte = _crearReporte(docente);
+    if (!await _confirmarRevision(reporte) || !mounted) return;
+    context.read<SesionProvider>().guardarReporteConocimiento(reporte);
     context.read<SesionProvider>().descartarBorradorConocimiento();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Reporte guardado correctamente.')),
     );
     Navigator.pop(context);
   }
+
+  Future<bool> _confirmarRevision(StudentKnowledgeReport reporte) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Resumen antes de finalizar'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Docente evaluado: ${reporte.profesorEvaluado}'),
+                Text('Colegio: ${reporte.colegio}'),
+                Text('${reporte.grado} · Período ${reporte.periodo}'),
+                const Divider(height: 24),
+                Text('Nota: ${reporte.notaFinal.toStringAsFixed(1)} / 5,0'),
+                Text('Desempeño: ${reporte.desempeno}'),
+                Text(
+                  'Evaluados: ${reporte.contenidosEvaluados} de ${reporte.totalContenidos}',
+                ),
+                Text(
+                  'Contenido pendiente: ${reporte.totalContenidos - reporte.contenidosEvaluados}',
+                ),
+                Text('Firmas: 3 completas'),
+                Text('Fotos: ${reporte.fotosEvidencia.length} de 2'),
+                const SizedBox(height: 12),
+                const Text(
+                  'Confirma que los datos corresponden a la visita realizada.',
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Volver y revisar'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(context, true),
+              icon: const Icon(Icons.check_rounded),
+              label: const Text('Finalizar reporte'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
 
   StudentKnowledgeReport _crearReporte(String docente) =>
       StudentKnowledgeReport(
@@ -1092,6 +1152,7 @@ class _CategoriaPlanCard extends StatelessWidget {
     required this.resultados,
     required this.comentarios,
     required this.itemsHabilitados,
+    required this.modoRapido,
     required this.onHabilitar,
     required this.onChanged,
     required this.onMarcarTodos,
@@ -1104,6 +1165,7 @@ class _CategoriaPlanCard extends StatelessWidget {
   final Map<String, ResultadoContenido> resultados;
   final Map<String, String> comentarios;
   final Set<String> itemsHabilitados;
+  final bool modoRapido;
   final ValueChanged<String> onHabilitar;
   final void Function(String id, ResultadoContenido? resultado) onChanged;
   final ValueChanged<ResultadoContenido> onMarcarTodos;
@@ -1205,6 +1267,7 @@ class _CategoriaPlanCard extends StatelessWidget {
               habilitado: itemsHabilitados.contains(
                 _idItem(periodo, categoria.nombre, categoria.items[index]),
               ),
+              modoRapido: modoRapido,
               resultado:
                   resultados[_idItem(
                     periodo,
@@ -1236,6 +1299,7 @@ class _ItemPlanTile extends StatelessWidget {
   const _ItemPlanTile({
     required this.item,
     required this.habilitado,
+    required this.modoRapido,
     required this.resultado,
     required this.comentario,
     required this.onHabilitar,
@@ -1245,6 +1309,7 @@ class _ItemPlanTile extends StatelessWidget {
 
   final ItemPlanEstudio item;
   final bool habilitado;
+  final bool modoRapido;
   final ResultadoContenido? resultado;
   final String? comentario;
   final VoidCallback onHabilitar;
@@ -1288,7 +1353,7 @@ class _ItemPlanTile extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             const SizedBox(height: 8),
-            if (!habilitado)
+            if (!habilitado && !modoRapido)
               OutlinedButton.icon(
                 onPressed: onHabilitar,
                 icon: const Icon(Icons.fact_check_outlined),
@@ -1368,8 +1433,14 @@ class _ResultadoChip extends StatelessWidget {
   Widget build(BuildContext context) => ChoiceChip(
     selected: selected,
     onSelected: (_) => onTap(),
-    avatar: Icon(icon, size: 17),
-    label: Text(label),
+    avatar: Icon(icon, size: 17, color: AppColors.textPrimary),
+    label: Text(
+      label,
+      style: const TextStyle(
+        color: AppColors.textPrimary,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
     visualDensity: VisualDensity.compact,
   );
 }

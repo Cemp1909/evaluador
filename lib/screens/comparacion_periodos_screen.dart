@@ -22,6 +22,14 @@ class ComparacionPeriodosScreen extends StatelessWidget {
             .toList()
           ..sort((a, b) => a.periodo.compareTo(b.periodo));
     final puedeAprobar = sesion.usuarioActual?.rol == RolUsuario.coordinador;
+    final categorias =
+        reportes
+            .expand((reporte) => reporte.resultadosContenido.keys)
+            .map(_categoriaDesdeId)
+            .toSet()
+            .toList()
+          ..sort();
+    final alertas = _alertasRepetidas(reportes);
     return Scaffold(
       appBar: AppBar(title: const Text('Comparación entre períodos')),
       body: ListView(
@@ -36,6 +44,66 @@ class ComparacionPeriodosScreen extends StatelessWidget {
           for (final periodo in [1, 2, 3, 4]) ...[
             _barraPeriodo(context, periodo, _reportePeriodo(reportes, periodo)),
             const SizedBox(height: 12),
+          ],
+          if (categorias.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Text(
+              'Evolución por categoría',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 10),
+            for (final categoria in categorias)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        categoria,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final periodo in [1, 2, 3, 4])
+                            Chip(
+                              label: Text(
+                                'P$periodo: ${_notaCategoria(_reportePeriodo(reportes, periodo), categoria)}',
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+          if (alertas.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Card(
+              color: Theme.of(context).colorScheme.errorContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Alertas pedagógicas',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Estos contenidos aparecen como no logrados en dos o más períodos:',
+                    ),
+                    const SizedBox(height: 6),
+                    for (final alerta in alertas) Text('• $alerta'),
+                  ],
+                ),
+              ),
+            ),
           ],
           const SizedBox(height: 14),
           Text('Reportes', style: Theme.of(context).textTheme.titleLarge),
@@ -131,5 +199,41 @@ class ComparacionPeriodosScreen extends StatelessWidget {
         content: Text(error ?? 'Reporte aprobado y firmado correctamente.'),
       ),
     );
+  }
+
+  String _categoriaDesdeId(String id) {
+    final partes = id.split('|');
+    return partes.length > 1 ? partes[1] : 'General';
+  }
+
+  String _notaCategoria(StudentKnowledgeReport? reporte, String categoria) {
+    if (reporte == null) return '—';
+    final resultados = reporte.resultadosContenido.entries
+        .where((entry) => _categoriaDesdeId(entry.key) == categoria)
+        .map((entry) => entry.value)
+        .toList();
+    if (resultados.isEmpty) return '—';
+    return calcularNotaConocimiento(
+      resultados,
+      reporte.configuracionNotas,
+    ).toStringAsFixed(1);
+  }
+
+  List<String> _alertasRepetidas(List<StudentKnowledgeReport> reportes) {
+    final repeticiones = <String, int>{};
+    for (final reporte in reportes) {
+      final delPeriodo = <String>{};
+      for (final entry in reporte.resultadosContenido.entries) {
+        if (entry.value != ResultadoContenido.noLogrado) continue;
+        delPeriodo.add(reporte.nombresContenido[entry.key] ?? entry.key);
+      }
+      for (final nombre in delPeriodo) {
+        repeticiones[nombre] = (repeticiones[nombre] ?? 0) + 1;
+      }
+    }
+    return repeticiones.entries
+        .where((entry) => entry.value >= 2)
+        .map((entry) => '${entry.key} (${entry.value} períodos)')
+        .toList();
   }
 }

@@ -7,6 +7,7 @@ import '../models/configuracion_notas.dart';
 import '../models/student_knowledge_draft.dart';
 import '../models/student_knowledge_report.dart';
 import '../models/usuario_sesion.dart';
+import '../models/visita_programada.dart';
 
 class SesionProvider extends ChangeNotifier {
   SesionProvider(this._config);
@@ -15,6 +16,7 @@ class SesionProvider extends ChangeNotifier {
   final List<Profesor> _profesores = [];
   final List<StudentKnowledgeReport> _reportesConocimiento = [];
   final Map<String, Evaluacion> _borradoresEvaluacion = {};
+  final List<VisitaProgramada> _visitas = [];
   StudentKnowledgeDraft? _borradorConocimiento;
   ConfiguracionNotas _configuracionNotas = const ConfiguracionNotas();
   UsuarioSesion? _usuarioActual;
@@ -26,6 +28,190 @@ class SesionProvider extends ChangeNotifier {
   bool get estaAutenticado => _usuarioActual != null;
   StudentKnowledgeDraft? get borradorConocimiento => _borradorConocimiento;
   ConfiguracionNotas get configuracionNotas => _configuracionNotas;
+  List<VisitaProgramada> get visitas => List.unmodifiable(_visitas);
+
+  String? programarVisita(VisitaProgramada visita) {
+    final error = _validarVisita(visita, _visitas);
+    if (error != null) return error;
+    _visitas.add(visita);
+    _ordenarVisitas();
+    notifyListeners();
+    return null;
+  }
+
+  String? programarSerieClases(
+    VisitaProgramada inicial, {
+    int intervaloDias = 7,
+  }) {
+    if (inicial.numeroClase == null ||
+        inicial.tipo == 'Evaluación por colegio') {
+      return 'La programación automática solo está disponible para clases.';
+    }
+    final total = inicial.tipo == 'Capacitación preescolar' ? 6 : 11;
+    if (intervaloDias != 7 && intervaloDias != 14) {
+      return 'La frecuencia debe ser cada 8 o cada 15 días.';
+    }
+    final serie = <VisitaProgramada>[];
+    final serieId = inicial.id;
+    for (var clase = inicial.numeroClase!; clase <= total; clase++) {
+      final visita = VisitaProgramada(
+        id: '${inicial.id}-$clase',
+        fecha: inicial.fecha.add(
+          Duration(days: intervaloDias * (clase - inicial.numeroClase!)),
+        ),
+        colegio: inicial.colegio,
+        tipo: inicial.tipo,
+        profesorResponsable: inicial.profesorResponsable,
+        numeroClase: clase,
+        observacion: inicial.observacion,
+        serieId: serieId,
+        intervaloDias: intervaloDias,
+      );
+      final error = _validarVisita(visita, [..._visitas, ...serie]);
+      if (error != null) return 'No se pudo crear la serie: $error';
+      serie.add(visita);
+    }
+    _visitas.addAll(serie);
+    _ordenarVisitas();
+    notifyListeners();
+    return null;
+  }
+
+  String? _validarVisita(
+    VisitaProgramada visita,
+    Iterable<VisitaProgramada> existentes,
+  ) {
+    final colegio = visita.colegio.trim().toLowerCase();
+    final duplicada = existentes.any((existente) {
+      if (existente.colegio.trim().toLowerCase() != colegio) return false;
+      if (visita.periodo != null) {
+        return existente.periodo == visita.periodo;
+      }
+      return visita.numeroClase != null &&
+          existente.tipo == visita.tipo &&
+          existente.numeroClase == visita.numeroClase;
+    });
+    if (duplicada) {
+      return visita.periodo != null
+          ? 'El período ${visita.periodo} ya está programado para este colegio.'
+          : 'La clase ${visita.numeroClase} de ${visita.tipo.toLowerCase()} ya está programada para este colegio.';
+    }
+    final cruceHorario = existentes.any(
+      (existente) =>
+          !existente.cancelada &&
+          existente.fecha.year == visita.fecha.year &&
+          existente.fecha.month == visita.fecha.month &&
+          existente.fecha.day == visita.fecha.day &&
+          existente.fecha.hour == visita.fecha.hour &&
+          existente.fecha.minute == visita.fecha.minute,
+    );
+    if (cruceHorario) {
+      return 'Ese día y hora ya están reservados para otra actividad.';
+    }
+    return null;
+  }
+
+  void _ordenarVisitas() {
+    _visitas.sort((a, b) => a.fecha.compareTo(b.fecha));
+  }
+
+  void alternarVisita(String id) {
+    final index = _visitas.indexWhere((visita) => visita.id == id);
+    if (index == -1) return;
+    if (_visitas[index].cancelada) return;
+    _visitas[index] = _visitas[index].copyWith(
+      completada: !_visitas[index].completada,
+    );
+    notifyListeners();
+  }
+
+  void cancelarVisita(String id, String motivo) {
+    final index = _visitas.indexWhere((visita) => visita.id == id);
+    if (index == -1) return;
+    _visitas[index] = _visitas[index].copyWith(
+      cancelada: true,
+      completada: false,
+      motivoCancelacion: motivo.trim(),
+      ultimaNovedad: 'Cancelada: ${motivo.trim()}',
+    );
+    notifyListeners();
+  }
+
+  void reprogramarVisita(String id, DateTime fecha, {String? motivo}) {
+    final index = _visitas.indexWhere((visita) => visita.id == id);
+    if (index == -1) return;
+    _visitas[index] = _visitas[index].copyWith(
+      fecha: fecha,
+      cancelada: false,
+      completada: false,
+      motivoCancelacion: '',
+      ultimaNovedad: motivo?.trim().isNotEmpty == true
+          ? 'Reprogramada: ${motivo!.trim()}'
+          : 'Actividad reprogramada',
+    );
+    _visitas.sort((a, b) => a.fecha.compareTo(b.fecha));
+    notifyListeners();
+  }
+
+  void posponerSerieDesde(String id, String motivo) {
+    final indiceReferencia = _visitas.indexWhere((visita) => visita.id == id);
+    if (indiceReferencia == -1) return;
+    final referencia = _visitas[indiceReferencia];
+    if (referencia.serieId == null || referencia.numeroClase == null) {
+      cancelarVisita(id, motivo);
+      return;
+    }
+    final intervalo = referencia.intervaloDias ?? 7;
+    for (var index = 0; index < _visitas.length; index++) {
+      final visita = _visitas[index];
+      if (visita.serieId != referencia.serieId ||
+          visita.numeroClase == null ||
+          visita.numeroClase! < referencia.numeroClase!) {
+        continue;
+      }
+      _visitas[index] = visita.copyWith(
+        fecha: visita.fecha.add(Duration(days: intervalo)),
+        cancelada: false,
+        completada: false,
+        motivoCancelacion: '',
+        ultimaNovedad: visita.id == id
+            ? 'Clase pospuesta: ${motivo.trim()}'
+            : 'Fecha ajustada por reprogramación de la clase ${referencia.numeroClase}',
+      );
+    }
+    _ordenarVisitas();
+    notifyListeners();
+  }
+
+  void reprogramarSerieDesde(String id, DateTime nuevaFecha, {String? motivo}) {
+    final indiceReferencia = _visitas.indexWhere((visita) => visita.id == id);
+    if (indiceReferencia == -1) return;
+    final referencia = _visitas[indiceReferencia];
+    if (referencia.serieId == null || referencia.numeroClase == null) {
+      reprogramarVisita(id, nuevaFecha, motivo: motivo);
+      return;
+    }
+    final diferencia = nuevaFecha.difference(referencia.fecha);
+    for (var index = 0; index < _visitas.length; index++) {
+      final visita = _visitas[index];
+      if (visita.serieId != referencia.serieId ||
+          visita.numeroClase == null ||
+          visita.numeroClase! < referencia.numeroClase!) {
+        continue;
+      }
+      _visitas[index] = visita.copyWith(
+        fecha: visita.fecha.add(diferencia),
+        cancelada: false,
+        completada: false,
+        motivoCancelacion: '',
+        ultimaNovedad: visita.id == id
+            ? 'Clase reprogramada${motivo?.trim().isNotEmpty == true ? ': ${motivo!.trim()}' : ''}'
+            : 'Fecha ajustada por reprogramación de la clase ${referencia.numeroClase}',
+      );
+    }
+    _ordenarVisitas();
+    notifyListeners();
+  }
 
   Evaluacion? borradorEvaluacion(String tipo) => _borradoresEvaluacion[tipo];
 
