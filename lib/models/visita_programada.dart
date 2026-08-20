@@ -1,3 +1,12 @@
+enum EstadoVisita {
+  programada,
+  pendienteConfirmacion,
+  confirmada,
+  realizada,
+  cancelada,
+  reprogramada,
+}
+
 class VisitaProgramada {
   const VisitaProgramada({
     required this.id,
@@ -14,6 +23,10 @@ class VisitaProgramada {
     this.ultimaNovedad = '',
     this.serieId,
     this.intervaloDias,
+    this.duracionMinutos = 60,
+    this.profesoresAcompanantes = const [],
+    this.ubicacion = '',
+    this.estado = EstadoVisita.programada,
   });
 
   final String id;
@@ -30,6 +43,10 @@ class VisitaProgramada {
   final String ultimaNovedad;
   final String? serieId;
   final int? intervaloDias;
+  final int duracionMinutos;
+  final List<String> profesoresAcompanantes;
+  final String ubicacion;
+  final EstadoVisita estado;
 
   VisitaProgramada copyWith({
     DateTime? fecha,
@@ -37,12 +54,17 @@ class VisitaProgramada {
     bool? cancelada,
     String? motivoCancelacion,
     String? ultimaNovedad,
+    String? profesorResponsable,
+    List<String>? profesoresAcompanantes,
+    String? ubicacion,
+    int? duracionMinutos,
+    EstadoVisita? estado,
   }) => VisitaProgramada(
     id: id,
     fecha: fecha ?? this.fecha,
     colegio: colegio,
     tipo: tipo,
-    profesorResponsable: profesorResponsable,
+    profesorResponsable: profesorResponsable ?? this.profesorResponsable,
     periodo: periodo,
     numeroClase: numeroClase,
     observacion: observacion,
@@ -52,5 +74,10 @@ class VisitaProgramada {
     ultimaNovedad: ultimaNovedad ?? this.ultimaNovedad,
     serieId: serieId,
     intervaloDias: intervaloDias,
+    duracionMinutos: duracionMinutos ?? this.duracionMinutos,
+    profesoresAcompanantes:
+        profesoresAcompanantes ?? this.profesoresAcompanantes,
+    ubicacion: ubicacion ?? this.ubicacion,
+    estado: estado ?? this.estado,
   );
 }

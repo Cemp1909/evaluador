@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/visita_programada.dart';
 import '../providers/sesion_provider.dart';
@@ -15,17 +16,38 @@ class AgendaVisitasScreen extends StatefulWidget {
 
 class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
   DateTime? _diaSeleccionado;
+  int _vista = 0;
+  String? _tipoFiltro;
+  EstadoVisita? _estadoFiltro;
+  String _busqueda = '';
 
   @override
   Widget build(BuildContext context) {
-    final visitas = context.watch<SesionProvider>().visitas;
-    final visibles = _diaSeleccionado == null
-        ? visitas
-        : visitas
-              .where((visita) => _mismoDia(visita.fecha, _diaSeleccionado!))
-              .toList();
+    final sesion = context.watch<SesionProvider>();
+    final visitas = sesion.visitas;
+    final ahora = DateTime.now();
+    final recordatorios = sesion.actividadesProximas(
+      ahora,
+      ventana: const Duration(hours: 2),
+    );
+    final atrasadas = sesion.actividadesAtrasadas(ahora);
+    final visibles = _filtrar(visitas);
     return Scaffold(
-      appBar: AppBar(title: const Text('Agenda de evaluaciones')),
+      appBar: AppBar(
+        title: const Text('Agenda de evaluaciones'),
+        actions: [
+          IconButton(
+            tooltip: 'Bloquear fecha',
+            onPressed: () => _gestionarFechaBloqueada(context),
+            icon: const Icon(Icons.event_busy_outlined),
+          ),
+          IconButton(
+            tooltip: 'Filtros',
+            onPressed: () => _mostrarFiltros(context),
+            icon: const Icon(Icons.filter_list_rounded),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _crear(context),
         icon: const Icon(Icons.add_rounded),
@@ -34,105 +56,419 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
-          Card(
-            child: CalendarDatePicker(
-              initialDate: _diaSeleccionado ?? DateTime.now(),
-              firstDate: DateTime(2025),
-              lastDate: DateTime.now().add(const Duration(days: 730)),
-              onDateChanged: (fecha) =>
-                  setState(() => _diaSeleccionado = fecha),
+          SegmentedButton<int>(
+            segments: const [
+              ButtonSegment(value: 0, label: Text('Mes')),
+              ButtonSegment(value: 1, label: Text('Semana')),
+              ButtonSegment(value: 2, label: Text('Colegio')),
+              ButtonSegment(value: 3, label: Text('Profesor')),
+            ],
+            selected: {_vista},
+            onSelectionChanged: (value) => setState(() => _vista = value.first),
+          ),
+          const SizedBox(height: 16),
+          if (recordatorios.isNotEmpty)
+            _AvisoAgenda(
+              icon: Icons.notifications_active_outlined,
+              titulo: 'Recordatorio: actividad en menos de 2 horas',
+              detalle: recordatorios
+                  .map((visita) => '${visita.colegio} · ${_hora(visita.fecha)}')
+                  .join('\n'),
+              color: AppColors.pendingContainer,
+            ),
+          if (atrasadas.isNotEmpty)
+            _AvisoAgenda(
+              icon: Icons.warning_amber_rounded,
+              titulo: '${atrasadas.length} actividades atrasadas',
+              detalle: 'Revisa y marca como realizada, cancela o reprograma.',
+              color: Theme.of(context).colorScheme.errorContainer,
+            ),
+          if (_vista <= 1) ...[
+            Card(
+              child: CalendarDatePicker(
+                initialDate: _diaSeleccionado ?? DateTime.now(),
+                firstDate: DateTime(2025),
+                lastDate: DateTime.now().add(const Duration(days: 730)),
+                onDateChanged: (fecha) =>
+                    setState(() => _diaSeleccionado = fecha),
+              ),
+            ),
+            _IndicadoresCalendario(visitas: visitas),
+          ],
+          const SizedBox(height: 14),
+          TextField(
+            onChanged: (value) => setState(() => _busqueda = value),
+            decoration: const InputDecoration(
+              hintText: 'Buscar colegio, profesor o actividad',
+              prefixIcon: Icon(Icons.search_rounded),
             ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _diaSeleccionado == null
-                      ? 'Todas las actividades'
-                      : 'Actividades del ${_fecha(_diaSeleccionado!)}',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              if (_diaSeleccionado != null)
-                TextButton(
-                  onPressed: () => setState(() => _diaSeleccionado = null),
-                  child: const Text('Ver todas'),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (visibles.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32),
-              child: Center(child: Text('No hay actividades para esta fecha.')),
-            )
+          const SizedBox(height: 14),
+          if (_vista >= 2)
+            ..._grupos(context, visibles, porProfesor: _vista == 3)
+          else if (visibles.isEmpty)
+            const Center(child: Text('No hay actividades para esta selección.'))
           else
-            for (final visita in visibles) ...[
-              Card(
-                child: Column(
-                  children: [
-                    CheckboxListTile(
-                      value: visita.completada,
-                      onChanged: visita.cancelada
-                          ? null
-                          : (_) => context
-                                .read<SesionProvider>()
-                                .alternarVisita(visita.id),
-                      secondary: Icon(
-                        visita.cancelada
-                            ? Icons.event_busy_outlined
-                            : Icons.event_available_outlined,
-                      ),
-                      title: Row(
-                        children: [
-                          Expanded(child: Text(visita.colegio)),
-                          if (visita.cancelada)
-                            const Chip(label: Text('Cancelada')),
-                        ],
-                      ),
-                      subtitle: Text(
-                        '${_fecha(visita.fecha)} · ${_hora(visita.fecha)} · ${visita.tipo}'
-                        '\nProfesor responsable: ${visita.profesorResponsable}'
-                        '${visita.periodo == null ? '' : '\nPeríodo: ${visita.periodo}'}'
-                        '${visita.numeroClase == null ? '' : '\nClase número: ${visita.numeroClase}'}'
-                        '${visita.observacion.isEmpty ? '' : '\n${visita.observacion}'}'
-                        '${visita.cancelada ? '\nMotivo: ${visita.motivoCancelacion}' : ''}'
-                        '${!visita.cancelada && visita.ultimaNovedad.isNotEmpty ? '\nNovedad: ${visita.ultimaNovedad}' : ''}',
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => _reprogramar(context, visita),
-                              icon: const Icon(Icons.edit_calendar_outlined),
-                              label: const Text('Reprogramar'),
-                            ),
-                          ),
-                          if (!visita.cancelada) ...[
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextButton.icon(
-                                onPressed: () => _cancelar(context, visita),
-                                icon: const Icon(Icons.event_busy_outlined),
-                                label: const Text('Cancelar'),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
+            for (final visita in visibles) _tarjetaVisita(context, visita),
         ],
       ),
     );
+  }
+
+  List<VisitaProgramada> _filtrar(List<VisitaProgramada> visitas) {
+    return visitas
+        .where((visita) {
+          if (_tipoFiltro != null && visita.tipo != _tipoFiltro) return false;
+          if (_estadoFiltro != null && visita.estado != _estadoFiltro) {
+            return false;
+          }
+          final texto = _busqueda.trim().toLowerCase();
+          if (texto.isNotEmpty &&
+              !visita.colegio.toLowerCase().contains(texto) &&
+              !visita.profesorResponsable.toLowerCase().contains(texto) &&
+              !visita.tipo.toLowerCase().contains(texto)) {
+            return false;
+          }
+          if (_vista == 0 && _diaSeleccionado != null) {
+            return _mismoDia(visita.fecha, _diaSeleccionado!);
+          }
+          if (_vista == 1) {
+            final base = _diaSeleccionado ?? DateTime.now();
+            final inicio = DateTime(
+              base.year,
+              base.month,
+              base.day,
+            ).subtract(Duration(days: base.weekday - 1));
+            final fin = inicio.add(const Duration(days: 7));
+            return !visita.fecha.isBefore(inicio) && visita.fecha.isBefore(fin);
+          }
+          return true;
+        })
+        .toList(growable: false);
+  }
+
+  List<Widget> _grupos(
+    BuildContext context,
+    List<VisitaProgramada> visitas, {
+    required bool porProfesor,
+  }) {
+    final grupos = <String, List<VisitaProgramada>>{};
+    for (final visita in visitas) {
+      final clave = porProfesor ? visita.profesorResponsable : visita.colegio;
+      grupos.putIfAbsent(clave, () => []).add(visita);
+    }
+    final claves = grupos.keys.toList()..sort();
+    return [
+      for (final clave in claves)
+        Card(
+          child: ExpansionTile(
+            title: Text(clave),
+            subtitle: Text('${grupos[clave]!.length} actividades'),
+            childrenPadding: const EdgeInsets.all(12),
+            children: [
+              for (final visita in grupos[clave]!)
+                _tarjetaVisita(context, visita, interna: true),
+            ],
+          ),
+        ),
+    ];
+  }
+
+  Widget _tarjetaVisita(
+    BuildContext context,
+    VisitaProgramada visita, {
+    bool interna = false,
+  }) {
+    final color = _colorTipo(visita.tipo);
+    final contenido = Container(
+      margin: EdgeInsets.only(bottom: interna ? 10 : 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+        border: Border(left: BorderSide(color: color, width: 5)),
+      ),
+      child: Column(
+        children: [
+          if (visita.cancelada || visita.estado == EstadoVisita.cancelada)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.error,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppRadius.medium),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.cancel_rounded,
+                    color: Theme.of(context).colorScheme.onError,
+                    size: 30,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ACTIVIDAD CANCELADA',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.onError,
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                        if (visita.motivoCancelacion.isNotEmpty)
+                          Text(
+                            visita.motivoCancelacion,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.onError,
+                                ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: color.withValues(alpha: .15),
+              child: Icon(_iconoTipo(visita.tipo), color: color),
+            ),
+            title: Text(visita.colegio),
+            subtitle: Text(
+              '${_fecha(visita.fecha)} · ${_hora(visita.fecha)}–${_hora(visita.fecha.add(Duration(minutes: visita.duracionMinutos)))}'
+              '\n${visita.tipo} · ${_nombreEstado(visita.estado)}'
+              '\nProfesor: ${visita.profesorResponsable}'
+              '${visita.profesoresAcompanantes.isEmpty ? '' : '\nAcompañantes: ${visita.profesoresAcompanantes.join(', ')}'}'
+              '${visita.ubicacion.isEmpty ? '' : '\nLugar: ${visita.ubicacion}'}'
+              '${visita.periodo == null ? '' : '\nPeríodo: ${visita.periodo}'}'
+              '${visita.numeroClase == null ? '' : '\nClase: ${visita.numeroClase}'}'
+              '${visita.ultimaNovedad.isEmpty ? '' : '\nNovedad: ${visita.ultimaNovedad}'}',
+            ),
+            trailing: PopupMenuButton<EstadoVisita>(
+              tooltip: 'Cambiar estado',
+              onSelected: (estado) => context
+                  .read<SesionProvider>()
+                  .actualizarEstadoVisita(visita.id, estado),
+              itemBuilder: (_) => EstadoVisita.values
+                  .where((estado) => estado != EstadoVisita.cancelada)
+                  .map(
+                    (estado) => PopupMenuItem(
+                      value: estado,
+                      child: Text(_nombreEstado(estado)),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _editarResponsables(context, visita),
+                  icon: const Icon(Icons.manage_accounts_outlined),
+                  label: const Text('Responsables'),
+                ),
+                if (visita.ubicacion.isNotEmpty)
+                  OutlinedButton.icon(
+                    onPressed: () => _abrirMapa(visita.ubicacion),
+                    icon: const Icon(Icons.map_outlined),
+                    label: const Text('Mapa'),
+                  ),
+                OutlinedButton.icon(
+                  onPressed: () => _reprogramar(context, visita),
+                  icon: const Icon(Icons.edit_calendar_outlined),
+                  label: const Text('Reprogramar'),
+                ),
+                if (!visita.cancelada)
+                  TextButton.icon(
+                    onPressed: () => _cancelar(context, visita),
+                    icon: const Icon(Icons.event_busy_outlined),
+                    label: const Text('Cancelar'),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    return interna ? contenido : Card(child: contenido);
+  }
+
+  Future<void> _mostrarFiltros(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, modalSetState) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String?>(
+                initialValue: _tipoFiltro,
+                decoration: const InputDecoration(labelText: 'Tipo'),
+                items: const [
+                  DropdownMenuItem(value: null, child: Text('Todos')),
+                  DropdownMenuItem(
+                    value: 'Evaluación por colegio',
+                    child: Text('Evaluación'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Capacitación preescolar',
+                    child: Text('Preescolar'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Capacitación primaria',
+                    child: Text('Primaria'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'English Day',
+                    child: Text('English Day'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Ensayo de English Day',
+                    child: Text('Ensayo English Day'),
+                  ),
+                ],
+                onChanged: (value) => modalSetState(() => _tipoFiltro = value),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<EstadoVisita?>(
+                initialValue: _estadoFiltro,
+                decoration: const InputDecoration(labelText: 'Estado'),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('Todos')),
+                  for (final estado in EstadoVisita.values)
+                    DropdownMenuItem(
+                      value: estado,
+                      child: Text(_nombreEstado(estado)),
+                    ),
+                ],
+                onChanged: (value) =>
+                    modalSetState(() => _estadoFiltro = value),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () {
+                  setState(() {});
+                  Navigator.pop(context);
+                },
+                child: const Text('Aplicar filtros'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _gestionarFechaBloqueada(BuildContext context) async {
+    final fecha = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 730)),
+      helpText: 'Bloquear día no disponible',
+    );
+    if (fecha == null || !context.mounted) return;
+    context.read<SesionProvider>().bloquearFecha(fecha);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${_fecha(fecha)} quedó bloqueado.')),
+    );
+  }
+
+  Future<void> _editarResponsables(
+    BuildContext context,
+    VisitaProgramada visita,
+  ) async {
+    final profesor = TextEditingController(text: visita.profesorResponsable);
+    final acompanantes = TextEditingController(
+      text: visita.profesoresAcompanantes.join(', '),
+    );
+    final ubicacion = TextEditingController(text: visita.ubicacion);
+    final guardar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Responsables y ubicación'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: profesor,
+                decoration: const InputDecoration(
+                  labelText: 'Profesor responsable',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: acompanantes,
+                decoration: const InputDecoration(
+                  labelText: 'Profesores acompañantes',
+                  hintText: 'Separados por comas',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ubicacion,
+                decoration: const InputDecoration(
+                  labelText: 'Sede, dirección o punto de encuentro',
+                  prefixIcon: Icon(Icons.location_on_outlined),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    if (guardar == true && profesor.text.trim().isNotEmpty && context.mounted) {
+      context.read<SesionProvider>().actualizarResponsablesVisita(
+        id: visita.id,
+        profesor: profesor.text,
+        acompanantes: acompanantes.text
+            .split(',')
+            .map((nombre) => nombre.trim())
+            .where((nombre) => nombre.isNotEmpty)
+            .toList(),
+        ubicacion: ubicacion.text,
+      );
+    }
+    Future<void>.delayed(const Duration(milliseconds: 400), () {
+      profesor.dispose();
+      acompanantes.dispose();
+      ubicacion.dispose();
+    });
+  }
+
+  Future<void> _abrirMapa(String ubicacion) async {
+    final uri = Uri.https('www.google.com', '/maps/search/', {
+      'api': '1',
+      'query': ubicacion,
+    });
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+        mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir Google Maps.')),
+      );
+    }
   }
 
   Future<void> _cancelar(BuildContext context, VisitaProgramada visita) async {
@@ -198,7 +534,7 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
             visita.fecha.hour,
             visita.fecha.minute,
           );
-          context.read<SesionProvider>().reprogramarSerieDesde(
+          final error = context.read<SesionProvider>().reprogramarSerieDesde(
             visita.id,
             fechaConHora,
             motivo: motivo.text,
@@ -206,7 +542,8 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Actividad reprogramada para ${_fecha(fechaConHora)} a las ${_hora(fechaConHora)}. Motivo: ${motivo.text.trim()}',
+                error ??
+                    'Actividad reprogramada para ${_fecha(fechaConHora)} a las ${_hora(fechaConHora)}. Motivo: ${motivo.text.trim()}',
               ),
             ),
           );
@@ -215,10 +552,15 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
         if (visita.serieId == null) {
           context.read<SesionProvider>().cancelarVisita(visita.id, motivo.text);
         } else {
-          context.read<SesionProvider>().posponerSerieDesde(
+          final error = context.read<SesionProvider>().posponerSerieDesde(
             visita.id,
             motivo.text,
           );
+          if (error != null && context.mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(error)));
+          }
         }
       }
     }
@@ -246,14 +588,15 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
       visita.fecha.hour,
       visita.fecha.minute,
     );
-    context.read<SesionProvider>().reprogramarSerieDesde(
+    final error = context.read<SesionProvider>().reprogramarSerieDesde(
       visita.id,
       fechaConHora,
     );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Actividad reprogramada para ${_fecha(fechaConHora)} a las ${_hora(fechaConHora)}.',
+          error ??
+              'Actividad reprogramada para ${_fecha(fechaConHora)} a las ${_hora(fechaConHora)}.',
         ),
       ),
     );
@@ -262,12 +605,15 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
   Future<void> _crear(BuildContext context) async {
     final colegio = TextEditingController();
     final profesor = TextEditingController();
+    final acompanantes = TextEditingController();
+    final ubicacion = TextEditingController();
     final nota = TextEditingController();
     var tipo = 'Evaluación por colegio';
     var periodo = 1;
     var numeroClase = 1;
     var programarSerie = true;
     var intervaloDias = 7;
+    var duracionMinutos = 60;
     final manana = DateTime.now().add(const Duration(days: 1));
     var fecha = DateTime(manana.year, manana.month, manana.day, 8);
     final guardar = await showDialog<bool>(
@@ -294,6 +640,23 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                TextField(
+                  controller: acompanantes,
+                  decoration: const InputDecoration(
+                    labelText: 'Profesores acompañantes (opcional)',
+                    hintText: 'Separados por comas',
+                    prefixIcon: Icon(Icons.groups_outlined),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: ubicacion,
+                  decoration: const InputDecoration(
+                    labelText: 'Sede o dirección',
+                    prefixIcon: Icon(Icons.location_on_outlined),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: tipo,
                   decoration: const InputDecoration(labelText: 'Tipo'),
@@ -309,6 +672,14 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
                     DropdownMenuItem(
                       value: 'Capacitación primaria',
                       child: Text('Capacitación primaria'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'English Day',
+                      child: Text('English Day'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Ensayo de English Day',
+                      child: Text('Ensayo de English Day'),
                     ),
                   ],
                   onChanged: (value) => setState(() {
@@ -333,7 +704,8 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
                     ],
                     onChanged: (value) => periodo = value ?? 1,
                   )
-                else
+                else if (tipo == 'Capacitación preescolar' ||
+                    tipo == 'Capacitación primaria')
                   Column(
                     children: [
                       DropdownButtonFormField<int>(
@@ -386,6 +758,22 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
                         ),
                     ],
                   ),
+                if (tipo == 'English Day' || tipo == 'Ensayo de English Day')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.info_outline_rounded),
+                      title: Text(
+                        tipo == 'English Day'
+                            ? 'Máximo 3 fechas de English Day por colegio'
+                            : 'Máximo 3 ensayos de English Day por colegio',
+                      ),
+                      subtitle: const Text(
+                        'Cada fecha se programa individualmente.',
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -435,6 +823,26 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
                     }
                   },
                 ),
+                DropdownButtonFormField<int>(
+                  initialValue: duracionMinutos,
+                  decoration: const InputDecoration(
+                    labelText: 'Duración',
+                    prefixIcon: Icon(Icons.timelapse_rounded),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 30, child: Text('30 minutos')),
+                    DropdownMenuItem(value: 60, child: Text('1 hora')),
+                    DropdownMenuItem(
+                      value: 90,
+                      child: Text('1 hora 30 minutos'),
+                    ),
+                    DropdownMenuItem(value: 120, child: Text('2 horas')),
+                    DropdownMenuItem(value: 180, child: Text('3 horas')),
+                    DropdownMenuItem(value: 240, child: Text('4 horas')),
+                  ],
+                  onChanged: (value) => duracionMinutos = value ?? 60,
+                ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: nota,
                   decoration: const InputDecoration(
@@ -461,6 +869,8 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
         colegio.text.trim().isNotEmpty &&
         profesor.text.trim().isNotEmpty &&
         context.mounted) {
+      final esCapacitacion =
+          tipo == 'Capacitación preescolar' || tipo == 'Capacitación primaria';
       final visita = VisitaProgramada(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         fecha: fecha,
@@ -468,11 +878,19 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
         tipo: tipo,
         profesorResponsable: profesor.text.trim(),
         periodo: tipo == 'Evaluación por colegio' ? periodo : null,
-        numeroClase: tipo == 'Evaluación por colegio' ? null : numeroClase,
+        numeroClase: esCapacitacion ? numeroClase : null,
         observacion: nota.text.trim(),
+        duracionMinutos: duracionMinutos,
+        profesoresAcompanantes: acompanantes.text
+            .split(',')
+            .map((nombre) => nombre.trim())
+            .where((nombre) => nombre.isNotEmpty)
+            .toList(),
+        ubicacion: ubicacion.text.trim(),
+        estado: EstadoVisita.pendienteConfirmacion,
       );
       final sesion = context.read<SesionProvider>();
-      final error = tipo != 'Evaluación por colegio' && programarSerie
+      final error = esCapacitacion && programarSerie
           ? sesion.programarSerieClases(visita, intervaloDias: intervaloDias)
           : sesion.programarVisita(visita);
       if (error != null && context.mounted) {
@@ -481,7 +899,7 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
         ).showSnackBar(SnackBar(content: Text(error)));
       } else if (context.mounted) {
         final total = tipo == 'Capacitación preescolar' ? 6 : 11;
-        final cantidad = tipo != 'Evaluación por colegio' && programarSerie
+        final cantidad = esCapacitacion && programarSerie
             ? total - numeroClase + 1
             : 1;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -501,6 +919,8 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
     Future<void>.delayed(const Duration(milliseconds: 400), () {
       colegio.dispose();
       profesor.dispose();
+      acompanantes.dispose();
+      ubicacion.dispose();
       nota.dispose();
     });
   }
@@ -514,5 +934,102 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
   static String _hora(DateTime fecha) {
     final hora = fecha.hour % 12 == 0 ? 12 : fecha.hour % 12;
     return '$hora:${fecha.minute.toString().padLeft(2, '0')} ${fecha.hour >= 12 ? 'p. m.' : 'a. m.'}';
+  }
+}
+
+String _nombreEstado(EstadoVisita estado) => switch (estado) {
+  EstadoVisita.programada => 'Programada',
+  EstadoVisita.pendienteConfirmacion => 'Pendiente de confirmación',
+  EstadoVisita.confirmada => 'Confirmada',
+  EstadoVisita.realizada => 'Realizada',
+  EstadoVisita.cancelada => 'Cancelada',
+  EstadoVisita.reprogramada => 'Reprogramada',
+};
+
+Color _colorTipo(String tipo) => switch (tipo) {
+  'Evaluación por colegio' => AppColors.primary,
+  'Capacitación preescolar' => AppColors.accent,
+  'Capacitación primaria' => AppColors.success,
+  'English Day' => const Color(0xFF7357C8),
+  'Ensayo de English Day' => AppColors.warning,
+  _ => AppColors.neutral600,
+};
+
+IconData _iconoTipo(String tipo) => switch (tipo) {
+  'Evaluación por colegio' => Icons.fact_check_outlined,
+  'Capacitación preescolar' => Icons.child_care_outlined,
+  'Capacitación primaria' => Icons.menu_book_outlined,
+  'English Day' => Icons.celebration_outlined,
+  'Ensayo de English Day' => Icons.theater_comedy_outlined,
+  _ => Icons.event_outlined,
+};
+
+class _AvisoAgenda extends StatelessWidget {
+  const _AvisoAgenda({
+    required this.icon,
+    required this.titulo,
+    required this.detalle,
+    required this.color,
+  });
+  final IconData icon;
+  final String titulo;
+  final String detalle;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    color: color,
+    child: ListTile(
+      leading: Icon(icon),
+      title: Text(titulo),
+      subtitle: Text(detalle),
+    ),
+  );
+}
+
+class _IndicadoresCalendario extends StatelessWidget {
+  const _IndicadoresCalendario({required this.visitas});
+  final List<VisitaProgramada> visitas;
+
+  @override
+  Widget build(BuildContext context) {
+    final dias = <String, List<VisitaProgramada>>{};
+    for (final visita in visitas) {
+      final clave =
+          '${visita.fecha.year}-${visita.fecha.month}-${visita.fecha.day}';
+      dias.putIfAbsent(clave, () => []).add(visita);
+    }
+    final entradas = dias.entries.toList()
+      ..sort((a, b) => a.value.first.fecha.compareTo(b.value.first.fecha));
+    if (entradas.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Días con actividades',
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final entrada in entradas.take(12))
+                Chip(
+                  avatar: CircleAvatar(
+                    radius: 5,
+                    backgroundColor: _colorTipo(entrada.value.first.tipo),
+                  ),
+                  label: Text(
+                    '${entrada.value.first.fecha.day}/${entrada.value.first.fecha.month} · ${entrada.value.length}',
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

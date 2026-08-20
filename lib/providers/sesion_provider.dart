@@ -17,6 +17,7 @@ class SesionProvider extends ChangeNotifier {
   final List<StudentKnowledgeReport> _reportesConocimiento = [];
   final Map<String, Evaluacion> _borradoresEvaluacion = {};
   final List<VisitaProgramada> _visitas = [];
+  final Set<DateTime> _fechasBloqueadas = {};
   StudentKnowledgeDraft? _borradorConocimiento;
   ConfiguracionNotas _configuracionNotas = const ConfiguracionNotas();
   UsuarioSesion? _usuarioActual;
@@ -29,6 +30,17 @@ class SesionProvider extends ChangeNotifier {
   StudentKnowledgeDraft? get borradorConocimiento => _borradorConocimiento;
   ConfiguracionNotas get configuracionNotas => _configuracionNotas;
   List<VisitaProgramada> get visitas => List.unmodifiable(_visitas);
+  Set<DateTime> get fechasBloqueadas => Set.unmodifiable(_fechasBloqueadas);
+
+  void bloquearFecha(DateTime fecha) {
+    _fechasBloqueadas.add(DateTime(fecha.year, fecha.month, fecha.day));
+    notifyListeners();
+  }
+
+  void desbloquearFecha(DateTime fecha) {
+    _fechasBloqueadas.remove(DateTime(fecha.year, fecha.month, fecha.day));
+    notifyListeners();
+  }
 
   String? programarVisita(VisitaProgramada visita) {
     final error = _validarVisita(visita, _visitas);
@@ -66,6 +78,10 @@ class SesionProvider extends ChangeNotifier {
         observacion: inicial.observacion,
         serieId: serieId,
         intervaloDias: intervaloDias,
+        duracionMinutos: inicial.duracionMinutos,
+        profesoresAcompanantes: inicial.profesoresAcompanantes,
+        ubicacion: inicial.ubicacion,
+        estado: inicial.estado,
       );
       final error = _validarVisita(visita, [..._visitas, ...serie]);
       if (error != null) return 'No se pudo crear la serie: $error';
@@ -82,6 +98,28 @@ class SesionProvider extends ChangeNotifier {
     Iterable<VisitaProgramada> existentes,
   ) {
     final colegio = visita.colegio.trim().toLowerCase();
+    final dia = DateTime(
+      visita.fecha.year,
+      visita.fecha.month,
+      visita.fecha.day,
+    );
+    if (_fechasBloqueadas.contains(dia)) {
+      return 'La fecha seleccionada está bloqueada en la agenda.';
+    }
+    final esEnglishDay =
+        visita.tipo == 'English Day' || visita.tipo == 'Ensayo de English Day';
+    if (esEnglishDay) {
+      final cantidad = existentes.where((existente) {
+        return !existente.cancelada &&
+            existente.colegio.trim().toLowerCase() == colegio &&
+            existente.tipo == visita.tipo;
+      }).length;
+      if (cantidad >= 3) {
+        return visita.tipo == 'English Day'
+            ? 'Este colegio ya tiene el máximo de 3 fechas de English Day.'
+            : 'Este colegio ya tiene el máximo de 3 ensayos de English Day.';
+      }
+    }
     final duplicada = existentes.any((existente) {
       if (existente.colegio.trim().toLowerCase() != colegio) return false;
       if (visita.periodo != null) {
@@ -96,17 +134,42 @@ class SesionProvider extends ChangeNotifier {
           ? 'El período ${visita.periodo} ya está programado para este colegio.'
           : 'La clase ${visita.numeroClase} de ${visita.tipo.toLowerCase()} ya está programada para este colegio.';
     }
-    final cruceHorario = existentes.any(
-      (existente) =>
-          !existente.cancelada &&
-          existente.fecha.year == visita.fecha.year &&
-          existente.fecha.month == visita.fecha.month &&
-          existente.fecha.day == visita.fecha.day &&
-          existente.fecha.hour == visita.fecha.hour &&
-          existente.fecha.minute == visita.fecha.minute,
+    final finVisita = visita.fecha.add(
+      Duration(minutes: visita.duracionMinutos),
     );
+    String? profesorEnConflicto;
+    final profesoresVisita = {
+      visita.profesorResponsable.trim().toLowerCase(): visita
+          .profesorResponsable
+          .trim(),
+      for (final profesor in visita.profesoresAcompanantes)
+        profesor.trim().toLowerCase(): profesor.trim(),
+    };
+    final cruceHorario = existentes.any((existente) {
+      if (existente.cancelada) return false;
+      final finExistente = existente.fecha.add(
+        Duration(minutes: existente.duracionMinutos),
+      );
+      final seCruzan =
+          visita.fecha.isBefore(finExistente) &&
+          finVisita.isAfter(existente.fecha);
+      if (!seCruzan) return false;
+      final profesoresExistentes = {
+        existente.profesorResponsable.trim().toLowerCase(),
+        ...existente.profesoresAcompanantes.map(
+          (profesor) => profesor.trim().toLowerCase(),
+        ),
+      };
+      for (final entry in profesoresVisita.entries) {
+        if (entry.key.isNotEmpty && profesoresExistentes.contains(entry.key)) {
+          profesorEnConflicto = entry.value;
+          return true;
+        }
+      }
+      return false;
+    });
     if (cruceHorario) {
-      return 'Ese día y hora ya están reservados para otra actividad.';
+      return '$profesorEnConflicto ya tiene otra actividad durante ese horario.';
     }
     return null;
   }
@@ -121,6 +184,9 @@ class SesionProvider extends ChangeNotifier {
     if (_visitas[index].cancelada) return;
     _visitas[index] = _visitas[index].copyWith(
       completada: !_visitas[index].completada,
+      estado: !_visitas[index].completada
+          ? EstadoVisita.realizada
+          : EstadoVisita.programada,
     );
     notifyListeners();
   }
@@ -133,14 +199,15 @@ class SesionProvider extends ChangeNotifier {
       completada: false,
       motivoCancelacion: motivo.trim(),
       ultimaNovedad: 'Cancelada: ${motivo.trim()}',
+      estado: EstadoVisita.cancelada,
     );
     notifyListeners();
   }
 
-  void reprogramarVisita(String id, DateTime fecha, {String? motivo}) {
+  String? reprogramarVisita(String id, DateTime fecha, {String? motivo}) {
     final index = _visitas.indexWhere((visita) => visita.id == id);
-    if (index == -1) return;
-    _visitas[index] = _visitas[index].copyWith(
+    if (index == -1) return 'Actividad no encontrada.';
+    final actualizada = _visitas[index].copyWith(
       fecha: fecha,
       cancelada: false,
       completada: false,
@@ -148,58 +215,59 @@ class SesionProvider extends ChangeNotifier {
       ultimaNovedad: motivo?.trim().isNotEmpty == true
           ? 'Reprogramada: ${motivo!.trim()}'
           : 'Actividad reprogramada',
+      estado: EstadoVisita.reprogramada,
     );
+    final error = _validarVisita(
+      actualizada,
+      _visitas.where((visita) => visita.id != id),
+    );
+    if (error != null) return error;
+    _visitas[index] = actualizada;
     _visitas.sort((a, b) => a.fecha.compareTo(b.fecha));
     notifyListeners();
+    return null;
   }
 
-  void posponerSerieDesde(String id, String motivo) {
+  String? posponerSerieDesde(String id, String motivo) {
     final indiceReferencia = _visitas.indexWhere((visita) => visita.id == id);
-    if (indiceReferencia == -1) return;
+    if (indiceReferencia == -1) return 'Actividad no encontrada.';
     final referencia = _visitas[indiceReferencia];
     if (referencia.serieId == null || referencia.numeroClase == null) {
       cancelarVisita(id, motivo);
-      return;
+      return null;
     }
     final intervalo = referencia.intervaloDias ?? 7;
-    for (var index = 0; index < _visitas.length; index++) {
-      final visita = _visitas[index];
-      if (visita.serieId != referencia.serieId ||
-          visita.numeroClase == null ||
-          visita.numeroClase! < referencia.numeroClase!) {
-        continue;
-      }
-      _visitas[index] = visita.copyWith(
-        fecha: visita.fecha.add(Duration(days: intervalo)),
-        cancelada: false,
-        completada: false,
-        motivoCancelacion: '',
-        ultimaNovedad: visita.id == id
-            ? 'Clase pospuesta: ${motivo.trim()}'
-            : 'Fecha ajustada por reprogramación de la clase ${referencia.numeroClase}',
-      );
-    }
-    _ordenarVisitas();
-    notifyListeners();
+    return reprogramarSerieDesde(
+      id,
+      referencia.fecha.add(Duration(days: intervalo)),
+      motivo: motivo,
+    );
   }
 
-  void reprogramarSerieDesde(String id, DateTime nuevaFecha, {String? motivo}) {
+  String? reprogramarSerieDesde(
+    String id,
+    DateTime nuevaFecha, {
+    String? motivo,
+  }) {
     final indiceReferencia = _visitas.indexWhere((visita) => visita.id == id);
-    if (indiceReferencia == -1) return;
+    if (indiceReferencia == -1) return 'Actividad no encontrada.';
     final referencia = _visitas[indiceReferencia];
     if (referencia.serieId == null || referencia.numeroClase == null) {
-      reprogramarVisita(id, nuevaFecha, motivo: motivo);
-      return;
+      return reprogramarVisita(id, nuevaFecha, motivo: motivo);
     }
     final diferencia = nuevaFecha.difference(referencia.fecha);
-    for (var index = 0; index < _visitas.length; index++) {
-      final visita = _visitas[index];
-      if (visita.serieId != referencia.serieId ||
-          visita.numeroClase == null ||
-          visita.numeroClase! < referencia.numeroClase!) {
-        continue;
-      }
-      _visitas[index] = visita.copyWith(
+    final afectadas = _visitas
+        .where(
+          (visita) =>
+              visita.serieId == referencia.serieId &&
+              visita.numeroClase != null &&
+              visita.numeroClase! >= referencia.numeroClase!,
+        )
+        .toList();
+    final idsAfectados = afectadas.map((visita) => visita.id).toSet();
+    final nuevas = <VisitaProgramada>[];
+    for (final visita in afectadas) {
+      final nueva = visita.copyWith(
         fecha: visita.fecha.add(diferencia),
         cancelada: false,
         completada: false,
@@ -207,11 +275,72 @@ class SesionProvider extends ChangeNotifier {
         ultimaNovedad: visita.id == id
             ? 'Clase reprogramada${motivo?.trim().isNotEmpty == true ? ': ${motivo!.trim()}' : ''}'
             : 'Fecha ajustada por reprogramación de la clase ${referencia.numeroClase}',
+        estado: EstadoVisita.reprogramada,
       );
+      final error = _validarVisita(nueva, [
+        ..._visitas.where((visita) => !idsAfectados.contains(visita.id)),
+        ...nuevas,
+      ]);
+      if (error != null) return error;
+      nuevas.add(nueva);
+    }
+    for (final nueva in nuevas) {
+      final index = _visitas.indexWhere((visita) => visita.id == nueva.id);
+      _visitas[index] = nueva;
     }
     _ordenarVisitas();
     notifyListeners();
+    return null;
   }
+
+  void actualizarEstadoVisita(String id, EstadoVisita estado) {
+    final index = _visitas.indexWhere((visita) => visita.id == id);
+    if (index == -1) return;
+    _visitas[index] = _visitas[index].copyWith(
+      estado: estado,
+      completada: estado == EstadoVisita.realizada,
+      cancelada: estado == EstadoVisita.cancelada,
+    );
+    notifyListeners();
+  }
+
+  void actualizarResponsablesVisita({
+    required String id,
+    required String profesor,
+    required List<String> acompanantes,
+    required String ubicacion,
+  }) {
+    final index = _visitas.indexWhere((visita) => visita.id == id);
+    if (index == -1) return;
+    _visitas[index] = _visitas[index].copyWith(
+      profesorResponsable: profesor.trim(),
+      profesoresAcompanantes: List.unmodifiable(acompanantes),
+      ubicacion: ubicacion.trim(),
+    );
+    notifyListeners();
+  }
+
+  List<VisitaProgramada> actividadesProximas(
+    DateTime ahora, {
+    Duration ventana = const Duration(days: 7),
+  }) => _visitas
+      .where((visita) {
+        final diferencia = visita.fecha.difference(ahora);
+        return !visita.cancelada &&
+            !visita.completada &&
+            !diferencia.isNegative &&
+            diferencia <= ventana;
+      })
+      .toList(growable: false);
+
+  List<VisitaProgramada> actividadesAtrasadas(DateTime ahora) => _visitas
+      .where(
+        (visita) =>
+            !visita.cancelada &&
+            !visita.completada &&
+            visita.fecha.isBefore(ahora),
+      )
+      .toList(growable: false);
 
   Evaluacion? borradorEvaluacion(String tipo) => _borradoresEvaluacion[tipo];
 

@@ -51,6 +51,13 @@ class GestionHomeScreen extends StatelessWidget {
     final pendientesAprobacion = reportes
         .where((reporte) => !reporte.aprobadoPorCoordinador)
         .length;
+    final ahora = DateTime.now();
+    final proximas = sesion.actividadesProximas(ahora);
+    final recordatorios = sesion.actividadesProximas(
+      ahora,
+      ventana: const Duration(hours: 2),
+    );
+    final atrasadas = sesion.actividadesAtrasadas(ahora);
 
     return Scaffold(
       appBar: AppBar(
@@ -87,6 +94,27 @@ class GestionHomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           const LocalModeBanner(),
+          if (proximas.isNotEmpty || atrasadas.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.upcoming_outlined),
+                title: Text(
+                  recordatorios.isNotEmpty
+                      ? 'Recordatorio: ${recordatorios.length} actividades en menos de 2 horas'
+                      : '${proximas.length} actividades próximas',
+                ),
+                subtitle: Text(
+                  atrasadas.isEmpty
+                      ? 'Consulta la agenda de los próximos 7 días.'
+                      : '${atrasadas.length} actividades están atrasadas.',
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () =>
+                    Navigator.pushNamed(context, AgendaVisitasScreen.routeName),
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           Text(
             'Indicadores de la sesión',

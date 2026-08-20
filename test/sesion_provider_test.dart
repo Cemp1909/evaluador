@@ -285,11 +285,11 @@ void main() {
             fecha: inicio.add(const Duration(days: 7)),
             colegio: 'Otro Colegio',
             tipo: 'Evaluación por colegio',
-            profesorResponsable: 'Carlos',
+            profesorResponsable: 'Laura',
             periodo: 1,
           ),
         ),
-        contains('día y hora'),
+        contains('otra actividad'),
       );
       final clase2Antes = sesion.visitas
           .firstWhere((visita) => visita.numeroClase == 2)
@@ -308,4 +308,124 @@ void main() {
       );
     },
   );
+
+  test('limita English Day y sus ensayos a tres fechas por colegio', () {
+    final sesion = SesionProvider(AuthConfig.test);
+    for (var indice = 0; indice < 3; indice++) {
+      expect(
+        sesion.programarVisita(
+          VisitaProgramada(
+            id: 'day-$indice',
+            fecha: DateTime(2026, 10, indice + 1, 8),
+            colegio: 'Colegio Central',
+            tipo: 'English Day',
+            profesorResponsable: 'Laura',
+          ),
+        ),
+        isNull,
+      );
+      expect(
+        sesion.programarVisita(
+          VisitaProgramada(
+            id: 'ensayo-$indice',
+            fecha: DateTime(2026, 11, indice + 1, 9),
+            colegio: 'Colegio Central',
+            tipo: 'Ensayo de English Day',
+            profesorResponsable: 'Laura',
+          ),
+        ),
+        isNull,
+      );
+    }
+    expect(
+      sesion.programarVisita(
+        VisitaProgramada(
+          id: 'day-4',
+          fecha: DateTime(2026, 10, 10, 8),
+          colegio: 'colegio central',
+          tipo: 'English Day',
+          profesorResponsable: 'Laura',
+        ),
+      ),
+      contains('máximo de 3 fechas'),
+    );
+    expect(
+      sesion.programarVisita(
+        VisitaProgramada(
+          id: 'ensayo-4',
+          fecha: DateTime(2026, 11, 10, 9),
+          colegio: 'Colegio Central',
+          tipo: 'Ensayo de English Day',
+          profesorResponsable: 'Laura',
+        ),
+      ),
+      contains('máximo de 3 ensayos'),
+    );
+  });
+
+  test('valida bloqueos, duración, estados y responsables de agenda', () {
+    final sesion = SesionProvider(AuthConfig.test);
+    final fecha = DateTime(2026, 12, 10, 8);
+    sesion.bloquearFecha(fecha);
+    final bloqueada = VisitaProgramada(
+      id: 'bloqueada',
+      fecha: fecha,
+      colegio: 'Colegio Uno',
+      tipo: 'English Day',
+      profesorResponsable: 'Laura',
+    );
+    expect(sesion.programarVisita(bloqueada), contains('bloqueada'));
+    sesion.desbloquearFecha(fecha);
+    expect(
+      sesion.programarVisita(
+        VisitaProgramada(
+          id: 'larga',
+          fecha: fecha,
+          colegio: 'Colegio Uno',
+          tipo: 'English Day',
+          profesorResponsable: 'Laura',
+          duracionMinutos: 120,
+        ),
+      ),
+      isNull,
+    );
+    expect(
+      sesion.programarVisita(
+        VisitaProgramada(
+          id: 'cruce-duracion',
+          fecha: fecha.add(const Duration(minutes: 90)),
+          colegio: 'Colegio Dos',
+          tipo: 'Ensayo de English Day',
+          profesorResponsable: 'Laura',
+        ),
+      ),
+      contains('otra actividad'),
+    );
+    expect(
+      sesion.programarVisita(
+        VisitaProgramada(
+          id: 'paralela',
+          fecha: fecha.add(const Duration(minutes: 90)),
+          colegio: 'Colegio Dos',
+          tipo: 'Ensayo de English Day',
+          profesorResponsable: 'Carlos',
+        ),
+      ),
+      isNull,
+    );
+    sesion.actualizarResponsablesVisita(
+      id: 'larga',
+      profesor: 'Ana',
+      acompanantes: const ['Marta', 'Luis'],
+      ubicacion: 'Sede Norte',
+    );
+    sesion.actualizarEstadoVisita('larga', EstadoVisita.confirmada);
+    final actualizada = sesion.visitas.firstWhere(
+      (visita) => visita.id == 'larga',
+    );
+    expect(actualizada.profesorResponsable, 'Ana');
+    expect(actualizada.profesoresAcompanantes, ['Marta', 'Luis']);
+    expect(actualizada.ubicacion, 'Sede Norte');
+    expect(actualizada.estado, EstadoVisita.confirmada);
+  });
 }
