@@ -337,13 +337,13 @@ class PdfExportService {
   );
 
   Iterable<pw.Widget> _clase(EvaluacionClase clase) sync* {
-    final total = clase.bloques.fold<int>(
+    final total = clase.bloquesEvaluables.fold<int>(
       0,
       (value, bloque) =>
           value +
           (bloque.itemsMarcados.isEmpty ? 1 : bloque.itemsMarcados.length),
     );
-    final completos = clase.bloques.fold<int>(
+    final completos = clase.bloquesEvaluables.fold<int>(
       0,
       (value, bloque) =>
           value +
@@ -354,7 +354,7 @@ class PdfExportService {
     yield _tituloSeccion(
       'Clase ${clase.claseNumero} · $completos de $total contenidos realizados',
     );
-    for (final bloque in clase.bloques) {
+    for (final bloque in clase.bloquesEvaluables) {
       yield _tarjetaBloqueClase(bloque);
     }
     yield _recomendacionClase(_observacionAutomatica(clase));
@@ -1025,7 +1025,7 @@ class PdfExportService {
 
   String _observacionAutomatica(EvaluacionClase clase) {
     final pendientes = <String>[];
-    for (final bloque in clase.bloques) {
+    for (final bloque in clase.bloquesEvaluables) {
       final contenidos = bloque.itemsMarcados.entries
           .where((item) => !item.value)
           .map((item) => item.key)

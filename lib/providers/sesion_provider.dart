@@ -228,6 +228,20 @@ class SesionProvider extends ChangeNotifier {
     return null;
   }
 
+  String? actualizarVisita(VisitaProgramada visita) {
+    final index = _visitas.indexWhere((actual) => actual.id == visita.id);
+    if (index == -1) return 'Actividad no encontrada.';
+    final error = _validarVisita(
+      visita,
+      _visitas.where((actual) => actual.id != visita.id),
+    );
+    if (error != null) return error;
+    _visitas[index] = visita;
+    _ordenarVisitas();
+    notifyListeners();
+    return null;
+  }
+
   String? posponerSerieDesde(String id, String motivo) {
     final indiceReferencia = _visitas.indexWhere((visita) => visita.id == id);
     if (indiceReferencia == -1) return 'Actividad no encontrada.';
@@ -423,6 +437,19 @@ class SesionProvider extends ChangeNotifier {
       return null;
     }
 
+    if (_config.demoProfesorUsername.trim().isNotEmpty &&
+        usuarioNormalizado ==
+            _config.demoProfesorUsername.trim().toLowerCase() &&
+        password == _config.demoProfesorPassword) {
+      _usuarioActual = UsuarioSesion(
+        rol: RolUsuario.profesor,
+        nombre: _config.demoProfesorNombre,
+        zona: _config.demoProfesorZona,
+      );
+      notifyListeners();
+      return null;
+    }
+
     Profesor? profesor;
     var existeUsuarioProfesor = false;
     for (final candidato in _profesores) {
@@ -515,7 +542,10 @@ class SesionProvider extends ChangeNotifier {
         usuarioLimpio.toLowerCase() ==
             _config.adminUsername.trim().toLowerCase() ||
         usuarioLimpio.toLowerCase() ==
-            _config.coordinadorUsername.trim().toLowerCase();
+            _config.coordinadorUsername.trim().toLowerCase() ||
+        (_config.demoProfesorUsername.trim().isNotEmpty &&
+            usuarioLimpio.toLowerCase() ==
+                _config.demoProfesorUsername.trim().toLowerCase());
     if (usuarioOcupado || usuarioReservado) {
       return 'Ese nombre de usuario ya está en uso.';
     }

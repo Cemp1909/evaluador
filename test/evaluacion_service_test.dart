@@ -7,6 +7,11 @@ void main() {
   test('genera observaciones con cada contenido no enseñado', () {
     final service = EvaluacionService();
     var evaluacion = service.crearDesdePlantilla(evaluadoresDisponibles.first);
+    evaluacion = service.seleccionarBloqueCanciones(
+      evaluacion: evaluacion,
+      claseNumero: 1,
+      bloqueNombre: 'Songs 1',
+    );
 
     expect(
       service.crearObservacionAutomatica(evaluacion.clases.first),
@@ -50,6 +55,40 @@ void main() {
       expect(evaluacion.clases.first.bloques.first.marcado, isTrue);
     },
   );
+
+  test('solo cuenta y conserva el bloque de canciones seleccionado', () {
+    final service = EvaluacionService();
+    var evaluacion = service.crearDesdePlantilla(evaluadoresDisponibles.first);
+
+    evaluacion = service.actualizarBloque(
+      evaluacion: evaluacion,
+      claseNumero: 1,
+      bloqueNombre: 'Songs 1',
+      marcado: true,
+    );
+    evaluacion = service.seleccionarBloqueCanciones(
+      evaluacion: evaluacion,
+      claseNumero: 1,
+      bloqueNombre: 'Songs 2',
+    );
+
+    final clase = evaluacion.clases.first;
+    expect(clase.bloqueCancionesSeleccionado, 'Songs 2');
+    expect(
+      clase.bloques
+          .firstWhere((bloque) => bloque.bloqueNombre == 'Songs 1')
+          .marcado,
+      isFalse,
+    );
+    expect(
+      clase.bloquesEvaluables.map((bloque) => bloque.bloqueNombre),
+      isNot(contains('Songs 1')),
+    );
+    expect(
+      service.crearObservacionAutomatica(clase),
+      isNot(contains('Songs 1')),
+    );
+  });
 
   test('conserva las observaciones escritas por la docente', () {
     final service = EvaluacionService();

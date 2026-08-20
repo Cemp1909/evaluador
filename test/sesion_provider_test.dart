@@ -18,6 +18,15 @@ void main() {
     expect(sesion.usuarioActual, isNull);
   });
 
+  test('el usuario demo ingresa directamente con rol de profesor', () {
+    final sesion = SesionProvider(AuthConfig.test);
+
+    expect(sesion.iniciarSesion(usuario: 'demo', password: 'demo123'), isNull);
+    expect(sesion.usuarioActual?.rol, RolUsuario.profesor);
+    expect(sesion.usuarioActual?.nombre, 'Profesor demo');
+    expect(sesion.usuarioActual?.zona, 'Zona Demo');
+  });
+
   test('autentica los tres roles y conserva profesores al cerrar sesión', () {
     final sesion = SesionProvider(AuthConfig.test);
 
@@ -253,6 +262,33 @@ void main() {
       contains('clase 3'),
     );
     expect(sesion.visitas, hasLength(2));
+  });
+
+  test('edita tipo, profesor, fecha y hora conservando validaciones', () {
+    final sesion = SesionProvider(AuthConfig.test);
+    final original = VisitaProgramada(
+      id: 'editable',
+      fecha: DateTime(2026, 9, 1, 8),
+      colegio: 'Colegio Central',
+      tipo: 'Capacitación preescolar',
+      profesorResponsable: 'Laura',
+      numeroClase: 1,
+    );
+    expect(sesion.programarVisita(original), isNull);
+
+    final editada = original.copyWith(
+      fecha: DateTime(2026, 9, 2, 10, 30),
+      tipo: 'Evaluación por colegio',
+      profesorResponsable: 'Carlos',
+      periodo: 2,
+      limpiarNumeroClase: true,
+    );
+    expect(sesion.actualizarVisita(editada), isNull);
+    expect(sesion.visitas.single.fecha.hour, 10);
+    expect(sesion.visitas.single.fecha.minute, 30);
+    expect(sesion.visitas.single.profesorResponsable, 'Carlos');
+    expect(sesion.visitas.single.periodo, 2);
+    expect(sesion.visitas.single.numeroClase, isNull);
   });
 
   test(

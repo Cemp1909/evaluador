@@ -10,6 +10,7 @@ class EvaluacionClase {
     this.firmaDocenteUrl,
     this.firmasAsistentes = const [],
     this.observaciones = '',
+    this.bloqueCancionesSeleccionado,
     required this.bloques,
   });
 
@@ -20,16 +21,37 @@ class EvaluacionClase {
   final String? firmaDocenteUrl;
   final List<FirmaDocente> firmasAsistentes;
   final String observaciones;
+  final String? bloqueCancionesSeleccionado;
   final List<EvaluacionBloque> bloques;
 
+  static bool esOpcionCanciones(String nombre) {
+    final normalizado = nombre.trim().toLowerCase();
+    return normalizado == 'songs 1' ||
+        normalizado == 'songs 2' ||
+        normalizado == 'canciones 1' ||
+        normalizado == 'canciones 2';
+  }
+
+  bool get requiereSeleccionCanciones =>
+      bloques.where((bloque) => esOpcionCanciones(bloque.bloqueNombre)).length >
+      1;
+
+  List<EvaluacionBloque> get bloquesEvaluables => bloques.where((bloque) {
+    if (!esOpcionCanciones(bloque.bloqueNombre)) return true;
+    return bloque.bloqueNombre == bloqueCancionesSeleccionado;
+  }).toList(growable: false);
+
   bool get estaCompleta =>
-      bloques.isNotEmpty && bloques.every((bloque) => bloque.marcado);
+      (!requiereSeleccionCanciones || bloqueCancionesSeleccionado != null) &&
+      bloquesEvaluables.isNotEmpty &&
+      bloquesEvaluables.every((bloque) => bloque.marcado);
 
   EvaluacionClase copyWith({
     DateTime? fecha,
     String? firmaDocenteUrl,
     List<FirmaDocente>? firmasAsistentes,
     String? observaciones,
+    String? bloqueCancionesSeleccionado,
     List<EvaluacionBloque>? bloques,
   }) => EvaluacionClase(
     id: id,
@@ -39,6 +61,8 @@ class EvaluacionClase {
     firmaDocenteUrl: firmaDocenteUrl ?? this.firmaDocenteUrl,
     firmasAsistentes: firmasAsistentes ?? this.firmasAsistentes,
     observaciones: observaciones ?? this.observaciones,
+    bloqueCancionesSeleccionado:
+        bloqueCancionesSeleccionado ?? this.bloqueCancionesSeleccionado,
     bloques: bloques ?? this.bloques,
   );
 
@@ -57,6 +81,8 @@ class EvaluacionClase {
         .map((item) => FirmaDocente.fromJson(item as Map<String, dynamic>))
         .toList(),
     observaciones: json['observaciones'] as String? ?? '',
+    bloqueCancionesSeleccionado:
+        json['bloque_canciones_seleccionado'] as String?,
     bloques: bloques,
   );
 
@@ -70,5 +96,7 @@ class EvaluacionClase {
         .map((firma) => firma.toJson())
         .toList(),
     'observaciones': observaciones,
+    if (bloqueCancionesSeleccionado != null)
+      'bloque_canciones_seleccionado': bloqueCancionesSeleccionado,
   };
 }

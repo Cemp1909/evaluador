@@ -9,8 +9,6 @@ import '../widgets/app_brand_title.dart';
 import '../widgets/home_action_card.dart';
 import '../widgets/local_mode_banner.dart';
 import 'clases_screen.dart';
-import 'student_knowledge_report_screen.dart';
-import 'historial_estudiantes_screen.dart';
 
 class EvaluadorSelectionScreen extends StatelessWidget {
   const EvaluadorSelectionScreen({super.key});
@@ -25,11 +23,11 @@ class EvaluadorSelectionScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
           Text(
-            'New evaluation',
+            'Training classes',
             style: Theme.of(context).textTheme.displaySmall,
           ),
           const SizedBox(height: 4),
-          const Text('Select the form you want to complete.'),
+          const Text('Select the training level you want to complete.'),
           const SizedBox(height: 16),
           const LocalModeBanner(),
           const SizedBox(height: 26),
@@ -67,32 +65,6 @@ class EvaluadorSelectionScreen extends StatelessWidget {
             if (index < evaluadoresDisponibles.length - 1)
               const SizedBox(height: 16),
           ],
-          const SizedBox(height: 16),
-          HomeActionCard(
-            icon: Icons.assignment_ind_outlined,
-            title: 'Student Knowledge Report',
-            subtitle: 'Evaluate a student’s English knowledge.',
-            badge: 'Final assessment',
-            prominent: true,
-            accentColor: AppColors.success,
-            onTap: () => Navigator.pushNamed(
-              context,
-              StudentKnowledgeReportScreen.routeName,
-            ),
-          ),
-          const SizedBox(height: 16),
-          HomeActionCard(
-            icon: Icons.history_edu_rounded,
-            title: 'Evaluaciones por período',
-            subtitle: 'Consultar resultados por estudiante, grado y período.',
-            badge: 'Modo local',
-            prominent: true,
-            accentColor: AppColors.primary,
-            onTap: () => Navigator.pushNamed(
-              context,
-              HistorialEstudiantesScreen.routeName,
-            ),
-          ),
         ],
       ),
     );

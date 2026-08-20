@@ -77,6 +77,40 @@ class EvaluacionService {
     return _actualizarEstado(evaluacion, clases);
   }
 
+  Evaluacion seleccionarBloqueCanciones({
+    required Evaluacion evaluacion,
+    required int claseNumero,
+    required String bloqueNombre,
+  }) {
+    final clases = evaluacion.clases.map((clase) {
+      if (clase.claseNumero != claseNumero) return clase;
+      final existe = clase.bloques.any(
+        (bloque) =>
+            bloque.bloqueNombre == bloqueNombre &&
+            EvaluacionClase.esOpcionCanciones(bloque.bloqueNombre),
+      );
+      if (!existe) return clase;
+
+      final bloques = clase.bloques.map((bloque) {
+        if (!EvaluacionClase.esOpcionCanciones(bloque.bloqueNombre) ||
+            bloque.bloqueNombre == bloqueNombre) {
+          return bloque;
+        }
+        return bloque.copyWith(
+          marcado: false,
+          itemsMarcados: {
+            for (final item in bloque.itemsMarcados.keys) item: false,
+          },
+        );
+      }).toList();
+      return clase.copyWith(
+        bloqueCancionesSeleccionado: bloqueNombre,
+        bloques: bloques,
+      );
+    }).toList();
+    return _actualizarEstado(evaluacion, clases);
+  }
+
   Evaluacion actualizarObservaciones({
     required Evaluacion evaluacion,
     required int claseNumero,
@@ -184,7 +218,7 @@ class EvaluacionService {
   }
 
   String crearObservacionAutomatica(EvaluacionClase clase) =>
-      _crearObservacionAutomatica(clase.bloques);
+      _crearObservacionAutomatica(clase.bloquesEvaluables);
 
   static String _crearObservacionAutomatica(List<EvaluacionBloque> bloques) {
     final pendientes = <String>[];

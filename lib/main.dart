@@ -20,7 +20,8 @@ import 'theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    await dotenv.load(fileName: '.env');
+    const envFile = String.fromEnvironment('ENV_FILE', defaultValue: '.env');
+    await dotenv.load(fileName: envFile);
     runApp(EvaluadorApp(authConfig: AuthConfig.fromMap(dotenv.env)));
   } catch (_) {
     runApp(const ConfigurationErrorApp());

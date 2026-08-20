@@ -11,6 +11,8 @@ class BloqueCard extends StatelessWidget {
     required this.itemsMarcados,
     required this.onItemChanged,
     required this.onBloqueChanged,
+    this.habilitado = true,
+    this.mensajeDeshabilitado,
   });
 
   final Bloque bloque;
@@ -18,16 +20,23 @@ class BloqueCard extends StatelessWidget {
   final Map<String, bool> itemsMarcados;
   final void Function(String itemTexto, bool marcado) onItemChanged;
   final ValueChanged<bool> onBloqueChanged;
+  final bool habilitado;
+  final String? mensajeDeshabilitado;
 
   @override
   Widget build(BuildContext context) {
     final completados = itemsMarcados.values.where((value) => value).length;
     final categoryColor = _colorParaBloque(bloque.nombre);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
+    return IgnorePointer(
+      ignoring: !habilitado,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 180),
+        opacity: habilitado ? 1 : .46,
+        child: Card(
+          margin: const EdgeInsets.only(bottom: AppSpacing.md),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,7 +73,9 @@ class BloqueCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (bloque.items.isNotEmpty)
+                if (!habilitado && mensajeDeshabilitado != null)
+                  Chip(label: Text(mensajeDeshabilitado!))
+                else if (bloque.items.isNotEmpty)
                   TextButton(
                     onPressed: () => onBloqueChanged(!marcado),
                     child: Text(marcado ? 'Clear all' : 'Select all'),
@@ -91,6 +102,8 @@ class BloqueCard extends StatelessWidget {
                   ),
                 ),
           ],
+        ),
+          ),
         ),
       ),
     );

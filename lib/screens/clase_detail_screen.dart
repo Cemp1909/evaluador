@@ -102,6 +102,59 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 16),
+            if (clase.requiereSeleccionCanciones) ...[
+              Card(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Selecciona las canciones de esta clase',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Solo se enseña Songs 1 o Songs 2. La opción no seleccionada quedará deshabilitada y no contará como pendiente.',
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      SegmentedButton<String>(
+                        segments: [
+                          for (final bloque in clase.bloques.where(
+                            (bloque) => EvaluacionClase.esOpcionCanciones(
+                              bloque.bloqueNombre,
+                            ),
+                          ))
+                            ButtonSegment<String>(
+                              value: bloque.bloqueNombre,
+                              label: Text(bloque.bloqueNombre),
+                              icon: const Icon(Icons.music_note_rounded),
+                            ),
+                        ],
+                        selected: {
+                          if (clase.bloqueCancionesSeleccionado != null)
+                            clase.bloqueCancionesSeleccionado!,
+                        },
+                        emptySelectionAllowed: true,
+                        onSelectionChanged: (seleccion) {
+                          if (seleccion.isEmpty) return;
+                          setState(() {
+                            _evaluacion = widget.service
+                                .seleccionarBloqueCanciones(
+                                  evaluacion: _evaluacion,
+                                  claseNumero: widget.plantilla.numero,
+                                  bloqueNombre: seleccion.first,
+                                );
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
             for (
               var index = 0;
               index < widget.plantilla.bloques.length;
@@ -111,6 +164,13 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
                 bloque: widget.plantilla.bloques[index],
                 marcado: clase.bloques[index].marcado,
                 itemsMarcados: clase.bloques[index].itemsMarcados,
+                habilitado:
+                    !EvaluacionClase.esOpcionCanciones(
+                      clase.bloques[index].bloqueNombre,
+                    ) ||
+                    clase.bloqueCancionesSeleccionado ==
+                        clase.bloques[index].bloqueNombre,
+                mensajeDeshabilitado: 'No seleccionada',
                 onItemChanged: (itemTexto, marcado) {
                   setState(() {
                     _evaluacion = widget.service.actualizarItem(
@@ -280,7 +340,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
 
   String _crearObservacionAutomatica(EvaluacionClase clase) {
     final pendientes = <String>[];
-    for (final bloque in clase.bloques) {
+    for (final bloque in clase.bloquesEvaluables) {
       if (bloque.itemsMarcados.isEmpty) {
         if (!bloque.marcado) {
           pendientes.add('• ${bloque.bloqueNombre}: no se enseñó.');
@@ -305,13 +365,13 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
     final clase = _buscarClase(_evaluacion);
     if (clase == null) return;
     final usuario = context.read<SesionProvider>().usuarioActual;
-    final total = clase.bloques.fold<int>(
+    final total = clase.bloquesEvaluables.fold<int>(
       0,
       (suma, bloque) =>
           suma +
           (bloque.itemsMarcados.isEmpty ? 1 : bloque.itemsMarcados.length),
     );
-    final realizados = clase.bloques.fold<int>(
+    final realizados = clase.bloquesEvaluables.fold<int>(
       0,
       (suma, bloque) =>
           suma +

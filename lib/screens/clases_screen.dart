@@ -87,7 +87,8 @@ class _ClasesScreenState extends State<ClasesScreen> {
       .replaceAll('Preescolar', 'Preschool')
       .replaceAll('Primaria', 'Primary');
 
-  int _totalContenidosClase(EvaluacionClase clase) => clase.bloques.fold<int>(
+  int _totalContenidosClase(EvaluacionClase clase) =>
+      clase.bloquesEvaluables.fold<int>(
     0,
     (total, bloque) =>
         total +
@@ -95,7 +96,7 @@ class _ClasesScreenState extends State<ClasesScreen> {
   );
 
   int _contenidosMarcadosClase(EvaluacionClase clase) =>
-      clase.bloques.fold<int>(
+      clase.bloquesEvaluables.fold<int>(
         0,
         (total, bloque) =>
             total +

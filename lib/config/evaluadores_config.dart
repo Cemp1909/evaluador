@@ -34,7 +34,6 @@ const _preescolarClases = [
           ItemReferencia(texto: 'Hello (Super Simple)'),
           ItemReferencia(texto: 'Hello song for kids'),
           ItemReferencia(texto: 'Make a Circle'),
-          ItemReferencia(texto: 'Vocabulary Song'),
         ],
       ),
       Bloque(

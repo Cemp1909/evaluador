@@ -16,6 +16,7 @@ class AgendaVisitasScreen extends StatefulWidget {
 
 class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
   DateTime? _diaSeleccionado;
+  DateTime _mesVisible = DateTime(DateTime.now().year, DateTime.now().month);
   int _vista = 0;
   String? _tipoFiltro;
   EstadoVisita? _estadoFiltro;
@@ -84,16 +85,47 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
               color: Theme.of(context).colorScheme.errorContainer,
             ),
           if (_vista <= 1) ...[
-            Card(
-              child: CalendarDatePicker(
-                initialDate: _diaSeleccionado ?? DateTime.now(),
-                firstDate: DateTime(2025),
-                lastDate: DateTime.now().add(const Duration(days: 730)),
-                onDateChanged: (fecha) =>
-                    setState(() => _diaSeleccionado = fecha),
+            _LeyendaTipos(visitas: visitas),
+            const SizedBox(height: 12),
+          ],
+          if (_vista == 0) ...[
+            _CalendarioConPuntos(
+              mes: _mesVisible,
+              seleccionado: _diaSeleccionado,
+              visitas: visitas,
+              onMesAnterior: () => setState(
+                () => _mesVisible = DateTime(
+                  _mesVisible.year,
+                  _mesVisible.month - 1,
+                ),
               ),
+              onMesSiguiente: () => setState(
+                () => _mesVisible = DateTime(
+                  _mesVisible.year,
+                  _mesVisible.month + 1,
+                ),
+              ),
+              onSeleccionar: (fecha) => setState(() {
+                _diaSeleccionado = fecha;
+                _mesVisible = DateTime(fecha.year, fecha.month);
+              }),
             ),
             _IndicadoresCalendario(visitas: visitas),
+          ] else if (_vista == 1) ...[
+            _EncabezadoSemana(
+              fechaBase: _diaSeleccionado ?? DateTime.now(),
+              visitas: visitas,
+              onAnterior: () => setState(() {
+                final base = _diaSeleccionado ?? DateTime.now();
+                _diaSeleccionado = base.subtract(const Duration(days: 7));
+              }),
+              onSiguiente: () => setState(() {
+                final base = _diaSeleccionado ?? DateTime.now();
+                _diaSeleccionado = base.add(const Duration(days: 7));
+              }),
+              onSeleccionar: (fecha) =>
+                  setState(() => _diaSeleccionado = fecha),
+            ),
           ],
           const SizedBox(height: 14),
           TextField(
@@ -106,6 +138,8 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
           const SizedBox(height: 14),
           if (_vista >= 2)
             ..._grupos(context, visibles, porProfesor: _vista == 3)
+          else if (_vista == 1)
+            ..._vistaSemanal(context, visibles)
           else if (visibles.isEmpty)
             const Center(child: Text('No hay actividades para esta selección.'))
           else
@@ -113,6 +147,64 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
         ],
       ),
     );
+  }
+
+  List<Widget> _vistaSemanal(
+    BuildContext context,
+    List<VisitaProgramada> visitas,
+  ) {
+    final base = _diaSeleccionado ?? DateTime.now();
+    final inicio = DateTime(
+      base.year,
+      base.month,
+      base.day,
+    ).subtract(Duration(days: base.weekday - 1));
+    return [
+      for (var offset = 0; offset < 7; offset++) ...[
+        Builder(
+          builder: (context) {
+            final dia = inicio.add(Duration(days: offset));
+            final actividades =
+                visitas.where((visita) => _mismoDia(visita.fecha, dia)).toList()
+                  ..sort((a, b) => a.fecha.compareTo(b.fecha));
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(child: Text('${dia.day}')),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            '${_nombreDia(dia.weekday)} · ${_fecha(dia)}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        Text('${actividades.length} actividades'),
+                      ],
+                    ),
+                    if (actividades.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 12),
+                        child: Text('Sin actividades programadas.'),
+                      )
+                    else
+                      for (final visita in actividades) ...[
+                        const SizedBox(height: 12),
+                        _tarjetaVisita(context, visita, interna: true),
+                      ],
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    ];
   }
 
   List<VisitaProgramada> _filtrar(List<VisitaProgramada> visitas) {
@@ -271,6 +363,11 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
+                OutlinedButton.icon(
+                  onPressed: () => _editarActividad(context, visita),
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Editar'),
+                ),
                 OutlinedButton.icon(
                   onPressed: () => _editarResponsables(context, visita),
                   icon: const Icon(Icons.manage_accounts_outlined),
@@ -458,6 +555,224 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
     });
   }
 
+  Future<void> _editarActividad(
+    BuildContext context,
+    VisitaProgramada visita,
+  ) async {
+    final colegio = TextEditingController(text: visita.colegio);
+    final profesor = TextEditingController(text: visita.profesorResponsable);
+    final observacion = TextEditingController(text: visita.observacion);
+    var tipo = visita.tipo;
+    var fecha = visita.fecha;
+    var duracion = visita.duracionMinutos;
+    var periodo = visita.periodo ?? 1;
+    var numeroClase = visita.numeroClase ?? 1;
+    final guardar = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Editar actividad'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: colegio,
+                  decoration: const InputDecoration(labelText: 'Colegio'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: profesor,
+                  decoration: const InputDecoration(
+                    labelText: 'Profesor responsable',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: tipo,
+                  decoration: const InputDecoration(labelText: 'Tipo'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'Evaluación por colegio',
+                      child: Text('Evaluación por colegio'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Capacitación preescolar',
+                      child: Text('Capacitación preescolar'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Capacitación primaria',
+                      child: Text('Capacitación primaria'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'English Day',
+                      child: Text('English Day'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Ensayo de English Day',
+                      child: Text('Ensayo de English Day'),
+                    ),
+                  ],
+                  onChanged: (value) => setState(() => tipo = value ?? tipo),
+                ),
+                const SizedBox(height: 12),
+                if (tipo == 'Evaluación por colegio')
+                  DropdownButtonFormField<int>(
+                    initialValue: periodo,
+                    decoration: const InputDecoration(labelText: 'Período'),
+                    items: [
+                      for (var value = 1; value <= 4; value++)
+                        DropdownMenuItem(
+                          value: value,
+                          child: Text('Período $value'),
+                        ),
+                    ],
+                    onChanged: (value) => periodo = value ?? periodo,
+                  )
+                else if (_esCapacitacion(tipo))
+                  DropdownButtonFormField<int>(
+                    key: ValueKey(tipo),
+                    initialValue: numeroClase.clamp(
+                      1,
+                      tipo == 'Capacitación preescolar' ? 6 : 11,
+                    ),
+                    decoration: const InputDecoration(labelText: 'Clase'),
+                    items: [
+                      for (
+                        var value = 1;
+                        value <= (tipo == 'Capacitación preescolar' ? 6 : 11);
+                        value++
+                      )
+                        DropdownMenuItem(
+                          value: value,
+                          child: Text('Clase $value'),
+                        ),
+                    ],
+                    onChanged: (value) => numeroClase = value ?? numeroClase,
+                  ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.event_outlined),
+                  title: const Text('Fecha'),
+                  subtitle: Text(_fecha(fecha)),
+                  onTap: () async {
+                    final elegida = await showDatePicker(
+                      context: context,
+                      initialDate: fecha.isBefore(DateTime.now())
+                          ? DateTime.now()
+                          : fecha,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 730)),
+                    );
+                    if (elegida != null) {
+                      setState(
+                        () => fecha = DateTime(
+                          elegida.year,
+                          elegida.month,
+                          elegida.day,
+                          fecha.hour,
+                          fecha.minute,
+                        ),
+                      );
+                    }
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.schedule_outlined),
+                  title: const Text('Hora'),
+                  subtitle: Text(_hora(fecha)),
+                  onTap: () async {
+                    final elegida = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.fromDateTime(fecha),
+                    );
+                    if (elegida != null) {
+                      setState(
+                        () => fecha = DateTime(
+                          fecha.year,
+                          fecha.month,
+                          fecha.day,
+                          elegida.hour,
+                          elegida.minute,
+                        ),
+                      );
+                    }
+                  },
+                ),
+                DropdownButtonFormField<int>(
+                  initialValue: duracion,
+                  decoration: const InputDecoration(labelText: 'Duración'),
+                  items: const [
+                    DropdownMenuItem(value: 30, child: Text('30 minutos')),
+                    DropdownMenuItem(value: 60, child: Text('1 hora')),
+                    DropdownMenuItem(
+                      value: 90,
+                      child: Text('1 hora 30 minutos'),
+                    ),
+                    DropdownMenuItem(value: 120, child: Text('2 horas')),
+                    DropdownMenuItem(value: 180, child: Text('3 horas')),
+                    DropdownMenuItem(value: 240, child: Text('4 horas')),
+                  ],
+                  onChanged: (value) => duracion = value ?? duracion,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: observacion,
+                  decoration: const InputDecoration(labelText: 'Observación'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Guardar cambios'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (guardar == true && context.mounted) {
+      if (colegio.text.trim().isEmpty || profesor.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Colegio y profesor son obligatorios.')),
+        );
+      } else {
+        final actualizada = visita.copyWith(
+          colegio: colegio.text.trim(),
+          profesorResponsable: profesor.text.trim(),
+          tipo: tipo,
+          fecha: fecha,
+          duracionMinutos: duracion,
+          periodo: tipo == 'Evaluación por colegio' ? periodo : null,
+          numeroClase: _esCapacitacion(tipo) ? numeroClase : null,
+          limpiarPeriodo: tipo != 'Evaluación por colegio',
+          limpiarNumeroClase: !_esCapacitacion(tipo),
+          observacion: observacion.text.trim(),
+          ultimaNovedad: 'Actividad editada',
+        );
+        final error = context.read<SesionProvider>().actualizarVisita(
+          actualizada,
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error ?? 'Actividad actualizada correctamente.'),
+          ),
+        );
+      }
+    }
+    Future<void>.delayed(const Duration(milliseconds: 400), () {
+      colegio.dispose();
+      profesor.dispose();
+      observacion.dispose();
+    });
+  }
+
   Future<void> _abrirMapa(String ubicacion) async {
     final uri = Uri.https('www.google.com', '/maps/search/', {
       'api': '1',
@@ -515,25 +830,8 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
           const SnackBar(content: Text('Escribe el motivo de la cancelación.')),
         );
       } else if (accion == 'reprogramar') {
-        final nuevaFecha = await showDatePicker(
-          context: context,
-          initialDate: visita.fecha.isAfter(DateTime.now())
-              ? visita.fecha
-              : DateTime.now(),
-          firstDate: DateTime.now(),
-          lastDate: DateTime.now().add(const Duration(days: 730)),
-          helpText: 'Selecciona la nueva fecha',
-          cancelText: 'Volver',
-          confirmText: 'Reprogramar',
-        );
-        if (nuevaFecha != null && context.mounted) {
-          final fechaConHora = DateTime(
-            nuevaFecha.year,
-            nuevaFecha.month,
-            nuevaFecha.day,
-            visita.fecha.hour,
-            visita.fecha.minute,
-          );
+        final fechaConHora = await _seleccionarFechaHora(context, visita.fecha);
+        if (fechaConHora != null && context.mounted) {
           final error = context.read<SesionProvider>().reprogramarSerieDesde(
             visita.id,
             fechaConHora,
@@ -571,23 +869,8 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
     BuildContext context,
     VisitaProgramada visita,
   ) async {
-    final fecha = await showDatePicker(
-      context: context,
-      initialDate: visita.fecha.isBefore(DateTime.now())
-          ? DateTime.now()
-          : visita.fecha,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 730)),
-      helpText: 'Selecciona la nueva fecha',
-    );
-    if (fecha == null || !context.mounted) return;
-    final fechaConHora = DateTime(
-      fecha.year,
-      fecha.month,
-      fecha.day,
-      visita.fecha.hour,
-      visita.fecha.minute,
-    );
+    final fechaConHora = await _seleccionarFechaHora(context, visita.fecha);
+    if (fechaConHora == null || !context.mounted) return;
     final error = context.read<SesionProvider>().reprogramarSerieDesde(
       visita.id,
       fechaConHora,
@@ -600,6 +883,28 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
         ),
       ),
     );
+  }
+
+  Future<DateTime?> _seleccionarFechaHora(
+    BuildContext context,
+    DateTime inicial,
+  ) async {
+    final base = inicial.isBefore(DateTime.now()) ? DateTime.now() : inicial;
+    final fecha = await showDatePicker(
+      context: context,
+      initialDate: base,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 730)),
+      helpText: 'Selecciona la nueva fecha',
+    );
+    if (fecha == null || !context.mounted) return null;
+    final hora = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(inicial),
+      helpText: 'Selecciona la nueva hora',
+    );
+    if (hora == null) return null;
+    return DateTime(fecha.year, fecha.month, fecha.day, hora.hour, hora.minute);
   }
 
   Future<void> _crear(BuildContext context) async {
@@ -946,6 +1251,34 @@ String _nombreEstado(EstadoVisita estado) => switch (estado) {
   EstadoVisita.reprogramada => 'Reprogramada',
 };
 
+bool _esCapacitacion(String tipo) =>
+    tipo == 'Capacitación preescolar' || tipo == 'Capacitación primaria';
+
+String _nombreDia(int dia) => const [
+  'Lunes',
+  'Martes',
+  'Miércoles',
+  'Jueves',
+  'Viernes',
+  'Sábado',
+  'Domingo',
+][dia - 1];
+
+String _nombreMes(int mes) => const [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+][mes - 1];
+
 Color _colorTipo(String tipo) => switch (tipo) {
   'Evaluación por colegio' => AppColors.primary,
   'Capacitación preescolar' => AppColors.accent,
@@ -985,6 +1318,358 @@ class _AvisoAgenda extends StatelessWidget {
       subtitle: Text(detalle),
     ),
   );
+}
+
+class _LeyendaTipos extends StatelessWidget {
+  const _LeyendaTipos({required this.visitas});
+  final List<VisitaProgramada> visitas;
+
+  @override
+  Widget build(BuildContext context) {
+    const tipos = [
+      'Evaluación por colegio',
+      'Capacitación preescolar',
+      'Capacitación primaria',
+      'English Day',
+      'Ensayo de English Day',
+    ];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Significado de los colores',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 12,
+              runSpacing: 10,
+              children: [
+                for (final tipo in tipos)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 11,
+                        height: 11,
+                        decoration: BoxDecoration(
+                          color: _colorTipo(tipo),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$tipo (${visitas.where((visita) => visita.tipo == tipo).length})',
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CalendarioConPuntos extends StatelessWidget {
+  const _CalendarioConPuntos({
+    required this.mes,
+    required this.seleccionado,
+    required this.visitas,
+    required this.onMesAnterior,
+    required this.onMesSiguiente,
+    required this.onSeleccionar,
+  });
+
+  final DateTime mes;
+  final DateTime? seleccionado;
+  final List<VisitaProgramada> visitas;
+  final VoidCallback onMesAnterior;
+  final VoidCallback onMesSiguiente;
+  final ValueChanged<DateTime> onSeleccionar;
+
+  @override
+  Widget build(BuildContext context) {
+    final primerDia = DateTime(mes.year, mes.month, 1);
+    final cantidadDias = DateTime(mes.year, mes.month + 1, 0).day;
+    final celdasPrevias = primerDia.weekday - 1;
+    final totalCeldas = ((celdasPrevias + cantidadDias + 6) ~/ 7) * 7;
+    const encabezados = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  tooltip: 'Mes anterior',
+                  onPressed: onMesAnterior,
+                  icon: const Icon(Icons.chevron_left_rounded),
+                ),
+                Expanded(
+                  child: Text(
+                    '${_nombreMes(mes.month)} ${mes.year}',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Mes siguiente',
+                  onPressed: onMesSiguiente,
+                  icon: const Icon(Icons.chevron_right_rounded),
+                ),
+              ],
+            ),
+            GridView.count(
+              crossAxisCount: 7,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              childAspectRatio: 1.05,
+              children: [
+                for (final encabezado in encabezados)
+                  Center(
+                    child: Text(
+                      encabezado,
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                  ),
+                for (var celda = 0; celda < totalCeldas; celda++)
+                  if (celda < celdasPrevias ||
+                      celda >= celdasPrevias + cantidadDias)
+                    const SizedBox.shrink()
+                  else
+                    _DiaCalendario(
+                      fecha: DateTime(
+                        mes.year,
+                        mes.month,
+                        celda - celdasPrevias + 1,
+                      ),
+                      seleccionado: seleccionado,
+                      visitas: visitas,
+                      onTap: onSeleccionar,
+                    ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EncabezadoSemana extends StatelessWidget {
+  const _EncabezadoSemana({
+    required this.fechaBase,
+    required this.visitas,
+    required this.onAnterior,
+    required this.onSiguiente,
+    required this.onSeleccionar,
+  });
+
+  final DateTime fechaBase;
+  final List<VisitaProgramada> visitas;
+  final VoidCallback onAnterior;
+  final VoidCallback onSiguiente;
+  final ValueChanged<DateTime> onSeleccionar;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = DateTime(fechaBase.year, fechaBase.month, fechaBase.day);
+    final lunes = base.subtract(Duration(days: base.weekday - 1));
+    final domingo = lunes.add(const Duration(days: 6));
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  tooltip: 'Semana anterior',
+                  onPressed: onAnterior,
+                  icon: const Icon(Icons.chevron_left_rounded),
+                ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        'Semana del ${_AgendaVisitasScreenState._fecha(lunes)} al ${_AgendaVisitasScreenState._fecha(domingo)}',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      Text(
+                        '${visitas.where((visita) => !visita.fecha.isBefore(lunes) && visita.fecha.isBefore(domingo.add(const Duration(days: 1)))).length} actividades programadas',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Semana siguiente',
+                  onPressed: onSiguiente,
+                  icon: const Icon(Icons.chevron_right_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                for (var offset = 0; offset < 7; offset++)
+                  Expanded(
+                    child: Builder(
+                      builder: (context) {
+                        final dia = lunes.add(Duration(days: offset));
+                        final seleccionado =
+                            _AgendaVisitasScreenState._mismoDia(dia, fechaBase);
+                        final actividades = visitas
+                            .where(
+                              (visita) => _AgendaVisitasScreenState._mismoDia(
+                                visita.fecha,
+                                dia,
+                              ),
+                            )
+                            .toList();
+                        return InkWell(
+                          onTap: () => onSeleccionar(dia),
+                          borderRadius: BorderRadius.circular(12),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            padding: const EdgeInsets.symmetric(vertical: 9),
+                            decoration: BoxDecoration(
+                              color: seleccionado
+                                  ? Theme.of(
+                                      context,
+                                    ).colorScheme.primaryContainer
+                                  : null,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: seleccionado
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  _nombreDia(dia.weekday).substring(0, 2),
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${dia.day}',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 5),
+                                Wrap(
+                                  spacing: 2,
+                                  runSpacing: 2,
+                                  alignment: WrapAlignment.center,
+                                  children: [
+                                    for (final visita in actividades.take(3))
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: BoxDecoration(
+                                          color: visita.cancelada
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.error
+                                              : _colorTipo(visita.tipo),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DiaCalendario extends StatelessWidget {
+  const _DiaCalendario({
+    required this.fecha,
+    required this.seleccionado,
+    required this.visitas,
+    required this.onTap,
+  });
+  final DateTime fecha;
+  final DateTime? seleccionado;
+  final List<VisitaProgramada> visitas;
+  final ValueChanged<DateTime> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final delDia = visitas
+        .where(
+          (visita) => _AgendaVisitasScreenState._mismoDia(visita.fecha, fecha),
+        )
+        .toList();
+    final activo =
+        seleccionado != null &&
+        _AgendaVisitasScreenState._mismoDia(seleccionado!, fecha);
+    return InkWell(
+      onTap: () => onTap(fecha),
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        margin: const EdgeInsets.all(2),
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: activo ? Theme.of(context).colorScheme.primaryContainer : null,
+          borderRadius: BorderRadius.circular(12),
+          border: activo
+              ? Border.all(color: Theme.of(context).colorScheme.primary)
+              : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('${fecha.day}'),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 2,
+              runSpacing: 2,
+              alignment: WrapAlignment.center,
+              children: [
+                for (final visita in delDia.take(4))
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: visita.cancelada
+                          ? Theme.of(context).colorScheme.error
+                          : _colorTipo(visita.tipo),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _IndicadoresCalendario extends StatelessWidget {

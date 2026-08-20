@@ -45,7 +45,8 @@ void main() {
     expect(find.text('Hello, Administrador'), findsOneWidget);
     await tester.drag(find.byType(ListView), const Offset(0, -600));
     await tester.pumpAndSettle();
-    expect(find.text('Evaluations'), findsOneWidget);
+    expect(find.text('Training classes'), findsOneWidget);
+    expect(find.text('Student evaluations'), findsOneWidget);
     await tester.tap(find.text('Create teacher'));
     await tester.pumpAndSettle();
 
@@ -73,7 +74,13 @@ void main() {
     expect(find.text('Teacher request created successfully.'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Teacher list'));
+    final teacherList = find.text('Teacher list');
+    await tester.scrollUntilVisible(
+      teacherList,
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(teacherList);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Approve'));
     await tester.pumpAndSettle();
@@ -96,7 +103,8 @@ void main() {
 
     expect(find.text('Hello, Laura Gómez'), findsOneWidget);
     expect(find.text('Zona Norte'), findsOneWidget);
-    expect(find.text('Evaluations'), findsOneWidget);
+    expect(find.text('Training classes'), findsOneWidget);
+    expect(find.text('Student evaluations'), findsOneWidget);
   });
 
   testWidgets('el coordinador tiene acceso al flujo de evaluaciones', (
@@ -117,8 +125,9 @@ void main() {
     expect(find.text('Hello, Coordinador de zona'), findsOneWidget);
     await tester.drag(find.byType(ListView), const Offset(0, -600));
     await tester.pumpAndSettle();
-    expect(find.text('Evaluations'), findsOneWidget);
-    await tester.tap(find.text('Evaluations'));
+    expect(find.text('Training classes'), findsOneWidget);
+    expect(find.text('Student evaluations'), findsOneWidget);
+    await tester.tap(find.text('Training classes'));
     await tester.pumpAndSettle();
     expect(find.text('Training Preschool'), findsOneWidget);
     expect(find.text('Training Primary'), findsOneWidget);

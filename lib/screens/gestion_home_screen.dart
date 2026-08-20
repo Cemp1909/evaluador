@@ -14,6 +14,8 @@ import 'profesores_screen.dart';
 import 'configuracion_notas_screen.dart';
 import 'panel_colegios_screen.dart';
 import 'agenda_visitas_screen.dart';
+import 'student_knowledge_report_screen.dart';
+import 'historial_estudiantes_screen.dart';
 
 class GestionHomeScreen extends StatelessWidget {
   const GestionHomeScreen.admin({super.key})
@@ -153,12 +155,34 @@ class GestionHomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
           HomeActionCard(
-            icon: Icons.assignment_turned_in_outlined,
-            title: 'Evaluations',
-            subtitle: 'Start a Preschool or Primary training session.',
+            icon: Icons.school_outlined,
+            title: 'Training classes',
+            subtitle: 'Complete a Preschool or Primary training class.',
             onTap: () => Navigator.pushNamed(
               context,
               EvaluadorSelectionScreen.routeName,
+            ),
+            accentColor: AppColors.primary,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          HomeActionCard(
+            icon: Icons.assignment_ind_outlined,
+            title: 'Student evaluations',
+            subtitle: 'Evaluate student knowledge by grade and period.',
+            onTap: () => Navigator.pushNamed(
+              context,
+              StudentKnowledgeReportScreen.routeName,
+            ),
+            accentColor: AppColors.success,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          HomeActionCard(
+            icon: Icons.history_edu_rounded,
+            title: 'Evaluations by period',
+            subtitle: 'Review student results by school, grade and period.',
+            onTap: () => Navigator.pushNamed(
+              context,
+              HistorialEstudiantesScreen.routeName,
             ),
             accentColor: AppColors.primary,
           ),

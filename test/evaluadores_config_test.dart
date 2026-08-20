@@ -21,4 +21,17 @@ void main() {
       isTrue,
     );
   });
+
+  test('la clase 1 de preescolar no repite canciones entre sus bloques', () {
+    final clase = evaluadoresDisponibles.first.clases.firstWhere(
+      (clase) => clase.numero == 1,
+    );
+    final canciones = clase.bloques
+        .where((bloque) => bloque.nombre.startsWith('Songs'))
+        .expand((bloque) => bloque.items)
+        .map((item) => item.texto.toLowerCase())
+        .toList();
+
+    expect(canciones.toSet().length, canciones.length);
+  });
 }

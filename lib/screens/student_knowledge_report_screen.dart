@@ -48,7 +48,7 @@ class _StudentKnowledgeReportScreenState
   final List<String> _fotosEvidencia = [];
   final List<String?> _referenciasFotos = [];
   bool _restaurandoBorrador = false;
-  bool _modoRapido = false;
+  bool _modoRapido = true;
 
   @override
   void initState() {
@@ -1185,7 +1185,7 @@ class _CategoriaPlanCard extends StatelessWidget {
 
     return Card(
       child: ExpansionTile(
-        initiallyExpanded: categoria.nombre == 'Commands',
+        initiallyExpanded: true,
         leading: Icon(_iconoCategoria(categoria.nombre), color: color),
         title: Text(
           categoria.nombre,
