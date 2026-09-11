@@ -20,17 +20,25 @@ class EvaluadorSelectionScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const AppBrandTitle()),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.sm,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
         children: [
           Text(
             'Training classes',
             style: Theme.of(context).textTheme.displaySmall,
           ),
-          const SizedBox(height: 4),
-          const Text('Select the training level you want to complete.'),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            'Select the training level you want to complete.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: AppSpacing.md),
           const LocalModeBanner(),
-          const SizedBox(height: 26),
+          const SizedBox(height: AppSpacing.lg),
           for (
             var index = 0;
             index < evaluadoresDisponibles.length;
@@ -52,7 +60,11 @@ class EvaluadorSelectionScreen extends StatelessWidget {
                 final sesion = context.read<SesionProvider>();
                 final evaluacion =
                     sesion.borradorEvaluacion(tipo.codigo) ??
-                    EvaluacionService().crearDesdePlantilla(tipo);
+                    EvaluacionService()
+                        .crearDesdePlantilla(tipo)
+                        .copyWith(
+                          responsableNombre: sesion.usuarioActual?.nombre,
+                        );
                 sesion.guardarBorradorEvaluacion(evaluacion);
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(

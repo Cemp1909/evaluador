@@ -22,13 +22,45 @@ class PanelColegiosScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Panel de colegios')),
       body: entradas.isEmpty
-          ? const Center(
-              child: Text('Aún no hay evaluaciones para consolidar.'),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.domain_disabled_outlined,
+                        size: 32,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Aún no hay evaluaciones para consolidar.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
             )
           : ListView.separated(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.lg,
+                AppSpacing.xl,
+              ),
               itemCount: entradas.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
               itemBuilder: (context, index) {
                 final entrada = entradas[index];
                 final promedio =
@@ -45,14 +77,41 @@ class PanelColegiosScreen extends StatelessWidget {
                     .length;
                 final grados = entrada.value.map((e) => e.grado).toSet().length;
                 return Card(
+                  clipBehavior: Clip.antiAlias,
                   child: ExpansionTile(
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.school_outlined),
+                    shape: const Border(),
+                    collapsedShape: const Border(),
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(AppRadius.small),
+                      ),
+                      child: Icon(
+                        Icons.school_outlined,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
                     ),
-                    title: Text(entrada.key),
-                    subtitle: Text('${entrada.value.length} evaluaciones'),
-                    childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    title: Text(
+                      entrada.key,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    subtitle: Text(
+                      '${entrada.value.length} evaluaciones',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    childrenPadding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      0,
+                      AppSpacing.lg,
+                      AppSpacing.md,
+                    ),
                     children: [
+                      const Divider(height: AppSpacing.md),
                       _Metrica('Nota promedio', promedio.toStringAsFixed(1)),
                       _Metrica('Grados evaluados', '$grados'),
                       _Metrica('Contenidos no logrados', '$bajos'),
@@ -76,11 +135,25 @@ class _Metrica extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
+    padding: const EdgeInsets.symmetric(vertical: 6),
     child: Row(
       children: [
-        Expanded(child: Text(etiqueta)),
-        Text(valor, style: Theme.of(context).textTheme.titleMedium),
+        Expanded(
+          child: Text(etiqueta, style: Theme.of(context).textTheme.bodyMedium),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+          ),
+          child: Text(
+            valor,
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+        ),
       ],
     ),
   );

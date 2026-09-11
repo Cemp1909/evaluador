@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/student_knowledge_report.dart';
 import '../models/usuario_sesion.dart';
 import '../providers/sesion_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/signature_capture_dialog.dart';
 import 'pdf_preview_screen.dart';
 
@@ -33,37 +34,47 @@ class ComparacionPeriodosScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Comparación entre períodos')),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.sm,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
         children: [
           Text(
             reporteBase.profesorEvaluado,
             style: Theme.of(context).textTheme.headlineSmall,
           ),
-          Text('${reporteBase.grado} · ${reporteBase.colegio}'),
-          const SizedBox(height: 22),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            '${reporteBase.grado} · ${reporteBase.colegio}',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: AppSpacing.lg),
           for (final periodo in [1, 2, 3, 4]) ...[
             _barraPeriodo(context, periodo, _reportePeriodo(reportes, periodo)),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm),
           ],
           if (categorias.isNotEmpty) ...[
-            const SizedBox(height: 18),
+            const SizedBox(height: AppSpacing.lg),
             Text(
               'Evolución por categoría',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             for (final categoria in categorias)
               Card(
+                clipBehavior: Clip.antiAlias,
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.md),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         categoria,
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: Theme.of(context).textTheme.titleSmall,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.sm),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -82,42 +93,93 @@ class ComparacionPeriodosScreen extends StatelessWidget {
               ),
           ],
           if (alertas.isNotEmpty) ...[
-            const SizedBox(height: 18),
+            const SizedBox(height: AppSpacing.lg),
             Card(
-              color: Theme.of(context).colorScheme.errorContainer,
+              clipBehavior: Clip.antiAlias,
+              color: Theme.of(
+                context,
+              ).colorScheme.errorContainer.withValues(alpha: 0.7),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.medium),
+                side: BorderSide(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.error.withValues(alpha: 0.3),
+                ),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(
+                          'Alertas pedagógicas',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.error,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'Alertas pedagógicas',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
                       'Estos contenidos aparecen como no logrados en dos o más períodos:',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onErrorContainer,
+                      ),
                     ),
-                    const SizedBox(height: 6),
-                    for (final alerta in alertas) Text('• $alerta'),
+                    const SizedBox(height: AppSpacing.xs),
+                    for (final alerta in alertas)
+                      Text(
+                        '• $alerta',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onErrorContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                   ],
                 ),
               ),
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.lg),
           Text('Reportes', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.sm),
           for (final reporte in reportes)
             Card(
+              clipBehavior: Clip.antiAlias,
               child: ListTile(
+                leading: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer,
+                  child: Text(
+                    reporte.notaFinal.toStringAsFixed(1),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ),
                 title: Text(
                   'Período ${reporte.periodo} · ${reporte.notaFinal.toStringAsFixed(1)}',
+                  style: Theme.of(context).textTheme.titleSmall,
                 ),
                 subtitle: Text(
                   reporte.aprobadoPorCoordinador
                       ? 'Aprobado por ${reporte.nombreCoordinador}'
                       : 'Pendiente de aprobación del coordinador',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
                 trailing: Wrap(
                   children: [
@@ -149,26 +211,47 @@ class ComparacionPeriodosScreen extends StatelessWidget {
     BuildContext context,
     int periodo,
     StudentKnowledgeReport? reporte,
-  ) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Row(
+  ) => Card(
+    clipBehavior: Clip.antiAlias,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text('Período $periodo')),
-          Text(
-            reporte == null
-                ? 'Sin evaluación'
-                : reporte.notaFinal.toStringAsFixed(1),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Período $periodo',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                ),
+                child: Text(
+                  reporte == null
+                      ? 'Sin evaluación'
+                      : reporte.notaFinal.toStringAsFixed(1),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: reporte == null ? 0 : reporte.notaFinal / 5,
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
         ],
       ),
-      const SizedBox(height: 5),
-      LinearProgressIndicator(
-        value: reporte == null ? 0 : reporte.notaFinal / 5,
-        minHeight: 12,
-        borderRadius: BorderRadius.circular(20),
-      ),
-    ],
+    ),
   );
 
   StudentKnowledgeReport? _reportePeriodo(

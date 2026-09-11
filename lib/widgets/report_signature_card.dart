@@ -23,16 +23,27 @@ class ReportSignatureCard extends StatelessWidget {
     final firmada = firmaBase64 != null && firmaBase64!.isNotEmpty;
     final scheme = Theme.of(context).colorScheme;
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.all(AppSpacing.md + 2),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(
-                  firmada ? Icons.verified_rounded : Icons.draw_outlined,
-                  color: firmada ? AppColors.success : scheme.primary,
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: (firmada ? AppColors.success : scheme.primary)
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppRadius.small),
+                  ),
+                  child: Icon(
+                    firmada ? Icons.verified_rounded : Icons.draw_outlined,
+                    size: 20,
+                    color: firmada ? AppColors.success : scheme.primary,
+                  ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
@@ -46,7 +57,7 @@ class ReportSignatureCard extends StatelessWidget {
                       if (nombre != null)
                         Text(
                           nombre!,
-                          style: Theme.of(context).textTheme.bodyMedium,
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                     ],
                   ),
@@ -54,15 +65,18 @@ class ReportSignatureCard extends StatelessWidget {
               ],
             ),
             if (firmada) ...[
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.md),
               Container(
-                height: 100,
+                height: 104,
                 width: double.infinity,
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(AppRadius.small),
-                  border: Border.all(color: scheme.outline),
+                  borderRadius: BorderRadius.circular(AppRadius.button),
+                  border: Border.all(
+                    color: AppColors.success.withValues(alpha: 0.35),
+                    width: 1.2,
+                  ),
                 ),
                 child: Image.memory(
                   base64Decode(firmaBase64!),
@@ -70,7 +84,7 @@ class ReportSignatureCard extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.md),
             OutlinedButton.icon(
               onPressed: onFirmar,
               icon: const Icon(Icons.edit_outlined),

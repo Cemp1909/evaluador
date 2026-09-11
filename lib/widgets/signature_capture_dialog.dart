@@ -36,10 +36,14 @@ class _SignatureCaptureDialogState extends State<SignatureCaptureDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return AlertDialog(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.medium),
+        borderRadius: BorderRadius.circular(AppRadius.large),
       ),
+      titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      actionsPadding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
       title: Text(widget.titulo),
       content: SizedBox(
         width: 520,
@@ -53,12 +57,12 @@ class _SignatureCaptureDialogState extends State<SignatureCaptureDialog> {
             ),
             const SizedBox(height: 14),
             ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.small),
+              borderRadius: BorderRadius.circular(AppRadius.button),
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  border: Border.all(color: AppColors.outline),
-                  borderRadius: BorderRadius.circular(AppRadius.small),
+                  border: Border.all(color: scheme.outline, width: 1.2),
+                  borderRadius: BorderRadius.circular(AppRadius.button),
                 ),
                 child: Signature(
                   controller: _controller,

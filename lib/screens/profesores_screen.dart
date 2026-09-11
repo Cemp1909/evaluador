@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/usuario_sesion.dart';
 import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
+import '../security/rbac.dart';
 import '../widgets/app_brand_title.dart';
 
 class ProfesoresScreen extends StatefulWidget {
@@ -22,6 +23,14 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
   @override
   Widget build(BuildContext context) {
     final sesion = context.watch<SesionProvider>();
+    if (!Rbac.puedeConsultarProfesores(sesion.usuarioActual)) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Acceso no autorizado')),
+        body: const Center(
+          child: Text('No tienes permiso para consultar profesores.'),
+        ),
+      );
+    }
     final profesores = sesion.profesoresVisibles().where((profesor) {
       final texto = _busqueda.trim().toLowerCase();
       final coincide =
@@ -39,7 +48,12 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.sm,
+              AppSpacing.lg,
+              AppSpacing.md,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -47,7 +61,14 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
                   'Teacher Roster',
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  puedeAprobar
+                      ? 'Manage and approve field educators across zones.'
+                      : 'Consulta los profesores de tu zona.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   onChanged: (value) => setState(() => _busqueda = value),
                   decoration: const InputDecoration(
@@ -55,7 +76,7 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
                     prefixIcon: Icon(Icons.search_rounded),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.sm),
                 SegmentedButton<bool?>(
                   segments: const [
                     ButtonSegment(value: null, label: Text('All')),
@@ -66,11 +87,6 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
                   onSelectionChanged: (values) =>
                       setState(() => _aprobado = values.first),
                 ),
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  'Manage and approve field educators across zones.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
               ],
             ),
           ),
@@ -78,23 +94,33 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
             child: profesores.isEmpty
                 ? Center(
                     child: Padding(
-                      padding: const EdgeInsets.all(32),
+                      padding: const EdgeInsets.all(AppSpacing.xl),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.group_off_outlined,
-                            size: 48,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.group_off_outlined,
+                              size: 32,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSpacing.md),
                           Text(
                             'No teachers registered',
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: AppSpacing.xxs),
                           Text(
                             'Teachers registered during this session will appear here.',
                             textAlign: TextAlign.center,
@@ -105,13 +131,19 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
                     ),
                   )
                 : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      0,
+                      AppSpacing.lg,
+                      AppSpacing.xl,
+                    ),
                     itemCount: profesores.length,
                     separatorBuilder: (_, _) =>
                         const SizedBox(height: AppSpacing.sm),
                     itemBuilder: (context, index) {
                       final profesor = profesores[index];
                       return Card(
+                        clipBehavior: Clip.antiAlias,
                         child: Padding(
                           padding: const EdgeInsets.all(AppSpacing.md),
                           child: Column(
@@ -119,6 +151,7 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
                               Row(
                                 children: [
                                   CircleAvatar(
+                                    radius: 22,
                                     backgroundColor: Theme.of(
                                       context,
                                     ).colorScheme.primaryContainer,
@@ -129,6 +162,13 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
                                           .map((part) => part[0])
                                           .join()
                                           .toUpperCase(),
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimaryContainer,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: AppSpacing.sm),
@@ -143,6 +183,7 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
                                             context,
                                           ).textTheme.titleMedium,
                                         ),
+                                        const SizedBox(height: 2),
                                         Text(
                                           '@${profesor.usuario} · ${profesor.zona}',
                                           style: Theme.of(
@@ -214,10 +255,14 @@ class _EstadoAcceso extends StatelessWidget {
         ? (dark ? const Color(0xFF74CDB0) : AppColors.success)
         : (dark ? const Color(0xFFF2C46D) : AppColors.warning);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: dark ? .14 : .10),
+        color: color.withValues(alpha: dark ? .18 : .12),
         borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(
+          color: color.withValues(alpha: dark ? .35 : .25),
+          width: 0.8,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -227,12 +272,12 @@ class _EstadoAcceso extends StatelessWidget {
             height: 6,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 7),
+          const SizedBox(width: 6),
           Text(
             aprobado ? 'Approved' : 'Pending',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: color,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

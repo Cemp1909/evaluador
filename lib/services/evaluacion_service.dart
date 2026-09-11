@@ -3,6 +3,7 @@ import '../models/evaluacion_bloque.dart';
 import '../models/evaluacion_clase.dart';
 import '../models/evaluador_tipo.dart';
 import '../models/firma_docente.dart';
+import '../models/exclusion_contenido.dart';
 
 /// Estado local temporal. La persistencia offline y Supabase se conectarán aquí.
 class EvaluacionService {
@@ -17,6 +18,10 @@ class EvaluacionService {
               bloqueNombre: bloque.nombre,
               itemsMarcados: {
                 for (final item in bloque.items) item.texto: false,
+              },
+              estadosContenido: {
+                for (final item in bloque.items)
+                  item.texto: EstadoContenidoClase.pendiente,
               },
             ),
           )
@@ -41,6 +46,12 @@ class EvaluacionService {
           itemsMarcados: {
             for (final item in bloque.itemsMarcados.keys) item: marcado,
           },
+          estadosContenido: {
+            for (final item in bloque.itemsMarcados.keys)
+              item: marcado
+                  ? EstadoContenidoClase.ensenado
+                  : EstadoContenidoClase.noEnsenado,
+          },
         );
       }).toList();
       return clase.copyWith(bloques: bloques);
@@ -64,8 +75,14 @@ class EvaluacionService {
 
         final itemsMarcados = Map<String, bool>.from(bloque.itemsMarcados)
           ..[itemTexto] = marcado;
+        final estados =
+            Map<String, EstadoContenidoClase>.from(bloque.estadosContenido)
+              ..[itemTexto] = marcado
+                  ? EstadoContenidoClase.ensenado
+                  : EstadoContenidoClase.noEnsenado;
         return bloque.copyWith(
           itemsMarcados: itemsMarcados,
+          estadosContenido: estados,
           marcado:
               itemsMarcados.isNotEmpty &&
               itemsMarcados.values.every((valor) => valor),
@@ -75,6 +92,96 @@ class EvaluacionService {
     }).toList();
 
     return _actualizarEstado(evaluacion, clases);
+  }
+
+  Evaluacion excluirContenido({
+    required Evaluacion evaluacion,
+    required int claseNumero,
+    required String bloqueNombre,
+    required String contenidoNombre,
+    required ExclusionContenido exclusion,
+  }) {
+    if (evaluacion.estado == EstadoEvaluacion.completada ||
+        exclusion.motivo.trim().isEmpty) {
+      return evaluacion;
+    }
+    final sinAnterior = evaluacion.exclusiones
+        .where((item) => item.contenidoId != exclusion.contenidoId)
+        .toList();
+    final clases = evaluacion.clases.map((clase) {
+      if (clase.claseNumero != claseNumero) return clase;
+      return clase.copyWith(
+        bloques: clase.bloques.map((bloque) {
+          if (bloque.bloqueNombre != bloqueNombre) return bloque;
+          if (bloque.itemsMarcados.isEmpty) {
+            return bloque.copyWith(marcado: false);
+          }
+          final items = Map<String, bool>.from(bloque.itemsMarcados)
+            ..[contenidoNombre] = false;
+          return bloque.copyWith(itemsMarcados: items);
+        }).toList(),
+      );
+    }).toList();
+    return evaluacion.copyWith(
+      clases: clases,
+      exclusiones: [...sinAnterior, exclusion],
+      estado: EstadoEvaluacion.enProgreso,
+    );
+  }
+
+  Evaluacion deshacerExclusion({
+    required Evaluacion evaluacion,
+    required String contenidoId,
+  }) {
+    if (evaluacion.estado == EstadoEvaluacion.completada) return evaluacion;
+    final exclusion = evaluacion.exclusiones
+        .where((item) => item.contenidoId == contenidoId)
+        .firstOrNull;
+    if (exclusion == null) return evaluacion;
+    var resultado = evaluacion.copyWith(
+      exclusiones: evaluacion.exclusiones
+          .where((item) => item.contenidoId != contenidoId)
+          .toList(),
+    );
+    if (exclusion.estadoAnterior == EstadoContenidoClase.ensenado) {
+      resultado = actualizarItem(
+        evaluacion: resultado,
+        claseNumero: int.parse(exclusion.claseId),
+        bloqueNombre: exclusion.bloque,
+        itemTexto: exclusion.contenidoNombre,
+        marcado: true,
+      );
+    }
+    return resultado;
+  }
+
+  int contenidosAplicables(Evaluacion evaluacion, EvaluacionClase clase) =>
+      clase.totalAplicable(evaluacion.exclusiones);
+
+  int contenidosEnsenados(Evaluacion evaluacion, EvaluacionClase clase) {
+    return clase.bloquesEvaluables.fold(0, (total, bloque) {
+      if (bloque.itemsMarcados.isEmpty) {
+        final id = clase.contenidoId(bloque.bloqueNombre, bloque.bloqueNombre);
+        return total +
+            (bloque.marcado &&
+                    !evaluacion.exclusiones.any((e) => e.contenidoId == id)
+                ? 1
+                : 0);
+      }
+      final ensenados = bloque.itemsMarcados.entries.where((item) {
+        final id = clase.contenidoId(bloque.bloqueNombre, item.key);
+        return item.value &&
+            !evaluacion.exclusiones.any((e) => e.contenidoId == id);
+      }).length;
+      return total + ensenados;
+    });
+  }
+
+  double cobertura(Evaluacion evaluacion, EvaluacionClase clase) {
+    final aplicables = contenidosAplicables(evaluacion, clase);
+    return aplicables == 0
+        ? 1
+        : contenidosEnsenados(evaluacion, clase) / aplicables;
   }
 
   Evaluacion seleccionarBloqueCanciones({
@@ -100,6 +207,10 @@ class EvaluacionService {
           marcado: false,
           itemsMarcados: {
             for (final item in bloque.itemsMarcados.keys) item: false,
+          },
+          estadosContenido: {
+            for (final item in bloque.itemsMarcados.keys)
+              item: EstadoContenidoClase.pendiente,
           },
         );
       }).toList();
@@ -217,20 +328,39 @@ class EvaluacionService {
     );
   }
 
-  String crearObservacionAutomatica(EvaluacionClase clase) =>
-      _crearObservacionAutomatica(clase.bloquesEvaluables);
+  String crearObservacionAutomatica(
+    EvaluacionClase clase, {
+    List<ExclusionContenido> exclusiones = const [],
+  }) => _crearObservacionAutomatica(clase, exclusiones);
 
-  static String _crearObservacionAutomatica(List<EvaluacionBloque> bloques) {
+  static String _crearObservacionAutomatica(
+    EvaluacionClase clase,
+    List<ExclusionContenido> exclusiones,
+  ) {
     final pendientes = <String>[];
 
-    for (final bloque in bloques) {
+    for (final bloque in clase.bloquesEvaluables) {
       final noEnsenados = bloque.itemsMarcados.entries
-          .where((item) => !item.value)
+          .where(
+            (item) =>
+                !item.value &&
+                !exclusiones.any(
+                  (e) =>
+                      e.contenidoId ==
+                      clase.contenidoId(bloque.bloqueNombre, item.key),
+                ),
+          )
           .map((item) => item.key)
           .toList();
       if (noEnsenados.isNotEmpty) {
         pendientes.add('• ${bloque.bloqueNombre}: ${noEnsenados.join(', ')}.');
-      } else if (bloque.itemsMarcados.isEmpty && !bloque.marcado) {
+      } else if (bloque.itemsMarcados.isEmpty &&
+          !bloque.marcado &&
+          !exclusiones.any(
+            (e) =>
+                e.contenidoId ==
+                clase.contenidoId(bloque.bloqueNombre, bloque.bloqueNombre),
+          )) {
         pendientes.add('• ${bloque.bloqueNombre}: no se enseñó.');
       }
     }

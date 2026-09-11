@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/student_knowledge_report.dart';
 import '../providers/sesion_provider.dart';
+import '../theme/app_theme.dart';
 import 'pdf_preview_screen.dart';
 import 'comparacion_periodos_screen.dart';
 
@@ -34,7 +35,12 @@ class _HistorialEstudiantesScreenState
     return Scaffold(
       appBar: AppBar(title: const Text('Evaluaciones por período')),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.sm,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
         children: [
           TextField(
             onChanged: (value) => setState(() => _busqueda = value),
@@ -43,7 +49,7 @@ class _HistorialEstudiantesScreenState
               prefixIcon: Icon(Icons.search_rounded),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               Expanded(
@@ -69,7 +75,7 @@ class _HistorialEstudiantesScreenState
                   onChanged: (value) => setState(() => _grado = value),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: DropdownButtonFormField<int?>(
                   initialValue: _periodo,
@@ -86,27 +92,70 @@ class _HistorialEstudiantesScreenState
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.lg),
           if (reportes.isEmpty)
-            const Card(
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(20),
-                child: Text(
-                  'No hay evaluaciones que coincidan con los filtros. Los datos se conservan solo durante esta sesión.',
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.search_off_rounded,
+                        size: 32,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'No hay evaluaciones que coincidan con los filtros. Los datos se conservan solo durante esta sesión.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
                 ),
               ),
             )
           else
             for (final reporte in reportes) ...[
               Card(
+                clipBehavior: Clip.antiAlias,
                 child: ListTile(
-                  leading: CircleAvatar(
-                    child: Text(reporte.notaFinal.toStringAsFixed(1)),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.xs,
                   ),
-                  title: Text(reporte.profesorEvaluado),
+                  leading: CircleAvatar(
+                    radius: 22,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer,
+                    child: Text(
+                      reporte.notaFinal.toStringAsFixed(1),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    reporte.profesorEvaluado,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   subtitle: Text(
                     '${reporte.grado} · Período ${reporte.periodo}\n'
                     '${reporte.colegio} · ${reporte.desempeno}',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                   isThreeLine: true,
                   trailing: IconButton(
@@ -126,7 +175,7 @@ class _HistorialEstudiantesScreenState
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.sm),
             ],
         ],
       ),

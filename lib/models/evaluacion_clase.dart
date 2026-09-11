@@ -1,5 +1,6 @@
 import 'evaluacion_bloque.dart';
 import 'firma_docente.dart';
+import 'exclusion_contenido.dart';
 
 class EvaluacionClase {
   const EvaluacionClase({
@@ -36,15 +37,45 @@ class EvaluacionClase {
       bloques.where((bloque) => esOpcionCanciones(bloque.bloqueNombre)).length >
       1;
 
-  List<EvaluacionBloque> get bloquesEvaluables => bloques.where((bloque) {
-    if (!esOpcionCanciones(bloque.bloqueNombre)) return true;
-    return bloque.bloqueNombre == bloqueCancionesSeleccionado;
-  }).toList(growable: false);
+  List<EvaluacionBloque> get bloquesEvaluables => bloques
+      .where((bloque) {
+        if (!esOpcionCanciones(bloque.bloqueNombre)) return true;
+        return bloque.bloqueNombre == bloqueCancionesSeleccionado;
+      })
+      .toList(growable: false);
 
   bool get estaCompleta =>
       (!requiereSeleccionCanciones || bloqueCancionesSeleccionado != null) &&
       bloquesEvaluables.isNotEmpty &&
       bloquesEvaluables.every((bloque) => bloque.marcado);
+
+  String contenidoId(String bloque, String contenido) =>
+      '$claseNumero::$bloque::$contenido';
+
+  int totalAplicable(List<ExclusionContenido> exclusiones) =>
+      bloquesEvaluables.fold(0, (total, bloque) {
+        final cantidad = bloque.itemsMarcados.isEmpty
+            ? 1
+            : bloque.itemsMarcados.length;
+        final excluidos = bloque.itemsMarcados.isEmpty
+            ? (exclusiones.any(
+                    (e) =>
+                        e.contenidoId ==
+                        contenidoId(bloque.bloqueNombre, bloque.bloqueNombre),
+                  )
+                  ? 1
+                  : 0)
+            : bloque.itemsMarcados.keys
+                  .where(
+                    (item) => exclusiones.any(
+                      (e) =>
+                          e.contenidoId ==
+                          contenidoId(bloque.bloqueNombre, item),
+                    ),
+                  )
+                  .length;
+        return total + cantidad - excluidos;
+      });
 
   EvaluacionClase copyWith({
     DateTime? fecha,

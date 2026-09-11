@@ -90,21 +90,28 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
           ),
         ),
         body: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.xl,
+          ),
           children: [
             Text(
               'Clase ${widget.plantilla.numero}',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: AppSpacing.xxs),
             Text(
               'Marca cada contenido que se enseñó durante la clase.',
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             if (clase.requiereSeleccionCanciones) ...[
               Card(
-                color: Theme.of(context).colorScheme.primaryContainer,
+                color: Theme.of(
+                  context,
+                ).colorScheme.primaryContainer.withValues(alpha: 0.5),
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.md),
                   child: Column(
@@ -112,11 +119,12 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
                     children: [
                       Text(
                         'Selecciona las canciones de esta clase',
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: Theme.of(context).textTheme.titleSmall,
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
                         'Solo se enseña Songs 1 o Songs 2. La opción no seleccionada quedará deshabilitada y no contará como pendiente.',
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       SegmentedButton<String>(
@@ -164,6 +172,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
                 bloque: widget.plantilla.bloques[index],
                 marcado: clase.bloques[index].marcado,
                 itemsMarcados: clase.bloques[index].itemsMarcados,
+                estadosContenido: clase.bloques[index].estadosContenido,
                 habilitado:
                     !EvaluacionClase.esOpcionCanciones(
                       clase.bloques[index].bloqueNombre,
@@ -171,6 +180,25 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
                     clase.bloqueCancionesSeleccionado ==
                         clase.bloques[index].bloqueNombre,
                 mensajeDeshabilitado: 'No seleccionada',
+                exclusiones: {
+                  for (final exclusion in _evaluacion.exclusiones.where(
+                    (e) =>
+                        e.claseId == '${clase.claseNumero}' &&
+                        e.bloque == clase.bloques[index].bloqueNombre,
+                  ))
+                    exclusion.contenidoNombre: exclusion.motivo,
+                },
+                onExcluir: (contenido) => _mostrarDialogoExclusion(
+                  clase,
+                  clase.bloques[index].bloqueNombre,
+                  contenido,
+                ),
+                onDeshacerExclusion: (contenido) => _deshacerExclusion(
+                  clase.contenidoId(
+                    clase.bloques[index].bloqueNombre,
+                    contenido,
+                  ),
+                ),
                 onItemChanged: (itemTexto, marcado) {
                   setState(() {
                     _evaluacion = widget.service.actualizarItem(
@@ -338,6 +366,104 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
     return null;
   }
 
+  Future<void> _mostrarDialogoExclusion(
+    EvaluacionClase clase,
+    String bloque,
+    String contenido,
+  ) async {
+    final motivo = TextEditingController();
+    final observacion = TextEditingController();
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Excluir para esta clase'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$contenido\n$bloque\nColegio: ${_evaluacion.colegio.isEmpty ? 'Sin especificar' : _evaluacion.colegio}\nClase: ${clase.claseNumero}\nFecha: ${_fecha(clase.fecha ?? DateTime.now())}',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: motivo,
+                decoration: const InputDecoration(
+                  labelText: 'Motivo de la exclusión *',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: observacion,
+                decoration: const InputDecoration(
+                  labelText: 'Observaciones adicionales',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (motivo.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('El motivo de la exclusión es obligatorio.'),
+                  ),
+                );
+                return;
+              }
+              Navigator.pop(dialogContext, true);
+            },
+            child: const Text('Confirmar exclusión'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true || !mounted) return;
+    final sesion = context.read<SesionProvider>();
+    final error = sesion.excluirContenidoClase(
+      evaluacion: _evaluacion,
+      claseNumero: clase.claseNumero,
+      bloque: bloque,
+      contenido: contenido,
+      motivo: motivo.text,
+      observacion: observacion.text,
+    );
+    if (error != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    setState(
+      () => _evaluacion = sesion.borradorEvaluacion(_evaluacion.evaluadorTipo)!,
+    );
+  }
+
+  void _deshacerExclusion(String contenidoId) {
+    final sesion = context.read<SesionProvider>();
+    final error = sesion.deshacerExclusionContenido(_evaluacion, contenidoId);
+    if (error != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    setState(
+      () => _evaluacion = sesion.borradorEvaluacion(_evaluacion.evaluadorTipo)!,
+    );
+  }
+
+  String _fecha(DateTime fecha) =>
+      '${fecha.day.toString().padLeft(2, '0')}/${fecha.month.toString().padLeft(2, '0')}/${fecha.year}';
+
   String _crearObservacionAutomatica(EvaluacionClase clase) {
     final pendientes = <String>[];
     for (final bloque in clase.bloquesEvaluables) {
@@ -348,7 +474,15 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
         continue;
       }
       final items = bloque.itemsMarcados.entries
-          .where((entry) => !entry.value)
+          .where(
+            (entry) =>
+                !entry.value &&
+                !_evaluacion.exclusiones.any(
+                  (e) =>
+                      e.contenidoId ==
+                      clase.contenidoId(bloque.bloqueNombre, entry.key),
+                ),
+          )
           .map((entry) => entry.key)
           .toList();
       if (items.isNotEmpty) {
@@ -642,25 +776,40 @@ class _FirmaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tieneFirma = firmaBase64 != null && firmaBase64!.isNotEmpty;
+    final scheme = Theme.of(context).colorScheme;
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.md + 2),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Icon(Icons.draw_outlined, color: AppColors.primary),
-                const SizedBox(width: 12),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: (tieneFirma ? AppColors.success : scheme.primary)
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppRadius.small),
+                  ),
+                  child: Icon(
+                    tieneFirma ? Icons.verified_rounded : Icons.draw_outlined,
+                    size: 20,
+                    color: tieneFirma ? AppColors.success : scheme.primary,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     titulo,
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
                 if (tieneFirma)
                   const Chip(
-                    avatar: Icon(Icons.check_circle_outline, size: 18),
+                    avatar: Icon(Icons.check_circle_outline, size: 16),
                     label: Text('Firmado'),
                     side: BorderSide.none,
                     backgroundColor: AppColors.successContainer,
@@ -668,15 +817,18 @@ class _FirmaCard extends StatelessWidget {
               ],
             ),
             if (tieneFirma) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               Container(
                 height: 120,
                 width: double.infinity,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(AppRadius.small),
-                  border: Border.all(color: AppColors.outline),
+                  borderRadius: BorderRadius.circular(AppRadius.button),
+                  border: Border.all(
+                    color: AppColors.success.withValues(alpha: 0.35),
+                    width: 1.2,
+                  ),
                 ),
                 child: Image.memory(
                   base64Decode(firmaBase64!),
@@ -684,7 +836,7 @@ class _FirmaCard extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.md),
             OutlinedButton.icon(
               onPressed: onFirmar,
               icon: const Icon(Icons.edit_outlined),
@@ -705,12 +857,13 @@ class _FirmaPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAF9),
-        borderRadius: BorderRadius.circular(AppRadius.small),
-        border: Border.all(color: AppColors.outline),
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(AppRadius.button),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Row(
         children: [

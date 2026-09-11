@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'config/auth_config.dart';
 import 'providers/sesion_provider.dart';
+import 'security/rbac.dart';
 import 'screens/crear_profesor_screen.dart';
 import 'screens/evaluador_selection_screen.dart';
 import 'screens/gestion_home_screen.dart';
@@ -16,6 +17,7 @@ import 'screens/historial_estudiantes_screen.dart';
 import 'screens/panel_colegios_screen.dart';
 import 'screens/agenda_visitas_screen.dart';
 import 'theme/app_theme.dart';
+import 'widgets/permission_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,24 +74,46 @@ class EvaluadorApp extends StatelessWidget {
         initialRoute: LoginScreen.routeName,
         routes: {
           LoginScreen.routeName: (_) => const LoginScreen(),
-          EvaluadorSelectionScreen.routeName: (_) =>
-              const EvaluadorSelectionScreen(),
-          GestionHomeScreen.adminRoute: (_) => const GestionHomeScreen.admin(),
-          GestionHomeScreen.coordinadorRoute: (_) =>
-              const GestionHomeScreen.coordinador(),
+          EvaluadorSelectionScreen.routeName: (_) => const PermissionGate(
+            permission: Permiso.crearEvaluaciones,
+            child: EvaluadorSelectionScreen(),
+          ),
+          GestionHomeScreen.adminRoute: (_) => const PermissionGate(
+            permission: Permiso.administrarUsuarios,
+            child: GestionHomeScreen.admin(),
+          ),
+          GestionHomeScreen.coordinadorRoute: (_) => const PermissionGate(
+            permission: Permiso.gestionarEstructuraAcademica,
+            child: GestionHomeScreen.coordinador(),
+          ),
           CrearProfesorScreen.routeName: (_) => const CrearProfesorScreen(),
           CrearProfesorScreen.solicitudRoute: (_) =>
               const CrearProfesorScreen(solicitudPublica: true),
           ProfesoresScreen.routeName: (_) => const ProfesoresScreen(),
-          ProfesorHomeScreen.routeName: (_) => const ProfesorHomeScreen(),
-          StudentKnowledgeReportScreen.routeName: (_) =>
-              const StudentKnowledgeReportScreen(),
-          ConfiguracionNotasScreen.routeName: (_) =>
-              const ConfiguracionNotasScreen(),
-          HistorialEstudiantesScreen.routeName: (_) =>
-              const HistorialEstudiantesScreen(),
-          PanelColegiosScreen.routeName: (_) => const PanelColegiosScreen(),
-          AgendaVisitasScreen.routeName: (_) => const AgendaVisitasScreen(),
+          ProfesorHomeScreen.routeName: (_) => const PermissionGate(
+            permission: Permiso.actualizarPerfil,
+            child: ProfesorHomeScreen(),
+          ),
+          StudentKnowledgeReportScreen.routeName: (_) => const PermissionGate(
+            permission: Permiso.crearEvaluaciones,
+            child: StudentKnowledgeReportScreen(),
+          ),
+          ConfiguracionNotasScreen.routeName: (_) => const PermissionGate(
+            permission: Permiso.configurarSistema,
+            child: ConfiguracionNotasScreen(),
+          ),
+          HistorialEstudiantesScreen.routeName: (_) => const PermissionGate(
+            permission: Permiso.verResultadosAsignados,
+            child: HistorialEstudiantesScreen(),
+          ),
+          PanelColegiosScreen.routeName: (_) => const PermissionGate(
+            permission: Permiso.verResultadosAsignados,
+            child: PanelColegiosScreen(),
+          ),
+          AgendaVisitasScreen.routeName: (_) => const PermissionGate(
+            permission: Permiso.gestionarAgenda,
+            child: AgendaVisitasScreen(),
+          ),
         },
       ),
     );

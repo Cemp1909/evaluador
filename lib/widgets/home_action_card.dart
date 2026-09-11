@@ -39,41 +39,53 @@ class _HomeActionCardState extends State<HomeActionCard> {
       onPointerUp: (_) => setState(() => _pressed = false),
       onPointerCancel: (_) => setState(() => _pressed = false),
       child: AnimatedScale(
-        scale: _pressed ? .985 : 1,
-        duration: const Duration(milliseconds: 160),
+        scale: _pressed ? .984 : 1,
+        duration: const Duration(milliseconds: 140),
         curve: Curves.easeOutCubic,
         child: Card(
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: widget.onTap,
             borderRadius: BorderRadius.circular(AppRadius.medium),
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm + 3,
+              ),
               child: Row(
                 children: [
                   Container(
                     width: 4,
-                    height: 40,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: accent,
                       borderRadius: BorderRadius.circular(AppRadius.pill),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.md),
+                  const SizedBox(width: AppSpacing.sm + 2),
                   Container(
-                    width: widget.prominent ? 48 : 56,
-                    height: widget.prominent ? 48 : 56,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          accent.withValues(alpha: dark ? .22 : .18),
-                          accent.withValues(alpha: dark ? .08 : .06),
+                          accent.withValues(alpha: dark ? .26 : .16),
+                          accent.withValues(alpha: dark ? .10 : .05),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(AppRadius.small),
+                      borderRadius: BorderRadius.circular(AppRadius.small + 2),
+                      border: Border.all(
+                        color: accent.withValues(alpha: dark ? .35 : .22),
+                        width: 1,
+                      ),
                     ),
-                    child: Icon(widget.icon, color: scheme.primary, size: 25),
+                    child: Icon(
+                      widget.icon,
+                      color: dark ? Colors.white : scheme.primary,
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
@@ -84,40 +96,48 @@ class _HomeActionCardState extends State<HomeActionCard> {
                           widget.title,
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        const SizedBox(height: AppSpacing.xxs),
+                        const SizedBox(height: 3),
                         Text(
                           widget.subtitle,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         if (widget.badge != null) ...[
-                          const SizedBox(height: AppSpacing.sm),
+                          const SizedBox(height: AppSpacing.xs),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 9,
-                              vertical: 4,
+                              horizontal: 10,
+                              vertical: 3.5,
                             ),
                             decoration: BoxDecoration(
-                              color: accent.withValues(alpha: dark ? .18 : .12),
+                              color: accent.withValues(alpha: dark ? .20 : .12),
                               borderRadius: BorderRadius.circular(
                                 AppRadius.pill,
+                              ),
+                              border: Border.all(
+                                color: accent.withValues(
+                                  alpha: dark ? .35 : .25,
+                                ),
+                                width: 0.8,
                               ),
                             ),
                             child: Text(
                               widget.badge!,
-                              style: Theme.of(
-                                context,
-                              ).textTheme.labelMedium?.copyWith(color: accent),
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: accent,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                             ),
                           ),
                         ],
                       ],
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
+                  const SizedBox(width: AppSpacing.xs),
                   Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 15,
-                    color: scheme.onSurfaceVariant.withValues(alpha: .7),
+                    Icons.chevron_right_rounded,
+                    size: 22,
+                    color: scheme.onSurfaceVariant.withValues(alpha: .6),
                   ),
                 ],
               ),

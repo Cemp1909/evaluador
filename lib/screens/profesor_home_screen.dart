@@ -39,7 +39,7 @@ class ProfesorHomeScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg,
-          AppSpacing.xs,
+          AppSpacing.sm,
           AppSpacing.lg,
           AppSpacing.xl,
         ),
@@ -48,12 +48,11 @@ class ProfesorHomeScreen extends StatelessWidget {
             'Hello, ${usuario?.nombre ?? 'Teacher'}',
             style: Theme.of(context).textTheme.displaySmall,
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            usuario?.zona ?? '',
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: AppSpacing.xs),
+          if (usuario?.zona != null && usuario!.zona!.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xxs),
+            Text(usuario.zona!, style: Theme.of(context).textTheme.bodyLarge),
+          ],
+          const SizedBox(height: AppSpacing.xxs),
           Text(
             'Select an option to continue.',
             style: Theme.of(context).textTheme.bodyMedium,

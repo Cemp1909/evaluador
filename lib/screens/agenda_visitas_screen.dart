@@ -55,7 +55,12 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
         label: const Text('Programar visita'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.sm,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
         children: [
           SegmentedButton<int>(
             segments: const [
@@ -1311,11 +1316,16 @@ class _AvisoAgenda extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-    color: color,
+    clipBehavior: Clip.antiAlias,
+    color: color.withValues(alpha: 0.7),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppRadius.medium),
+      side: BorderSide(color: color.withValues(alpha: 0.4)),
+    ),
     child: ListTile(
       leading: Icon(icon),
-      title: Text(titulo),
-      subtitle: Text(detalle),
+      title: Text(titulo, style: Theme.of(context).textTheme.titleSmall),
+      subtitle: Text(detalle, style: Theme.of(context).textTheme.bodySmall),
     ),
   );
 }

@@ -87,7 +87,7 @@ void main() {
     );
   });
 
-  test('el coordinador solo ve y crea profesores de su zona', () {
+  test('el coordinador consulta solo su zona y no crea usuarios', () {
     final sesion = SesionProvider(AuthConfig.test);
     sesion.iniciarSesion(usuario: 'admin', password: 'cambiar_esto');
     sesion.crearProfesor(
@@ -105,15 +105,16 @@ void main() {
     sesion.cerrarSesion();
     sesion.iniciarSesion(usuario: 'coordinador', password: 'cambiar_esto');
 
-    expect(sesion.profesoresVisibles(), hasLength(1));
-    expect(sesion.profesoresVisibles().single.usuario, 'centro');
-    sesion.crearProfesor(
-      nombre: 'Profesor Forzado',
-      usuario: 'forzado',
-      password: 'prueba123',
-      zona: 'Zona Diferente',
+    expect(sesion.profesoresVisibles().map((p) => p.usuario), ['centro']);
+    expect(
+      sesion.crearProfesor(
+        nombre: 'Profesor Forzado',
+        usuario: 'forzado',
+        password: 'prueba123',
+        zona: 'Zona Diferente',
+      ),
+      contains('No tienes permiso'),
     );
-    expect(sesion.profesores.last.zona, 'Zona Centro');
   });
 
   test('valida duplicados y contraseña mínima', () {
@@ -148,6 +149,7 @@ void main() {
 
   test('conserva borrador y configuración durante la sesión', () {
     final sesion = SesionProvider(AuthConfig.test);
+    sesion.iniciarSesion(usuario: 'admin', password: 'cambiar_esto');
     sesion.guardarBorradorConocimiento(
       StudentKnowledgeDraft(
         actualizadoEn: DateTime(2026, 8, 17),
@@ -172,6 +174,7 @@ void main() {
 
   test('programa, ordena y completa visitas durante la sesión', () {
     final sesion = SesionProvider(AuthConfig.test);
+    sesion.iniciarSesion(usuario: 'admin', password: 'cambiar_esto');
     sesion.programarVisita(
       VisitaProgramada(
         id: '2',
@@ -209,6 +212,7 @@ void main() {
 
   test('impide repetir período o clase en el mismo colegio', () {
     final sesion = SesionProvider(AuthConfig.test);
+    sesion.iniciarSesion(usuario: 'admin', password: 'cambiar_esto');
     expect(
       sesion.programarVisita(
         VisitaProgramada(
@@ -266,6 +270,7 @@ void main() {
 
   test('edita tipo, profesor, fecha y hora conservando validaciones', () {
     final sesion = SesionProvider(AuthConfig.test);
+    sesion.iniciarSesion(usuario: 'admin', password: 'cambiar_esto');
     final original = VisitaProgramada(
       id: 'editable',
       fecha: DateTime(2026, 9, 1, 8),
@@ -295,6 +300,7 @@ void main() {
     'programa semanalmente todas las clases restantes y reserva la hora',
     () {
       final sesion = SesionProvider(AuthConfig.test);
+      sesion.iniciarSesion(usuario: 'admin', password: 'cambiar_esto');
       final inicio = DateTime(2026, 9, 7, 8, 30);
       expect(
         sesion.programarSerieClases(
@@ -347,6 +353,7 @@ void main() {
 
   test('limita English Day y sus ensayos a tres fechas por colegio', () {
     final sesion = SesionProvider(AuthConfig.test);
+    sesion.iniciarSesion(usuario: 'admin', password: 'cambiar_esto');
     for (var indice = 0; indice < 3; indice++) {
       expect(
         sesion.programarVisita(
@@ -401,6 +408,7 @@ void main() {
 
   test('valida bloqueos, duración, estados y responsables de agenda', () {
     final sesion = SesionProvider(AuthConfig.test);
+    sesion.iniciarSesion(usuario: 'admin', password: 'cambiar_esto');
     final fecha = DateTime(2026, 12, 10, 8);
     sesion.bloquearFecha(fecha);
     final bloqueada = VisitaProgramada(

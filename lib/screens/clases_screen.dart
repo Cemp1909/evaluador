@@ -5,6 +5,7 @@ import '../models/evaluacion_clase.dart';
 import '../models/evaluador_tipo.dart';
 import '../services/evaluacion_service.dart';
 import '../providers/sesion_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/clase_card.dart';
 import '../widgets/evaluacion_progress_card.dart';
 import '../widgets/app_brand_title.dart';
@@ -43,25 +44,30 @@ class _ClasesScreenState extends State<ClasesScreen> {
       appBar: AppBar(title: const AppBrandTitle()),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.xl,
+          ),
           children: [
             Text(
               _nombreTipo(widget.tipo.nombre),
               style: Theme.of(context).textTheme.headlineSmall,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: AppSpacing.xxs),
             Text(
               'Review progress and select a class to continue.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: AppSpacing.lg),
             EvaluacionProgressCard(
               completados: contenidosMarcados,
               total: totalContenidos,
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: AppSpacing.xl),
             Text('Class plan', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.sm),
             for (var index = 0; index < widget.tipo.clases.length; index++) ...[
               ClaseCard(
                 numero: widget.tipo.clases[index].numero,
@@ -71,6 +77,13 @@ class _ClasesScreenState extends State<ClasesScreen> {
                 totalContenidos: _totalContenidosClase(
                   _evaluacion.clases[index],
                 ),
+                sinContenidosAplicables:
+                    _totalContenidosClase(_evaluacion.clases[index]) == 0 &&
+                    _evaluacion.exclusiones.any(
+                      (e) =>
+                          e.claseId ==
+                          '${_evaluacion.clases[index].claseNumero}',
+                    ),
                 onTap: () => _abrirClase(index),
               ),
               if (index < widget.tipo.clases.length - 1)
@@ -88,22 +101,10 @@ class _ClasesScreenState extends State<ClasesScreen> {
       .replaceAll('Primaria', 'Primary');
 
   int _totalContenidosClase(EvaluacionClase clase) =>
-      clase.bloquesEvaluables.fold<int>(
-    0,
-    (total, bloque) =>
-        total +
-        (bloque.itemsMarcados.isEmpty ? 1 : bloque.itemsMarcados.length),
-  );
+      _service.contenidosAplicables(_evaluacion, clase);
 
   int _contenidosMarcadosClase(EvaluacionClase clase) =>
-      clase.bloquesEvaluables.fold<int>(
-        0,
-        (total, bloque) =>
-            total +
-            (bloque.itemsMarcados.isEmpty
-                ? (bloque.marcado ? 1 : 0)
-                : bloque.itemsMarcados.values.where((valor) => valor).length),
-      );
+      _service.contenidosEnsenados(_evaluacion, clase);
 
   Future<void> _abrirClase(int index) async {
     final resultado = await Navigator.of(context).push<Evaluacion>(

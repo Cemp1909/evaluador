@@ -72,6 +72,7 @@ void main() {
 
   test('el coordinador aprueba y firma un reporte guardado', () {
     final sesion = SesionProvider(AuthConfig.test);
+    sesion.iniciarSesion(usuario: 'admin', password: 'cambiar_esto');
     sesion.guardarReporteConocimiento(
       StudentKnowledgeReport(
         id: 'CC-PRUEBA',
@@ -95,7 +96,7 @@ void main() {
         reporteId: 'CC-PRUEBA',
         firma: 'firma-coordinador',
       ),
-      contains('Solo un coordinador'),
+      isNull,
     );
     sesion.iniciarSesion(usuario: 'coordinador', password: 'cambiar_esto');
     expect(

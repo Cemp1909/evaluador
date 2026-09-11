@@ -10,12 +10,14 @@ class ClaseCard extends StatefulWidget {
     required this.contenidosMarcados,
     required this.totalContenidos,
     required this.onTap,
+    this.sinContenidosAplicables = false,
   });
 
   final int numero;
   final int contenidosMarcados;
   final int totalContenidos;
   final VoidCallback onTap;
+  final bool sinContenidosAplicables;
 
   @override
   State<ClaseCard> createState() => _ClaseCardState();
@@ -34,7 +36,6 @@ class _ClaseCardState extends State<ClaseCard> {
     final progress = widget.totalContenidos == 0
         ? 0.0
         : widget.contenidosMarcados / widget.totalContenidos;
-    final borderColor = _completa ? AppColors.success : scheme.outline;
     final inProgress = widget.contenidosMarcados > 0 && !_completa;
 
     return Listener(
@@ -46,15 +47,24 @@ class _ClaseCardState extends State<ClaseCard> {
         duration: const Duration(milliseconds: 150),
         curve: Curves.easeOutCubic,
         child: Card(
+          clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.medium),
-            side: BorderSide(color: borderColor, width: _completa ? 1.25 : 1),
+            side: BorderSide(
+              color: _completa
+                  ? AppColors.success.withValues(alpha: 0.6)
+                  : scheme.outlineVariant,
+              width: _completa ? 1.2 : 1,
+            ),
           ),
           child: InkWell(
             onTap: widget.onTap,
             borderRadius: BorderRadius.circular(AppRadius.medium),
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.md + 2,
+              ),
               child: Row(
                 children: [
                   AnimatedContainer(
@@ -70,25 +80,32 @@ class _ClaseCardState extends State<ClaseCard> {
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutCubic,
-                    width: 52,
-                    height: 52,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
                       color: _completa
                           ? AppColors.successContainer
-                          : scheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(AppRadius.small),
+                          : scheme.primaryContainer.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(AppRadius.small + 2),
+                      border: Border.all(
+                        color: (_completa ? AppColors.success : scheme.primary)
+                            .withValues(alpha: 0.2),
+                      ),
                     ),
                     alignment: Alignment.center,
                     child: _completa
                         ? const Icon(
                             Icons.check_rounded,
                             color: AppColors.success,
-                            size: 30,
+                            size: 26,
                           )
                         : Text(
                             '${widget.numero}',
                             style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(color: scheme.onPrimaryContainer),
+                                ?.copyWith(
+                                  color: scheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
                   ),
                   const SizedBox(width: AppSpacing.md),
@@ -100,29 +117,35 @@ class _ClaseCardState extends State<ClaseCard> {
                           'Class ${widget.numero}',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        const SizedBox(height: AppSpacing.sm),
+                        const SizedBox(height: 6),
                         GradientProgressBar(
                           value: progress,
-                          height: 9,
+                          height: 7,
                           complete: _completa,
                         ),
-                        const SizedBox(height: AppSpacing.xs),
+                        const SizedBox(height: 5),
                         Text(
-                          '${widget.contenidosMarcados} of ${widget.totalContenidos} items completed',
-                          style: Theme.of(context).textTheme.bodyMedium,
+                          widget.sinContenidosAplicables
+                              ? 'Sin contenidos aplicables por solicitud del colegio'
+                              : '${widget.contenidosMarcados} of ${widget.totalContenidos} items completed',
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
+                  const SizedBox(width: AppSpacing.xs),
                   _StatusBadge(
                     label: _completa
                         ? 'Completed'
+                        : widget.sinContenidosAplicables
+                        ? 'Excluded'
                         : inProgress
                         ? 'In progress'
                         : 'Pending',
                     color: _completa
                         ? AppColors.success
+                        : widget.sinContenidosAplicables
+                        ? AppColors.accent
                         : inProgress
                         ? AppColors.accent
                         : scheme.onSurfaceVariant,
@@ -146,25 +169,26 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: .11),
+        color: color.withValues(alpha: .12),
         borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: color.withValues(alpha: .3), width: 0.8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 6,
-            height: 6,
+            width: 5,
+            height: 5,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           Text(
             label,
             style: Theme.of(
               context,
-            ).textTheme.labelMedium?.copyWith(color: color, fontSize: 10),
+            ).textTheme.labelSmall?.copyWith(color: color, fontSize: 10.5),
           ),
         ],
       ),

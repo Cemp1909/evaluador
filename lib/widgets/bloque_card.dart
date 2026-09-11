@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/bloque.dart';
+import '../models/exclusion_contenido.dart';
 import '../theme/app_theme.dart';
 
 class BloqueCard extends StatelessWidget {
@@ -13,6 +14,10 @@ class BloqueCard extends StatelessWidget {
     required this.onBloqueChanged,
     this.habilitado = true,
     this.mensajeDeshabilitado,
+    this.exclusiones = const {},
+    this.onExcluir,
+    this.onDeshacerExclusion,
+    this.estadosContenido = const {},
   });
 
   final Bloque bloque;
@@ -22,10 +27,16 @@ class BloqueCard extends StatelessWidget {
   final ValueChanged<bool> onBloqueChanged;
   final bool habilitado;
   final String? mensajeDeshabilitado;
+  final Map<String, String> exclusiones;
+  final ValueChanged<String>? onExcluir;
+  final ValueChanged<String>? onDeshacerExclusion;
+  final Map<String, EstadoContenidoClase> estadosContenido;
 
   @override
   Widget build(BuildContext context) {
     final completados = itemsMarcados.values.where((value) => value).length;
+    final totalContenidos = bloque.items.isEmpty ? 1 : bloque.items.length;
+    final bloqueExcluido = exclusiones.length == totalContenidos;
     final categoryColor = _colorParaBloque(bloque.nombre);
 
     return IgnorePointer(
@@ -37,72 +48,107 @@ class BloqueCard extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: AppSpacing.md),
           clipBehavior: Clip.antiAlias,
           child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+            padding: const EdgeInsets.all(AppSpacing.md + 2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 4,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: categoryColor,
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Icon(
-                  _iconoParaBloque(bloque.nombre),
-                  color: marcado ? AppColors.success : categoryColor,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        bloque.nombre,
-                        style: Theme.of(context).textTheme.titleMedium,
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: categoryColor,
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
-                      if (bloque.items.isNotEmpty)
-                        Text(
-                          '$completados of ${bloque.items.length} items',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: (marcado ? AppColors.success : categoryColor)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(AppRadius.small),
+                      ),
+                      child: Icon(
+                        _iconoParaBloque(bloque.nombre),
+                        size: 20,
+                        color: marcado ? AppColors.success : categoryColor,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            bloque.nombre,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          if (bloque.items.isNotEmpty)
+                            Text(
+                              '$completados of ${bloque.items.length} items',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (!habilitado && mensajeDeshabilitado != null)
+                      Chip(label: Text(mensajeDeshabilitado!))
+                    else if (bloqueExcluido)
+                      const Chip(
+                        label: Text('Excluido por solicitud del colegio'),
+                      )
+                    else if (bloque.items.isNotEmpty)
+                      TextButton(
+                        onPressed: () => onBloqueChanged(!marcado),
+                        child: Text(marcado ? 'Clear all' : 'Select all'),
+                      ),
+                  ],
                 ),
-                if (!habilitado && mensajeDeshabilitado != null)
-                  Chip(label: Text(mensajeDeshabilitado!))
-                else if (bloque.items.isNotEmpty)
-                  TextButton(
-                    onPressed: () => onBloqueChanged(!marcado),
-                    child: Text(marcado ? 'Clear all' : 'Select all'),
-                  ),
+                const SizedBox(height: AppSpacing.sm),
+                const Divider(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.xs),
+                if (bloque.items.isEmpty)
+                  _ChecklistItem(
+                    label: 'Content taught',
+                    checked: marcado,
+                    onChanged: onBloqueChanged,
+                    estado: marcado
+                        ? EstadoContenidoClase.ensenado
+                        : EstadoContenidoClase.pendiente,
+                    motivoExclusion: exclusiones[bloque.nombre],
+                    onExcluir: onExcluir == null
+                        ? null
+                        : () => onExcluir!(bloque.nombre),
+                    onDeshacer: onDeshacerExclusion == null
+                        ? null
+                        : () => onDeshacerExclusion!(bloque.nombre),
+                  )
+                else
+                  for (final item in bloque.items)
+                    Padding(
+                      key: ValueKey('${bloque.nombre}-${item.texto}'),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                      child: _ChecklistItem(
+                        label: item.texto,
+                        checked: itemsMarcados[item.texto] ?? false,
+                        onChanged: (value) => onItemChanged(item.texto, value),
+                        motivoExclusion: exclusiones[item.texto],
+                        estado:
+                            estadosContenido[item.texto] ??
+                            EstadoContenidoClase.pendiente,
+                        onExcluir: onExcluir == null
+                            ? null
+                            : () => onExcluir!(item.texto),
+                        onDeshacer: onDeshacerExclusion == null
+                            ? null
+                            : () => onDeshacerExclusion!(item.texto),
+                      ),
+                    ),
               ],
             ),
-            const SizedBox(height: AppSpacing.sm),
-            const Divider(height: AppSpacing.lg),
-            if (bloque.items.isEmpty)
-              _ChecklistItem(
-                label: 'Content taught',
-                checked: marcado,
-                onChanged: onBloqueChanged,
-              )
-            else
-              for (final item in bloque.items)
-                Padding(
-                  key: ValueKey('${bloque.nombre}-${item.texto}'),
-                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                  child: _ChecklistItem(
-                    label: item.texto,
-                    checked: itemsMarcados[item.texto] ?? false,
-                    onChanged: (value) => onItemChanged(item.texto, value),
-                  ),
-                ),
-          ],
-        ),
           ),
         ),
       ),
@@ -156,11 +202,19 @@ class _ChecklistItem extends StatelessWidget {
     required this.label,
     required this.checked,
     required this.onChanged,
+    this.motivoExclusion,
+    this.onExcluir,
+    this.onDeshacer,
+    this.estado = EstadoContenidoClase.pendiente,
   });
 
   final String label;
   final bool checked;
   final ValueChanged<bool> onChanged;
+  final String? motivoExclusion;
+  final VoidCallback? onExcluir;
+  final VoidCallback? onDeshacer;
+  final EstadoContenidoClase estado;
 
   @override
   Widget build(BuildContext context) {
@@ -182,7 +236,7 @@ class _ChecklistItem extends StatelessWidget {
         ),
       ),
       child: InkWell(
-        onTap: () => onChanged(!checked),
+        onTap: motivoExclusion == null ? () => onChanged(!checked) : null,
         borderRadius: BorderRadius.circular(AppRadius.small),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
@@ -229,9 +283,44 @@ class _ChecklistItem extends StatelessWidget {
                     decoration: checked ? TextDecoration.lineThrough : null,
                     decorationColor: AppColors.success,
                   ),
-                  child: Text(label),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label),
+                      if (motivoExclusion != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Excluido por el colegio · $motivoExclusion',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppColors.accent,
+                                decoration: TextDecoration.none,
+                              ),
+                        ),
+                      ] else ...[
+                        const SizedBox(height: 4),
+                        Text(switch (estado) {
+                          EstadoContenidoClase.pendiente => 'Pendiente',
+                          EstadoContenidoClase.ensenado => 'Enseñado',
+                          EstadoContenidoClase.noEnsenado => 'No enseñado',
+                          EstadoContenidoClase.excluidoPorColegio =>
+                            'Excluido por el colegio',
+                        }, style: Theme.of(context).textTheme.bodySmall),
+                      ],
+                    ],
+                  ),
                 ),
               ),
+              if (motivoExclusion == null && onExcluir != null)
+                TextButton(
+                  onPressed: onExcluir,
+                  child: const Text('Excluir para esta clase'),
+                ),
+              if (motivoExclusion != null && onDeshacer != null)
+                TextButton(
+                  onPressed: onDeshacer,
+                  child: const Text('Deshacer exclusión'),
+                ),
             ],
           ),
         ),

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/usuario_sesion.dart';
 import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
+import '../security/rbac.dart';
 import '../widgets/app_brand_title.dart';
 
 class CrearProfesorScreen extends StatefulWidget {
@@ -40,6 +41,17 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
   @override
   Widget build(BuildContext context) {
     final sesion = context.watch<SesionProvider>();
+    final autorizado = widget.solicitudPublica
+        ? Rbac.puedeRegistrarSolicitudProfesor(sesion.usuarioActual)
+        : Rbac.puedeCrearProfesores(sesion.usuarioActual);
+    if (!autorizado) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Acceso no autorizado')),
+        body: const Center(
+          child: Text('No tienes permiso para crear ni registrar profesores.'),
+        ),
+      );
+    }
     final esCoordinador =
         !widget.solicitudPublica &&
         sesion.usuarioActual?.rol == RolUsuario.coordinador;
@@ -49,172 +61,236 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
       appBar: AppBar(title: const AppBrandTitle(compact: true)),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-          child: Form(
-            key: _formKey,
-            child: Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.medium),
-                side: const BorderSide(color: AppColors.primary, width: 1.2),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      widget.solicitudPublica
-                          ? 'Request Teacher Access'
-                          : 'Create Teacher Profile',
-                      style: Theme.of(context).textTheme.headlineSmall,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 540),
+              child: Form(
+                key: _formKey,
+                child: Card(
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.large),
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      width: 1,
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      widget.solicitudPublica
-                          ? 'Complete your details. An administrator must approve your access.'
-                          : 'The account will remain pending until an administrator approves it.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    if (_creado) ...[
-                      const SizedBox(height: 20),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.successContainer,
-                          borderRadius: BorderRadius.circular(AppRadius.medium),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xl),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          widget.solicitudPublica
+                              ? 'Request Teacher Access'
+                              : 'Create Teacher Profile',
+                          style: Theme.of(context).textTheme.headlineSmall,
                         ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.check_circle,
-                              color: AppColors.success,
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          widget.solicitudPublica
+                              ? 'Complete your details. An administrator must approve your access.'
+                              : 'The account will remain pending until an administrator approves it.',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        if (_creado) ...[
+                          const SizedBox(height: AppSpacing.lg),
+                          Container(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            decoration: BoxDecoration(
+                              color: AppColors.successContainer,
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.button,
+                              ),
+                              border: Border.all(
+                                color: AppColors.success.withValues(alpha: 0.3),
+                              ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                widget.solicitudPublica
-                                    ? 'Request sent. Wait for administrator approval.'
-                                    : 'Teacher request created successfully.',
-                                style: const TextStyle(
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.check_circle_rounded,
                                   color: AppColors.success,
-                                  fontWeight: FontWeight.w600,
                                 ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Expanded(
+                                  child: Text(
+                                    widget.solicitudPublica
+                                        ? 'Request sent. Wait for administrator approval.'
+                                        : 'Teacher request created successfully.',
+                                    style: const TextStyle(
+                                      color: AppColors.success,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.xl),
+                        TextFormField(
+                          controller: _nombreController,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            labelText: 'Full name',
+                            prefixIcon: Icon(Icons.badge_outlined),
+                          ),
+                          validator: _campoObligatorio,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        TextFormField(
+                          controller: _usuarioController,
+                          textInputAction: TextInputAction.next,
+                          autocorrect: false,
+                          decoration: const InputDecoration(
+                            labelText: 'Username',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
+                          validator: _campoObligatorio,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: _ocultarPassword,
+                          textInputAction: esCoordinador
+                              ? TextInputAction.done
+                              : TextInputAction.next,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            helperText: 'At least 6 characters',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              onPressed: () => setState(
+                                () => _ocultarPassword = !_ocultarPassword,
+                              ),
+                              icon: Icon(
+                                _ocultarPassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _nombreController,
-                      textCapitalization: TextCapitalization.words,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'Full name',
-                        prefixIcon: Icon(Icons.badge_outlined),
-                      ),
-                      validator: _campoObligatorio,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _usuarioController,
-                      textInputAction: TextInputAction.next,
-                      autocorrect: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Username',
-                        prefixIcon: Icon(Icons.person_outline),
-                      ),
-                      validator: _campoObligatorio,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _ocultarPassword,
-                      textInputAction: esCoordinador
-                          ? TextInputAction.done
-                          : TextInputAction.next,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        helperText: 'At least 6 characters',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(
-                            () => _ocultarPassword = !_ocultarPassword,
                           ),
-                          icon: Icon(
-                            _ocultarPassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'This field is required.';
+                            }
+                            if (value.length < 6) {
+                              return 'Use at least 6 characters.';
+                            }
+                            return null;
+                          },
                         ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'This field is required.';
-                        }
-                        if (value.length < 6) {
-                          return 'Use at least 6 characters.';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    if (esCoordinador)
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE4F1F2),
-                          borderRadius: BorderRadius.circular(AppRadius.medium),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.location_on_outlined,
-                              color: AppColors.primary,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Assigned zone: $zonaAsignada',
-                                style: Theme.of(context).textTheme.titleMedium,
+                        const SizedBox(height: AppSpacing.md),
+                        if (esCoordinador)
+                          Container(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer
+                                  .withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.button,
+                              ),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.2),
                               ),
                             ),
-                          ],
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on_outlined,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Expanded(
+                                  child: Text(
+                                    'Assigned zone: $zonaAsignada',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleSmall,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          TextFormField(
+                            controller: _zonaController,
+                            textCapitalization: TextCapitalization.words,
+                            textInputAction: TextInputAction.done,
+                            decoration: const InputDecoration(
+                              labelText: 'Zone',
+                              prefixIcon: Icon(Icons.location_on_outlined),
+                            ),
+                            validator: _campoObligatorio,
+                          ),
+                        if (_error != null) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .errorContainer
+                                  .withValues(alpha: 0.8),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.button,
+                              ),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.error.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.error_outline_rounded,
+                                  size: 18,
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    _error!,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.lg),
+                        FilledButton.icon(
+                          onPressed: () => _crear(esCoordinador, zonaAsignada),
+                          icon: const Icon(Icons.person_add_alt_1_rounded),
+                          label: Text(
+                            widget.solicitudPublica
+                                ? 'Send request'
+                                : 'Create request',
+                          ),
                         ),
-                      )
-                    else
-                      TextFormField(
-                        controller: _zonaController,
-                        textCapitalization: TextCapitalization.words,
-                        textInputAction: TextInputAction.done,
-                        decoration: const InputDecoration(
-                          labelText: 'Zone',
-                          prefixIcon: Icon(Icons.location_on_outlined),
-                        ),
-                        validator: _campoObligatorio,
-                      ),
-                    if (_error != null) ...[
-                      const SizedBox(height: 14),
-                      Text(
-                        _error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 26),
-                    FilledButton.icon(
-                      onPressed: () => _crear(esCoordinador, zonaAsignada),
-                      icon: const Icon(Icons.person_add_alt_1_rounded),
-                      label: Text(
-                        widget.solicitudPublica
-                            ? 'Send request'
-                            : 'Create request',
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),

@@ -8,6 +8,7 @@ import '../models/evaluacion.dart';
 import '../models/evaluacion_bloque.dart';
 import '../models/evaluacion_clase.dart';
 import '../models/student_knowledge_report.dart';
+import '../models/exclusion_contenido.dart';
 
 class PdfExportService {
   const PdfExportService();
@@ -68,7 +69,7 @@ class PdfExportService {
             ('Fecha de creación', _fechaHora(evaluacion.fechaCreacion)),
           ]),
           pw.SizedBox(height: 14),
-          ..._clase(clase),
+          ..._clase(clase, evaluacion.exclusiones),
           if (evaluacion.fotosUrls.isNotEmpty) ...[
             _tituloSeccion('Evidencia fotográfica'),
             _imagenes(evaluacion.fotosUrls, height: 210),
@@ -121,7 +122,9 @@ class PdfExportService {
             ('Estado', _estado(evaluacion.estado)),
           ]),
           pw.SizedBox(height: 18),
-          ...evaluacion.clases.expand(_clase),
+          ...evaluacion.clases.expand(
+            (clase) => _clase(clase, evaluacion.exclusiones),
+          ),
           if (evaluacion.fotosUrls.isNotEmpty) ...[
             _tituloSeccion('Evidencia fotográfica'),
             _imagenes(evaluacion.fotosUrls, height: 210),
@@ -336,28 +339,62 @@ class PdfExportService {
     ),
   );
 
-  Iterable<pw.Widget> _clase(EvaluacionClase clase) sync* {
-    final total = clase.bloquesEvaluables.fold<int>(
-      0,
-      (value, bloque) =>
-          value +
-          (bloque.itemsMarcados.isEmpty ? 1 : bloque.itemsMarcados.length),
-    );
+  Iterable<pw.Widget> _clase(
+    EvaluacionClase clase,
+    List<ExclusionContenido> exclusiones,
+  ) sync* {
+    final exclusionesClase = exclusiones
+        .where((item) => item.claseId == '${clase.claseNumero}')
+        .toList();
+    final total = clase.totalAplicable(exclusionesClase);
     final completos = clase.bloquesEvaluables.fold<int>(
       0,
       (value, bloque) =>
           value +
           (bloque.itemsMarcados.isEmpty
               ? (bloque.marcado ? 1 : 0)
-              : bloque.itemsMarcados.values.where((value) => value).length),
+              : bloque.itemsMarcados.entries
+                    .where(
+                      (item) =>
+                          item.value &&
+                          !exclusionesClase.any(
+                            (e) =>
+                                e.contenidoId ==
+                                clase.contenidoId(
+                                  bloque.bloqueNombre,
+                                  item.key,
+                                ),
+                          ),
+                    )
+                    .length),
     );
     yield _tituloSeccion(
-      'Clase ${clase.claseNumero} · $completos de $total contenidos realizados',
+      total == 0
+          ? 'Clase ${clase.claseNumero} · Sin contenidos aplicables por solicitud del colegio'
+          : 'Clase ${clase.claseNumero} · $completos de $total contenidos realizados',
     );
     for (final bloque in clase.bloquesEvaluables) {
-      yield _tarjetaBloqueClase(bloque);
+      yield _tarjetaBloqueClase(bloque, clase, exclusionesClase);
     }
-    yield _recomendacionClase(_observacionAutomatica(clase));
+    if (exclusionesClase.isNotEmpty) {
+      yield _tituloSeccion('Contenidos excluidos por solicitud del colegio');
+      yield pw.Text(
+        'Estos contenidos fueron excluidos únicamente para esta clase por solicitud del colegio. La plantilla académica original no fue modificada.',
+        style: pw.TextStyle(fontSize: 9, color: _textSecondary),
+      );
+      yield pw.SizedBox(height: 8);
+      for (final exclusion in exclusionesClase) {
+        yield _bloqueEvaluacion(
+          exclusion.contenidoNombre,
+          '${exclusion.bloque}\nMotivo: ${exclusion.motivo}'
+          '${exclusion.observacion?.trim().isNotEmpty == true ? '\nObservación: ${exclusion.observacion}' : ''}'
+          '\nColegio: ${exclusion.colegio}\nClase: ${exclusion.claseId}'
+          '\nFecha: ${_fechaHora(exclusion.fecha)}'
+          '\nRegistró: ${exclusion.nombreUsuario} (${exclusion.rolUsuario.name})',
+        );
+      }
+    }
+    yield _recomendacionClase(_observacionAutomatica(clase, exclusionesClase));
     yield _seccion(
       'Observaciones de la clase',
       clase.observaciones.trim().isEmpty
@@ -418,7 +455,11 @@ class PdfExportService {
     ),
   );
 
-  pw.Widget _tarjetaBloqueClase(EvaluacionBloque bloque) {
+  pw.Widget _tarjetaBloqueClase(
+    EvaluacionBloque bloque,
+    EvaluacionClase clase,
+    List<ExclusionContenido> exclusiones,
+  ) {
     final items = bloque.itemsMarcados.entries.toList();
     final total = items.isEmpty ? 1 : items.length;
     final realizados = items.isEmpty
@@ -474,16 +515,43 @@ class PdfExportService {
           pw.Divider(color: _outline, thickness: .6, height: 1),
           pw.SizedBox(height: 7),
           if (items.isEmpty)
-            _filaCheck(bloque.bloqueNombre, bloque.marcado)
+            if (exclusiones.any(
+              (e) =>
+                  e.contenidoId ==
+                  clase.contenidoId(bloque.bloqueNombre, bloque.bloqueNombre),
+            ))
+              _filaExcluida(bloque.bloqueNombre)
+            else
+              _filaCheck(bloque.bloqueNombre, bloque.marcado)
           else
             for (final item in items) ...[
-              _filaCheck(item.key, item.value),
+              if (exclusiones.any(
+                (e) =>
+                    e.contenidoId ==
+                    clase.contenidoId(bloque.bloqueNombre, item.key),
+              ))
+                _filaExcluida(item.key)
+              else
+                _filaCheck(item.key, item.value),
               if (item != items.last) pw.SizedBox(height: 6),
             ],
         ],
       ),
     );
   }
+
+  pw.Widget _filaExcluida(String texto) => pw.Row(
+    children: [
+      pw.Container(width: 11, height: 11, color: _accent),
+      pw.SizedBox(width: 9),
+      pw.Expanded(
+        child: pw.Text(
+          '$texto · Excluido por el colegio',
+          style: pw.TextStyle(fontSize: 9, color: _accent),
+        ),
+      ),
+    ],
+  );
 
   pw.Widget _filaCheck(String texto, bool marcado) => pw.Row(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -1023,16 +1091,33 @@ class PdfExportService {
     CalificacionConocimiento.high => 'Alto (80-100%)',
   };
 
-  String _observacionAutomatica(EvaluacionClase clase) {
+  String _observacionAutomatica(
+    EvaluacionClase clase, [
+    List<ExclusionContenido> exclusiones = const [],
+  ]) {
     final pendientes = <String>[];
     for (final bloque in clase.bloquesEvaluables) {
       final contenidos = bloque.itemsMarcados.entries
-          .where((item) => !item.value)
+          .where(
+            (item) =>
+                !item.value &&
+                !exclusiones.any(
+                  (e) =>
+                      e.contenidoId ==
+                      clase.contenidoId(bloque.bloqueNombre, item.key),
+                ),
+          )
           .map((item) => item.key)
           .toList();
       if (contenidos.isNotEmpty) {
         pendientes.add('${bloque.bloqueNombre}: ${contenidos.join(', ')}.');
-      } else if (bloque.itemsMarcados.isEmpty && !bloque.marcado) {
+      } else if (bloque.itemsMarcados.isEmpty &&
+          !bloque.marcado &&
+          !exclusiones.any(
+            (e) =>
+                e.contenidoId ==
+                clase.contenidoId(bloque.bloqueNombre, bloque.bloqueNombre),
+          )) {
         pendientes.add('${bloque.bloqueNombre}: no se enseñó.');
       }
     }

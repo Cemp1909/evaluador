@@ -48,147 +48,186 @@ class _LoginScreenState extends State<LoginScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md,
+              ),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
+                constraints: const BoxConstraints(maxWidth: 440),
                 child: Container(
                   padding: const EdgeInsets.all(AppSpacing.lg),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(AppRadius.medium),
+                    borderRadius: BorderRadius.circular(AppRadius.large),
                     border: Border.all(
-                      color: Theme.of(context).colorScheme.outline,
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      width: 1,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withValues(alpha: .08),
-                        blurRadius: 28,
-                        offset: const Offset(0, 10),
+                        color: AppColors.primary.withValues(
+                          alpha: dark ? .35 : .08,
+                        ),
+                        blurRadius: 32,
+                        offset: const Offset(0, 12),
                       ),
                     ],
                   ),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Positioned(
-                        left: -AppSpacing.lg,
-                        top: 20,
-                        bottom: 20,
-                        child: Container(
-                          width: 4,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(AppRadius.pill),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withValues(
+                                    alpha: dark ? .2 : .06,
+                                  ),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: Image.asset(
+                                'assets/images/course_child_logo.png',
+                                width: 72,
+                                height: 72,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                      Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Align(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.medium,
-                                ),
-                                child: Image.asset(
-                                  'assets/images/course_child_logo.png',
-                                  width: 76,
-                                  height: 76,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            Text(
-                              'Welcome to Course Child Evaluator',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.headlineSmall,
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              'Record training sessions and educational evaluations in one place.',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: AppSpacing.xl),
-                            TextFormField(
-                              controller: _usuarioController,
-                              textInputAction: TextInputAction.next,
-                              autocorrect: false,
-                              decoration: const InputDecoration(
-                                labelText: 'Username',
-                                prefixIcon: Icon(Icons.person_outline_rounded),
-                              ),
-                              validator: (value) =>
-                                  value == null || value.trim().isEmpty
-                                  ? 'Enter your username.'
-                                  : null,
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: _ocultarPassword,
-                              onFieldSubmitted: (_) => _ingresar(),
-                              decoration: InputDecoration(
-                                labelText: 'Password',
-                                prefixIcon: const Icon(
-                                  Icons.lock_outline_rounded,
-                                ),
-                                suffixIcon: IconButton(
-                                  tooltip: _ocultarPassword
-                                      ? 'Show password'
-                                      : 'Hide password',
-                                  onPressed: () => setState(
-                                    () => _ocultarPassword = !_ocultarPassword,
-                                  ),
-                                  icon: Icon(
-                                    _ocultarPassword
-                                        ? Icons.visibility_outlined
-                                        : Icons.visibility_off_outlined,
-                                  ),
-                                ),
-                              ),
-                              validator: (value) =>
-                                  value == null || value.isEmpty
-                                  ? 'Enter your password.'
-                                  : null,
-                            ),
-                            if (_error != null) ...[
-                              const SizedBox(height: AppSpacing.sm),
-                              Text(
-                                _error!,
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.error,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: AppSpacing.lg),
-                            FilledButton.icon(
-                              onPressed: _ingresar,
-                              icon: const Icon(Icons.login_rounded),
-                              label: const Text('Sign in'),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            OutlinedButton.icon(
-                              onPressed: () => Navigator.of(
-                                context,
-                              ).pushNamed(CrearProfesorScreen.solicitudRoute),
-                              icon: const Icon(Icons.person_add_alt_1_rounded),
-                              label: const Text('Request teacher access'),
-                            ),
-                            const SizedBox(height: AppSpacing.lg),
-                            Text(
-                              'Prototype version · Data is deleted when the app closes',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          'Welcome to Course Child Evaluator',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.headlineSmall,
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: AppSpacing.xxs),
+                        Text(
+                          'Record training sessions and educational evaluations in one place.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        TextFormField(
+                          controller: _usuarioController,
+                          textInputAction: TextInputAction.next,
+                          autocorrect: false,
+                          decoration: const InputDecoration(
+                            labelText: 'Username',
+                            prefixIcon: Icon(Icons.person_outline_rounded),
+                          ),
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                              ? 'Enter your username.'
+                              : null,
+                        ),
+                        const SizedBox(height: AppSpacing.sm + 2),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: _ocultarPassword,
+                          onFieldSubmitted: (_) => _ingresar(),
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: const Icon(Icons.lock_outline_rounded),
+                            suffixIcon: IconButton(
+                              tooltip: _ocultarPassword
+                                  ? 'Show password'
+                                  : 'Hide password',
+                              onPressed: () => setState(
+                                () => _ocultarPassword = !_ocultarPassword,
+                              ),
+                              icon: Icon(
+                                _ocultarPassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                            ),
+                          ),
+                          validator: (value) => value == null || value.isEmpty
+                              ? 'Enter your password.'
+                              : null,
+                        ),
+                        if (_error != null) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .errorContainer
+                                  .withValues(alpha: 0.8),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.button,
+                              ),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.error.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.error_outline_rounded,
+                                  size: 18,
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    _error!,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.lg),
+                        FilledButton.icon(
+                          onPressed: _ingresar,
+                          icon: const Icon(Icons.login_rounded),
+                          label: const Text('Sign in'),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.of(
+                            context,
+                          ).pushNamed(CrearProfesorScreen.solicitudRoute),
+                          icon: const Icon(Icons.person_add_alt_1_rounded),
+                          label: const Text('Request teacher access'),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Text(
+                          'Prototype version · Data is deleted when the app closes',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -224,8 +263,8 @@ class _LoginScreenState extends State<LoginScreen> {
       'Your request is awaiting administrator approval.',
     'La contraseña del profesor es incorrecta.' =>
       'The teacher password is incorrect.',
-    'No existe un profesor con ese usuario en esta sesión. Un administrador o coordinador debe crearlo primero.' =>
-      'No teacher with that username exists in this session. An administrator or coordinator must create it first.',
+    'No existe un profesor con ese usuario en esta sesión. Un administrador debe crearlo primero.' =>
+      'No teacher with that username exists in this session. An administrator must create it first.',
     _ => error,
   };
 }

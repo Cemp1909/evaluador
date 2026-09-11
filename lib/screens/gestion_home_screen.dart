@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/usuario_sesion.dart';
 import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
+import '../security/rbac.dart';
 import '../widgets/app_brand_title.dart';
 import '../widgets/home_action_card.dart';
 import '../widgets/local_mode_banner.dart';
@@ -76,7 +77,7 @@ class GestionHomeScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg,
-          AppSpacing.xs,
+          AppSpacing.sm,
           AppSpacing.lg,
           AppSpacing.xl,
         ),
@@ -89,7 +90,7 @@ class GestionHomeScreen extends StatelessWidget {
             const SizedBox(height: AppSpacing.xxs),
             Text(usuario!.zona!, style: Theme.of(context).textTheme.bodyLarge),
           ],
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.xxs),
           Text(
             esAdmin ? 'Administrator overview' : 'Zone coordinator overview',
             style: Theme.of(context).textTheme.bodyMedium,
@@ -99,17 +100,37 @@ class GestionHomeScreen extends StatelessWidget {
           if (proximas.isNotEmpty || atrasadas.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
             Card(
+              clipBehavior: Clip.antiAlias,
               child: ListTile(
-                leading: const Icon(Icons.upcoming_outlined),
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color:
+                        (recordatorios.isNotEmpty
+                                ? AppColors.warning
+                                : Theme.of(context).colorScheme.primary)
+                            .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppRadius.small),
+                  ),
+                  child: Icon(
+                    Icons.upcoming_outlined,
+                    color: recordatorios.isNotEmpty
+                        ? AppColors.warning
+                        : Theme.of(context).colorScheme.primary,
+                  ),
+                ),
                 title: Text(
                   recordatorios.isNotEmpty
                       ? 'Recordatorio: ${recordatorios.length} actividades en menos de 2 horas'
                       : '${proximas.length} actividades próximas',
+                  style: Theme.of(context).textTheme.titleSmall,
                 ),
                 subtitle: Text(
                   atrasadas.isEmpty
                       ? 'Consulta la agenda de los próximos 7 días.'
                       : '${atrasadas.length} actividades están atrasadas.',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () =>
@@ -129,27 +150,31 @@ class GestionHomeScreen extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: 1.8,
+            childAspectRatio: 1.85,
             children: [
               _IndicadorCard(
                 titulo: 'Evaluaciones',
                 valor: '${reportes.length}',
                 icono: Icons.assignment_turned_in_outlined,
+                color: AppColors.primary,
               ),
               _IndicadorCard(
                 titulo: 'Nota promedio',
                 valor: reportes.isEmpty ? '—' : promedio.toStringAsFixed(1),
                 icono: Icons.analytics_outlined,
+                color: AppColors.accent,
               ),
               _IndicadorCard(
                 titulo: 'Contenidos críticos',
                 valor: '$contenidosCriticos',
                 icono: Icons.warning_amber_rounded,
+                color: AppColors.error,
               ),
               _IndicadorCard(
                 titulo: 'Por aprobar',
                 valor: '$pendientesAprobacion',
                 icono: Icons.pending_actions_outlined,
+                color: AppColors.warning,
               ),
             ],
           ),
@@ -187,28 +212,30 @@ class GestionHomeScreen extends StatelessWidget {
             accentColor: AppColors.primary,
           ),
           const SizedBox(height: AppSpacing.md),
-          HomeActionCard(
-            icon: Icons.person_add_alt_1_rounded,
-            title: 'Create teacher',
-            subtitle: esAdmin
-                ? 'Register a teacher and assign a zone.'
-                : 'Register a teacher for ${usuario?.zona ?? 'your zone'}.',
-            onTap: () =>
-                Navigator.pushNamed(context, CrearProfesorScreen.routeName),
-            accentColor: AppColors.accent,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          HomeActionCard(
-            icon: Icons.groups_2_outlined,
-            title: 'Teacher list',
-            subtitle: esAdmin
-                ? 'View all registered teachers.'
-                : 'View teachers assigned to your zone.',
-            onTap: () =>
-                Navigator.pushNamed(context, ProfesoresScreen.routeName),
-            accentColor: AppColors.success,
-          ),
-          const SizedBox(height: AppSpacing.md),
+          if (Rbac.puedeCrearProfesores(usuario)) ...[
+            HomeActionCard(
+              icon: Icons.person_add_alt_1_rounded,
+              title: 'Create teacher',
+              subtitle: 'Crear y administrar usuarios y sus zonas.',
+              onTap: () =>
+                  Navigator.pushNamed(context, CrearProfesorScreen.routeName),
+              accentColor: AppColors.accent,
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+          if (Rbac.puedeConsultarProfesores(usuario)) ...[
+            HomeActionCard(
+              icon: Icons.groups_2_outlined,
+              title: 'Teacher list',
+              subtitle: esAdmin
+                  ? 'Ver, aprobar y gestionar profesores.'
+                  : 'Consultar profesores de tu zona.',
+              onTap: () =>
+                  Navigator.pushNamed(context, ProfesoresScreen.routeName),
+              accentColor: AppColors.success,
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
           HomeActionCard(
             icon: Icons.domain_outlined,
             title: 'Panel de colegios',
@@ -257,32 +284,58 @@ class _IndicadorCard extends StatelessWidget {
     required this.titulo,
     required this.valor,
     required this.icono,
+    this.color,
   });
 
   final String titulo;
   final String valor;
   final IconData icono;
+  final Color? color;
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          Icon(icono),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(valor, style: Theme.of(context).textTheme.titleLarge),
-                Text(titulo, style: Theme.of(context).textTheme.bodySmall),
-              ],
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final cardColor = color ?? scheme.primary;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: cardColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppRadius.small),
+              ),
+              child: Icon(icono, color: cardColor, size: 20),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    valor,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    titulo,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

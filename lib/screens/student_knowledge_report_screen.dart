@@ -138,13 +138,18 @@ class _StudentKnowledgeReportScreenState
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.xl,
+          ),
           children: [
             Text(
               'Evaluación de conocimiento del estudiante',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: AppSpacing.xxs),
             Text(
               'Selecciona el grado y el período para cargar el plan de estudio correspondiente.',
               style: Theme.of(context).textTheme.bodyMedium,
@@ -152,12 +157,13 @@ class _StudentKnowledgeReportScreenState
             const SizedBox(height: AppSpacing.lg),
             Text(
               'Información de la visita',
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.sm),
             Card(
+              clipBehavior: Clip.antiAlias,
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(AppSpacing.md + 2),
                 child: Column(
                   children: [
                     _InfoRow(
@@ -165,13 +171,13 @@ class _StudentKnowledgeReportScreenState
                       label: 'Fecha',
                       value: _fecha(_fechaHora),
                     ),
-                    const Divider(height: 24),
+                    const Divider(height: AppSpacing.lg),
                     _InfoRow(
                       icon: Icons.schedule_rounded,
                       label: 'Hora',
                       value: _hora(_fechaHora),
                     ),
-                    const Divider(height: 24),
+                    const Divider(height: AppSpacing.lg),
                     _InfoRow(
                       icon: Icons.person_outline_rounded,
                       label: 'Docente de Course Child',
@@ -1459,37 +1465,67 @@ class _NotaCard extends StatelessWidget {
   final int total;
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 31,
-            backgroundColor: AppColors.primary,
-            child: Text(
-              nota == 0 ? '—' : nota.toStringAsFixed(1),
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md + 2),
+        child: Row(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: scheme.primary,
+                borderRadius: BorderRadius.circular(AppRadius.medium),
+                boxShadow: [
+                  BoxShadow(
+                    color: scheme.primary.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                nota == 0 ? '—' : nota.toStringAsFixed(1),
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(desempeno, style: Theme.of(context).textTheme.titleLarge),
-                Text('Nota calculada sobre 5,0'),
-                Text('$evaluados de $total contenidos evaluados'),
-              ],
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    desempeno,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Nota calculada sobre 5,0',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  Text(
+                    '$evaluados de $total contenidos evaluados',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _ProgressFooter extends StatelessWidget {
@@ -1507,23 +1543,43 @@ class _ProgressFooter extends StatelessWidget {
   Widget build(BuildContext context) => SafeArea(
     top: false,
     child: Container(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm + 2,
+      ),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border(
-          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+          top: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+            width: 1,
+          ),
         ),
       ),
       child: Row(
         children: [
-          Expanded(child: Text('Evaluados: $evaluados de $total')),
-          Text(
-            nota == 0
-                ? 'Nota: —'
-                : 'Nota provisional: ${nota.toStringAsFixed(1)}',
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          Expanded(
+            child: Text(
+              'Evaluados: $evaluados de $total',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+            ),
+            child: Text(
+              nota == 0
+                  ? 'Nota: —'
+                  : 'Nota provisional: ${nota.toStringAsFixed(1)}',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
           ),
         ],
       ),
@@ -1537,40 +1593,60 @@ class _ValidationCard extends StatelessWidget {
   final List<String> pendientes;
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                pendientes.isEmpty
-                    ? Icons.verified_rounded
-                    : Icons.fact_check_outlined,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                pendientes.isEmpty
-                    ? 'Reporte listo para revisar'
-                    : 'Revisión del reporte',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+  Widget build(BuildContext context) {
+    final listoyListo = pendientes.isEmpty;
+    final color = listoyListo
+        ? AppColors.success
+        : Theme.of(context).colorScheme.primary;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppRadius.small),
+                  ),
+                  child: Icon(
+                    listoyListo
+                        ? Icons.verified_rounded
+                        : Icons.fact_check_outlined,
+                    size: 18,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  listoyListo
+                      ? 'Reporte listo para revisar'
+                      : 'Revisión del reporte',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            if (pendientes.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.sm),
+              for (final pendiente in pendientes)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '• $pendiente',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
             ],
-          ),
-          if (pendientes.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            for (final pendiente in pendientes)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 5),
-                child: Text('• $pendiente'),
-              ),
           ],
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _InfoRow extends StatelessWidget {
@@ -1589,10 +1665,20 @@ class _InfoRow extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Icon(icon, color: scheme.primary),
-        const SizedBox(width: 16),
-        Expanded(child: Text(label)),
-        Text(value, style: Theme.of(context).textTheme.titleMedium),
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: scheme.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(AppRadius.small),
+          ),
+          child: Icon(icon, size: 18, color: scheme.primary),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        ),
+        Text(value, style: Theme.of(context).textTheme.titleSmall),
       ],
     );
   }

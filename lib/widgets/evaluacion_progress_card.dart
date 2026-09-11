@@ -17,19 +17,26 @@ class EvaluacionProgressCard extends StatelessWidget {
     final progress = total == 0 ? 0.0 : completados / total;
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.lg,
+      ),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [AppColors.primary, Color(0xFF211329)],
+          colors: [AppColors.primary, Color(0xFF1B2444)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(AppRadius.medium),
-        boxShadow: const [
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.1),
+          width: 1,
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x2417213C),
-            blurRadius: 32,
-            offset: Offset(0, 12),
+            color: AppColors.primary.withValues(alpha: 0.28),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -42,7 +49,7 @@ class EvaluacionProgressCard extends StatelessWidget {
               context,
             ).textTheme.headlineSmall?.copyWith(color: Colors.white),
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.xxs),
           Text(
             '$completados of $total contents completed',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -51,14 +58,14 @@ class EvaluacionProgressCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           SizedBox(
-            width: 112,
-            height: 112,
+            width: 104,
+            height: 104,
             child: Stack(
               fit: StackFit.expand,
               children: [
                 CircularProgressIndicator(
                   value: progress,
-                  strokeWidth: 9,
+                  strokeWidth: 8.5,
                   strokeCap: StrokeCap.round,
                   backgroundColor: Colors.white.withValues(alpha: .16),
                   valueColor: AlwaysStoppedAnimation(

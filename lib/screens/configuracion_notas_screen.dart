@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/configuracion_notas.dart';
 import '../providers/sesion_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/app_brand_title.dart';
 
 class ConfiguracionNotasScreen extends StatefulWidget {
@@ -28,17 +29,23 @@ class _ConfiguracionNotasScreenState extends State<ConfiguracionNotasScreen> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const AppBrandTitle(compact: true)),
     body: ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.xl,
+      ),
       children: [
         Text(
           'Configuración de notas',
           style: Theme.of(context).textTheme.headlineSmall,
         ),
-        const SizedBox(height: 6),
-        const Text(
+        const SizedBox(height: AppSpacing.xxs),
+        Text(
           'Esta configuración vive únicamente durante la sesión de prueba.',
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.lg),
         _control(
           'Puntos por Logrado',
           _configuracion.puntosLogrado,
@@ -47,6 +54,7 @@ class _ConfiguracionNotasScreenState extends State<ConfiguracionNotasScreen> {
           (value) =>
               _configuracion = _configuracion.copyWith(puntosLogrado: value),
         ),
+        const SizedBox(height: AppSpacing.sm),
         _control(
           'Puntos por Por reforzar',
           _configuracion.puntosPorReforzar,
@@ -56,6 +64,7 @@ class _ConfiguracionNotasScreenState extends State<ConfiguracionNotasScreen> {
             puntosPorReforzar: value,
           ),
         ),
+        const SizedBox(height: AppSpacing.sm),
         _control(
           'Puntos por No logrado',
           _configuracion.puntosNoLogrado,
@@ -64,7 +73,9 @@ class _ConfiguracionNotasScreenState extends State<ConfiguracionNotasScreen> {
           (value) =>
               _configuracion = _configuracion.copyWith(puntosNoLogrado: value),
         ),
-        const Divider(height: 32),
+        const SizedBox(height: AppSpacing.md),
+        const Divider(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
         _control(
           'Inicio de Superior',
           _configuracion.inicioSuperior,
@@ -73,6 +84,7 @@ class _ConfiguracionNotasScreenState extends State<ConfiguracionNotasScreen> {
           (value) =>
               _configuracion = _configuracion.copyWith(inicioSuperior: value),
         ),
+        const SizedBox(height: AppSpacing.sm),
         _control(
           'Inicio de Alto',
           _configuracion.inicioAlto,
@@ -81,6 +93,7 @@ class _ConfiguracionNotasScreenState extends State<ConfiguracionNotasScreen> {
           (value) =>
               _configuracion = _configuracion.copyWith(inicioAlto: value),
         ),
+        const SizedBox(height: AppSpacing.sm),
         _control(
           'Inicio de Básico',
           _configuracion.inicioBasico,
@@ -89,7 +102,7 @@ class _ConfiguracionNotasScreenState extends State<ConfiguracionNotasScreen> {
           (value) =>
               _configuracion = _configuracion.copyWith(inicioBasico: value),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: AppSpacing.lg),
         FilledButton.icon(
           onPressed: _guardar,
           icon: const Icon(Icons.save_outlined),
@@ -106,15 +119,41 @@ class _ConfiguracionNotasScreenState extends State<ConfiguracionNotasScreen> {
     double max,
     ValueChanged<double> actualizar,
   ) => Card(
+    clipBehavior: Clip.antiAlias,
     child: Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm + 2,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(child: Text(titulo)),
-              Text(value.toStringAsFixed(1)),
+              Expanded(
+                child: Text(
+                  titulo,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                ),
+                child: Text(
+                  value.toStringAsFixed(1),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
             ],
           ),
           Slider(

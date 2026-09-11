@@ -8,6 +8,9 @@ import '../models/student_knowledge_draft.dart';
 import '../models/student_knowledge_report.dart';
 import '../models/usuario_sesion.dart';
 import '../models/visita_programada.dart';
+import '../security/rbac.dart';
+import '../models/exclusion_contenido.dart';
+import '../services/evaluacion_service.dart';
 
 class SesionProvider extends ChangeNotifier {
   SesionProvider(this._config);
@@ -31,18 +34,33 @@ class SesionProvider extends ChangeNotifier {
   ConfiguracionNotas get configuracionNotas => _configuracionNotas;
   List<VisitaProgramada> get visitas => List.unmodifiable(_visitas);
   Set<DateTime> get fechasBloqueadas => Set.unmodifiable(_fechasBloqueadas);
+  bool tienePermiso(Permiso permiso) => Rbac.tiene(_usuarioActual, permiso);
 
-  void bloquearFecha(DateTime fecha) {
+  String? _requiere(Permiso permiso) => tienePermiso(permiso)
+      ? null
+      : _usuarioActual == null
+      ? 'Debes iniciar sesión para realizar esta acción.'
+      : 'No tienes permiso para realizar esta acción.';
+
+  String? bloquearFecha(DateTime fecha) {
+    final error = _requiere(Permiso.gestionarAgenda);
+    if (error != null) return error;
     _fechasBloqueadas.add(DateTime(fecha.year, fecha.month, fecha.day));
     notifyListeners();
+    return null;
   }
 
-  void desbloquearFecha(DateTime fecha) {
+  String? desbloquearFecha(DateTime fecha) {
+    final error = _requiere(Permiso.gestionarAgenda);
+    if (error != null) return error;
     _fechasBloqueadas.remove(DateTime(fecha.year, fecha.month, fecha.day));
     notifyListeners();
+    return null;
   }
 
   String? programarVisita(VisitaProgramada visita) {
+    final acceso = _requiere(Permiso.gestionarAgenda);
+    if (acceso != null) return acceso;
     final error = _validarVisita(visita, _visitas);
     if (error != null) return error;
     _visitas.add(visita);
@@ -55,6 +73,8 @@ class SesionProvider extends ChangeNotifier {
     VisitaProgramada inicial, {
     int intervaloDias = 7,
   }) {
+    final acceso = _requiere(Permiso.gestionarAgenda);
+    if (acceso != null) return acceso;
     if (inicial.numeroClase == null ||
         inicial.tipo == 'Evaluación por colegio') {
       return 'La programación automática solo está disponible para clases.';
@@ -178,10 +198,13 @@ class SesionProvider extends ChangeNotifier {
     _visitas.sort((a, b) => a.fecha.compareTo(b.fecha));
   }
 
-  void alternarVisita(String id) {
+  String? alternarVisita(String id) {
+    final error = _requiere(Permiso.gestionarAgenda);
+    if (error != null) return error;
     final index = _visitas.indexWhere((visita) => visita.id == id);
-    if (index == -1) return;
-    if (_visitas[index].cancelada) return;
+    if (index == -1) return 'Actividad no encontrada.';
+    if (_visitas[index].cancelada)
+      return 'No puedes completar una actividad cancelada.';
     _visitas[index] = _visitas[index].copyWith(
       completada: !_visitas[index].completada,
       estado: !_visitas[index].completada
@@ -189,11 +212,14 @@ class SesionProvider extends ChangeNotifier {
           : EstadoVisita.programada,
     );
     notifyListeners();
+    return null;
   }
 
-  void cancelarVisita(String id, String motivo) {
+  String? cancelarVisita(String id, String motivo) {
+    final error = _requiere(Permiso.gestionarAgenda);
+    if (error != null) return error;
     final index = _visitas.indexWhere((visita) => visita.id == id);
-    if (index == -1) return;
+    if (index == -1) return 'Actividad no encontrada.';
     _visitas[index] = _visitas[index].copyWith(
       cancelada: true,
       completada: false,
@@ -202,9 +228,12 @@ class SesionProvider extends ChangeNotifier {
       estado: EstadoVisita.cancelada,
     );
     notifyListeners();
+    return null;
   }
 
   String? reprogramarVisita(String id, DateTime fecha, {String? motivo}) {
+    final acceso = _requiere(Permiso.gestionarAgenda);
+    if (acceso != null) return acceso;
     final index = _visitas.indexWhere((visita) => visita.id == id);
     if (index == -1) return 'Actividad no encontrada.';
     final actualizada = _visitas[index].copyWith(
@@ -229,6 +258,8 @@ class SesionProvider extends ChangeNotifier {
   }
 
   String? actualizarVisita(VisitaProgramada visita) {
+    final acceso = _requiere(Permiso.gestionarAgenda);
+    if (acceso != null) return acceso;
     final index = _visitas.indexWhere((actual) => actual.id == visita.id);
     if (index == -1) return 'Actividad no encontrada.';
     final error = _validarVisita(
@@ -307,31 +338,37 @@ class SesionProvider extends ChangeNotifier {
     return null;
   }
 
-  void actualizarEstadoVisita(String id, EstadoVisita estado) {
+  String? actualizarEstadoVisita(String id, EstadoVisita estado) {
+    final error = _requiere(Permiso.gestionarAgenda);
+    if (error != null) return error;
     final index = _visitas.indexWhere((visita) => visita.id == id);
-    if (index == -1) return;
+    if (index == -1) return 'Actividad no encontrada.';
     _visitas[index] = _visitas[index].copyWith(
       estado: estado,
       completada: estado == EstadoVisita.realizada,
       cancelada: estado == EstadoVisita.cancelada,
     );
     notifyListeners();
+    return null;
   }
 
-  void actualizarResponsablesVisita({
+  String? actualizarResponsablesVisita({
     required String id,
     required String profesor,
     required List<String> acompanantes,
     required String ubicacion,
   }) {
+    final error = _requiere(Permiso.gestionarAgenda);
+    if (error != null) return error;
     final index = _visitas.indexWhere((visita) => visita.id == id);
-    if (index == -1) return;
+    if (index == -1) return 'Actividad no encontrada.';
     _visitas[index] = _visitas[index].copyWith(
       profesorResponsable: profesor.trim(),
       profesoresAcompanantes: List.unmodifiable(acompanantes),
       ubicacion: ubicacion.trim(),
     );
     notifyListeners();
+    return null;
   }
 
   List<VisitaProgramada> actividadesProximas(
@@ -358,14 +395,102 @@ class SesionProvider extends ChangeNotifier {
 
   Evaluacion? borradorEvaluacion(String tipo) => _borradoresEvaluacion[tipo];
 
-  void guardarBorradorEvaluacion(Evaluacion evaluacion) {
+  String? guardarBorradorEvaluacion(Evaluacion evaluacion) {
+    final error = _requiere(Permiso.crearEvaluaciones);
+    if (error != null) return error;
     _borradoresEvaluacion[evaluacion.evaluadorTipo] = evaluacion;
     notifyListeners();
+    return null;
   }
 
-  void guardarBorradorConocimiento(StudentKnowledgeDraft borrador) {
+  String? excluirContenidoClase({
+    required Evaluacion evaluacion,
+    required int claseNumero,
+    required String bloque,
+    required String contenido,
+    required String motivo,
+    String? observacion,
+  }) {
+    final error = _requiere(Permiso.crearEvaluaciones);
+    if (error != null) return error;
+    final usuario = _usuarioActual!;
+    if (evaluacion.estado == EstadoEvaluacion.completada) {
+      return 'No se puede modificar una evaluación finalizada.';
+    }
+    if (usuario.rol == RolUsuario.profesor &&
+        evaluacion.responsableNombre != usuario.nombre) {
+      return 'No tienes permiso para modificar una clase que no te pertenece.';
+    }
+    if (motivo.trim().isEmpty) {
+      return 'El motivo de la exclusión es obligatorio.';
+    }
+    final clase = evaluacion.clases.firstWhere(
+      (c) => c.claseNumero == claseNumero,
+    );
+    final bloqueActual = clase.bloques.firstWhere(
+      (b) => b.bloqueNombre == bloque,
+    );
+    final estadoAnterior = bloqueActual.itemsMarcados.isEmpty
+        ? (bloqueActual.marcado
+              ? EstadoContenidoClase.ensenado
+              : EstadoContenidoClase.pendiente)
+        : (bloqueActual.estadosContenido[contenido] ??
+              (bloqueActual.itemsMarcados[contenido] == true
+                  ? EstadoContenidoClase.ensenado
+                  : EstadoContenidoClase.pendiente));
+    final exclusion = ExclusionContenido(
+      contenidoId: clase.contenidoId(bloque, contenido),
+      contenidoNombre: contenido,
+      bloque: bloque,
+      colegio: evaluacion.colegio,
+      claseId: '$claseNumero',
+      evaluacionId: evaluacion.identificador,
+      motivo: motivo.trim(),
+      observacion: observacion?.trim(),
+      fecha: DateTime.now(),
+      usuarioId: usuario.nombre,
+      nombreUsuario: usuario.nombre,
+      rolUsuario: usuario.rol,
+      estadoAnterior: estadoAnterior,
+    );
+    final actualizada = EvaluacionService().excluirContenido(
+      evaluacion: evaluacion,
+      claseNumero: claseNumero,
+      bloqueNombre: bloque,
+      contenidoNombre: contenido,
+      exclusion: exclusion,
+    );
+    _borradoresEvaluacion[evaluacion.evaluadorTipo] = actualizada;
+    notifyListeners();
+    return null;
+  }
+
+  String? deshacerExclusionContenido(
+    Evaluacion evaluacion,
+    String contenidoId,
+  ) {
+    final error = _requiere(Permiso.crearEvaluaciones);
+    if (error != null) return error;
+    if (evaluacion.estado == EstadoEvaluacion.completada) {
+      return 'No se puede modificar una evaluación finalizada.';
+    }
+    final usuario = _usuarioActual!;
+    if (usuario.rol == RolUsuario.profesor &&
+        evaluacion.responsableNombre != usuario.nombre) {
+      return 'No tienes permiso para modificar una clase que no te pertenece.';
+    }
+    _borradoresEvaluacion[evaluacion.evaluadorTipo] = EvaluacionService()
+        .deshacerExclusion(evaluacion: evaluacion, contenidoId: contenidoId);
+    notifyListeners();
+    return null;
+  }
+
+  String? guardarBorradorConocimiento(StudentKnowledgeDraft borrador) {
+    final error = _requiere(Permiso.crearEvaluaciones);
+    if (error != null) return error;
     _borradorConocimiento = borrador;
     notifyListeners();
+    return null;
   }
 
   void descartarBorradorConocimiento() {
@@ -373,9 +498,12 @@ class SesionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void actualizarConfiguracionNotas(ConfiguracionNotas configuracion) {
+  String? actualizarConfiguracionNotas(ConfiguracionNotas configuracion) {
+    final error = _requiere(Permiso.configurarSistema);
+    if (error != null) return error;
     _configuracionNotas = configuracion;
     notifyListeners();
+    return null;
   }
 
   List<StudentKnowledgeReport> historialEstudiante(String nombre) {
@@ -386,17 +514,20 @@ class SesionProvider extends ChangeNotifier {
       ..sort((a, b) => b.fechaHora.compareTo(a.fechaHora));
   }
 
-  void guardarReporteConocimiento(StudentKnowledgeReport reporte) {
+  String? guardarReporteConocimiento(StudentKnowledgeReport reporte) {
+    final error = _requiere(Permiso.crearEvaluaciones);
+    if (error != null) return error;
     _reportesConocimiento.add(reporte);
     notifyListeners();
+    return null;
   }
 
   String? aprobarReporteConocimiento({
     required String reporteId,
     required String firma,
   }) {
-    if (_usuarioActual?.rol != RolUsuario.coordinador) {
-      return 'Solo un coordinador puede aprobar este reporte.';
+    if (!tienePermiso(Permiso.publicarEvaluaciones)) {
+      return 'Solo un coordinador o administrador puede aprobar este reporte.';
     }
     final index = _reportesConocimiento.indexWhere(
       (reporte) => reporte.id == reporteId,
@@ -477,7 +608,7 @@ class SesionProvider extends ChangeNotifier {
     if (existeUsuarioProfesor) {
       return 'La contraseña del profesor es incorrecta.';
     }
-    return 'No existe un profesor con ese usuario en esta sesión. Un administrador o coordinador debe crearlo primero.';
+    return 'No existe un profesor con ese usuario en esta sesión. Un administrador debe crearlo primero.';
   }
 
   String? crearProfesor({
@@ -486,14 +617,10 @@ class SesionProvider extends ChangeNotifier {
     required String password,
     required String zona,
   }) {
-    final actual = _usuarioActual;
-    if (actual?.rol != RolUsuario.administrador &&
-        actual?.rol != RolUsuario.coordinador) {
+    if (!Rbac.puedeCrearProfesores(_usuarioActual)) {
       return 'No tienes permiso para crear profesores.';
     }
-    final zonaLimpia = actual?.rol == RolUsuario.coordinador
-        ? (actual?.zona ?? '').trim()
-        : zona.trim();
+    final zonaLimpia = zona.trim();
 
     return _registrarProfesor(
       nombre: nombre,
@@ -508,12 +635,17 @@ class SesionProvider extends ChangeNotifier {
     required String usuario,
     required String password,
     required String zona,
-  }) => _registrarProfesor(
-    nombre: nombre,
-    usuario: usuario,
-    password: password,
-    zona: zona,
-  );
+  }) {
+    if (!Rbac.puedeRegistrarSolicitudProfesor(_usuarioActual)) {
+      return 'Acceso no autorizado: no puedes registrar profesores.';
+    }
+    return _registrarProfesor(
+      nombre: nombre,
+      usuario: usuario,
+      password: password,
+      zona: zona,
+    );
+  }
 
   String? _registrarProfesor({
     required String nombre,
@@ -563,7 +695,7 @@ class SesionProvider extends ChangeNotifier {
   }
 
   String? aprobarProfesor(String usuario) {
-    if (_usuarioActual?.rol != RolUsuario.administrador) {
+    if (!tienePermiso(Permiso.administrarUsuarios)) {
       return 'Solo el administrador puede aprobar profesores.';
     }
     final index = _profesores.indexWhere(
@@ -579,12 +711,13 @@ class SesionProvider extends ChangeNotifier {
     final actual = _usuarioActual;
     if (actual?.rol == RolUsuario.administrador) return profesores;
     if (actual?.rol == RolUsuario.coordinador) {
-      return _profesores
+      return profesores
           .where(
             (profesor) =>
-                profesor.zona.toLowerCase() == actual!.zona!.toLowerCase(),
+                profesor.zona.trim().toLowerCase() ==
+                actual!.zona?.trim().toLowerCase(),
           )
-          .toList(growable: false);
+          .toList();
     }
     return const [];
   }
