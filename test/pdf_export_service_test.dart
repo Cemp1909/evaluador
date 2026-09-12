@@ -37,6 +37,43 @@ void main() {
     expect(bytes.length, greaterThan(1000));
   });
 
+  test('genera reporte quincenal con las clases evaluadas', () async {
+    final service = EvaluacionService();
+    var evaluacion = service
+        .crearDesdePlantilla(evaluadoresDisponibles.first)
+        .copyWith(colegio: 'Colegio Central', responsableNombre: 'Sebastian');
+    final clase = evaluacion.clases.first;
+    final bloque = clase.bloquesEvaluables.first;
+    evaluacion = service.actualizarItem(
+      evaluacion: evaluacion,
+      claseNumero: clase.claseNumero,
+      bloqueNombre: bloque.bloqueNombre,
+      itemTexto: bloque.itemsMarcados.keys.first,
+      marcado: true,
+    );
+    final hoy = DateTime.now();
+    final servicioPdf = const PdfExportService();
+
+    final registros = servicioPdf.clasesCapacitacionEnRango(
+      evaluaciones: [evaluacion],
+      inicio: hoy.subtract(const Duration(days: 14)),
+      fin: hoy,
+    );
+    final bytes = await servicioPdf.generarReporteCapacitaciones(
+      evaluaciones: [evaluacion],
+      inicio: hoy.subtract(const Duration(days: 14)),
+      fin: hoy,
+      generadoPor: 'Coordinador',
+    );
+
+    expect(registros, hasLength(1));
+    expect(bytes.length, greaterThan(1000));
+    expect(
+      servicioPdf.nombreArchivoReporteCapacitaciones(hoy, hoy),
+      contains('capacitaciones'),
+    );
+  });
+
   test(
     'genera el Student Knowledge Report profesional en dos páginas',
     () async {

@@ -111,7 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: AppSpacing.md),
                         Text(
-                          'Welcome to Course Child Evaluator',
+                          'Course Child',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.headlineSmall,
                         ),

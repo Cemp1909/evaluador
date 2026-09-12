@@ -1,6 +1,5 @@
 import 'evaluacion_bloque.dart';
 import 'firma_docente.dart';
-import 'exclusion_contenido.dart';
 
 class EvaluacionClase {
   const EvaluacionClase({
@@ -51,31 +50,6 @@ class EvaluacionClase {
 
   String contenidoId(String bloque, String contenido) =>
       '$claseNumero::$bloque::$contenido';
-
-  int totalAplicable(List<ExclusionContenido> exclusiones) =>
-      bloquesEvaluables.fold(0, (total, bloque) {
-        final cantidad = bloque.itemsMarcados.isEmpty
-            ? 1
-            : bloque.itemsMarcados.length;
-        final excluidos = bloque.itemsMarcados.isEmpty
-            ? (exclusiones.any(
-                    (e) =>
-                        e.contenidoId ==
-                        contenidoId(bloque.bloqueNombre, bloque.bloqueNombre),
-                  )
-                  ? 1
-                  : 0)
-            : bloque.itemsMarcados.keys
-                  .where(
-                    (item) => exclusiones.any(
-                      (e) =>
-                          e.contenidoId ==
-                          contenidoId(bloque.bloqueNombre, item),
-                    ),
-                  )
-                  .length;
-        return total + cantidad - excluidos;
-      });
 
   EvaluacionClase copyWith({
     DateTime? fecha,

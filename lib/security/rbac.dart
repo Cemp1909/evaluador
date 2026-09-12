@@ -47,6 +47,7 @@ class Rbac {
       Permiso.verResultadosAsignados,
       Permiso.administrarPreguntasPropias,
       Permiso.usarIa,
+      Permiso.gestionarAgenda,
       Permiso.actualizarPerfil,
     },
   };

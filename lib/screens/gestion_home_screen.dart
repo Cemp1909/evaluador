@@ -192,8 +192,8 @@ class GestionHomeScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           HomeActionCard(
             icon: Icons.assignment_ind_outlined,
-            title: 'Student evaluations',
-            subtitle: 'Evaluate student knowledge by grade and period.',
+            title: 'Classroom evaluations',
+            subtitle: 'Evaluate the entire classroom by grade and period.',
             onTap: () => Navigator.pushNamed(
               context,
               StudentKnowledgeReportScreen.routeName,
@@ -204,7 +204,7 @@ class GestionHomeScreen extends StatelessWidget {
           HomeActionCard(
             icon: Icons.history_edu_rounded,
             title: 'Evaluations by period',
-            subtitle: 'Review student results by school, grade and period.',
+            subtitle: 'Review classroom results by school, grade and period.',
             onTap: () => Navigator.pushNamed(
               context,
               HistorialEstudiantesScreen.routeName,

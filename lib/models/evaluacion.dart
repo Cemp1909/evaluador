@@ -1,5 +1,5 @@
 import 'evaluacion_clase.dart';
-import 'exclusion_contenido.dart';
+import 'reemplazo_contenido.dart';
 
 enum EstadoEvaluacion { borrador, enProgreso, completada }
 
@@ -12,7 +12,7 @@ class Evaluacion {
     this.estado = EstadoEvaluacion.borrador,
     required this.clases,
     this.fotosUrls = const [],
-    this.exclusiones = const [],
+    this.reemplazos = const [],
     this.responsableNombre,
   });
 
@@ -23,7 +23,7 @@ class Evaluacion {
   final EstadoEvaluacion estado;
   final List<EvaluacionClase> clases;
   final List<String> fotosUrls;
-  final List<ExclusionContenido> exclusiones;
+  final List<ReemplazoContenido> reemplazos;
   final String? responsableNombre;
 
   Evaluacion copyWith({
@@ -31,7 +31,7 @@ class Evaluacion {
     EstadoEvaluacion? estado,
     List<EvaluacionClase>? clases,
     List<String>? fotosUrls,
-    List<ExclusionContenido>? exclusiones,
+    List<ReemplazoContenido>? reemplazos,
     String? responsableNombre,
   }) => Evaluacion(
     id: id,
@@ -41,7 +41,7 @@ class Evaluacion {
     estado: estado ?? this.estado,
     clases: clases ?? this.clases,
     fotosUrls: fotosUrls ?? this.fotosUrls,
-    exclusiones: exclusiones ?? this.exclusiones,
+    reemplazos: reemplazos ?? this.reemplazos,
     responsableNombre: responsableNombre ?? this.responsableNombre,
   );
 
@@ -57,9 +57,9 @@ class Evaluacion {
     estado: EstadoEvaluacion.values.byName(json['estado'] as String),
     clases: clases,
     fotosUrls: fotosUrls,
-    exclusiones: (json['exclusiones'] as List<dynamic>? ?? const [])
+    reemplazos: (json['reemplazos'] as List<dynamic>? ?? const [])
         .map(
-          (item) => ExclusionContenido.fromJson(item as Map<String, dynamic>),
+          (item) => ReemplazoContenido.fromJson(item as Map<String, dynamic>),
         )
         .toList(),
     responsableNombre: json['responsable_nombre'] as String?,
@@ -72,8 +72,8 @@ class Evaluacion {
     'fecha_creacion': fechaCreacion.toIso8601String(),
     'estado': estado.name,
     if (responsableNombre != null) 'responsable_nombre': responsableNombre,
-    if (exclusiones.isNotEmpty)
-      'exclusiones': exclusiones.map((item) => item.toJson()).toList(),
+    if (reemplazos.isNotEmpty)
+      'reemplazos': reemplazos.map((item) => item.toJson()).toList(),
   };
 
   String get identificador =>

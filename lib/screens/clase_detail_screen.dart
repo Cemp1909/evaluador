@@ -180,20 +180,20 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
                     clase.bloqueCancionesSeleccionado ==
                         clase.bloques[index].bloqueNombre,
                 mensajeDeshabilitado: 'No seleccionada',
-                exclusiones: {
-                  for (final exclusion in _evaluacion.exclusiones.where(
+                reemplazos: {
+                  for (final reemplazo in _evaluacion.reemplazos.where(
                     (e) =>
                         e.claseId == '${clase.claseNumero}' &&
                         e.bloque == clase.bloques[index].bloqueNombre,
                   ))
-                    exclusion.contenidoNombre: exclusion.motivo,
+                    reemplazo.nombreOriginal: reemplazo.nombreTemporal,
                 },
-                onExcluir: (contenido) => _mostrarDialogoExclusion(
+                onCambiar: (contenido) => _mostrarDialogoCambio(
                   clase,
                   clase.bloques[index].bloqueNombre,
                   contenido,
                 ),
-                onDeshacerExclusion: (contenido) => _deshacerExclusion(
+                onDeshacerCambio: (contenido) => _deshacerCambio(
                   clase.contenidoId(
                     clase.bloques[index].bloqueNombre,
                     contenido,
@@ -366,17 +366,16 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
     return null;
   }
 
-  Future<void> _mostrarDialogoExclusion(
+  Future<void> _mostrarDialogoCambio(
     EvaluacionClase clase,
     String bloque,
     String contenido,
   ) async {
-    final motivo = TextEditingController();
-    final observacion = TextEditingController();
+    final nombreTemporal = TextEditingController();
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Excluir para esta clase'),
+        title: const Text('Cambiar contenido para esta clase'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -387,17 +386,10 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: motivo,
+                controller: nombreTemporal,
                 decoration: const InputDecoration(
-                  labelText: 'Motivo de la exclusión *',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: observacion,
-                decoration: const InputDecoration(
-                  labelText: 'Observaciones adicionales',
+                  labelText: 'Nuevo nombre o contenido *',
+                  hintText: 'Ejemplo: nueva canción solicitada por el colegio',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -411,30 +403,29 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
           ),
           FilledButton(
             onPressed: () {
-              if (motivo.text.trim().isEmpty) {
+              if (nombreTemporal.text.trim().isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('El motivo de la exclusión es obligatorio.'),
+                    content: Text('Escribe el contenido que lo reemplazará.'),
                   ),
                 );
                 return;
               }
               Navigator.pop(dialogContext, true);
             },
-            child: const Text('Confirmar exclusión'),
+            child: const Text('Confirmar cambio'),
           ),
         ],
       ),
     );
     if (confirmado != true || !mounted) return;
     final sesion = context.read<SesionProvider>();
-    final error = sesion.excluirContenidoClase(
+    final error = sesion.reemplazarContenidoClase(
       evaluacion: _evaluacion,
       claseNumero: clase.claseNumero,
       bloque: bloque,
       contenido: contenido,
-      motivo: motivo.text,
-      observacion: observacion.text,
+      nombreTemporal: nombreTemporal.text,
     );
     if (error != null) {
       ScaffoldMessenger.of(
@@ -447,9 +438,9 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
     );
   }
 
-  void _deshacerExclusion(String contenidoId) {
+  void _deshacerCambio(String contenidoId) {
     final sesion = context.read<SesionProvider>();
-    final error = sesion.deshacerExclusionContenido(_evaluacion, contenidoId);
+    final error = sesion.deshacerReemplazoContenido(_evaluacion, contenidoId);
     if (error != null) {
       ScaffoldMessenger.of(
         context,
@@ -474,16 +465,15 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
         continue;
       }
       final items = bloque.itemsMarcados.entries
-          .where(
-            (entry) =>
-                !entry.value &&
-                !_evaluacion.exclusiones.any(
-                  (e) =>
-                      e.contenidoId ==
-                      clase.contenidoId(bloque.bloqueNombre, entry.key),
-                ),
-          )
-          .map((entry) => entry.key)
+          .where((entry) => !entry.value)
+          .map((entry) {
+            final id = clase.contenidoId(bloque.bloqueNombre, entry.key);
+            return _evaluacion.reemplazos
+                    .where((cambio) => cambio.contenidoId == id)
+                    .firstOrNull
+                    ?.nombreTemporal ??
+                entry.key;
+          })
           .toList();
       if (items.isNotEmpty) {
         pendientes.add('• ${bloque.bloqueNombre}: ${items.join(', ')}.');

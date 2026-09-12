@@ -46,7 +46,7 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -600));
     await tester.pumpAndSettle();
     expect(find.text('Training classes'), findsOneWidget);
-    expect(find.text('Student evaluations'), findsOneWidget);
+    expect(find.text('Classroom evaluations'), findsOneWidget);
     await tester.tap(find.text('Create teacher'));
     await tester.pumpAndSettle();
 
@@ -104,7 +104,7 @@ void main() {
     expect(find.text('Hello, Laura Gómez'), findsOneWidget);
     expect(find.text('Zona Norte'), findsOneWidget);
     expect(find.text('Training classes'), findsOneWidget);
-    expect(find.text('Student evaluations'), findsOneWidget);
+    expect(find.text('Classroom evaluations'), findsOneWidget);
   });
 
   testWidgets('el coordinador tiene acceso al flujo de evaluaciones', (
@@ -126,7 +126,7 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -600));
     await tester.pumpAndSettle();
     expect(find.text('Training classes'), findsOneWidget);
-    expect(find.text('Student evaluations'), findsOneWidget);
+    expect(find.text('Classroom evaluations'), findsOneWidget);
     await tester.tap(find.text('Training classes'));
     await tester.pumpAndSettle();
     expect(find.text('Training Preschool'), findsOneWidget);

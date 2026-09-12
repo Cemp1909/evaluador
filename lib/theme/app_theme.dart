@@ -169,16 +169,19 @@ abstract final class AppTheme {
         fontSize: 14,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.0,
+        color: scheme.onSurface,
       ),
       labelMedium: GoogleFonts.inter(
         fontSize: 12,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.1,
+        color: scheme.onSurface,
       ),
       labelSmall: GoogleFonts.inter(
         fontSize: 11,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.2,
+        color: scheme.onSurface,
       ),
     );
 
@@ -236,8 +239,12 @@ abstract final class AppTheme {
                 ? const Color(0xFFBAC7FA)
                 : AppColors.primary,
           ),
-          foregroundColor: WidgetStatePropertyAll(
-            dark ? AppColors.primary : Colors.white,
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.disabled)
+                ? scheme.onSurface
+                : dark
+                ? AppColors.primary
+                : Colors.white,
           ),
           elevation: WidgetStateProperty.resolveWith(
             (states) => states.contains(WidgetState.pressed) ? 0 : 0.5,
@@ -388,8 +395,12 @@ abstract final class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        disabledColor: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
         side: BorderSide(color: scheme.outlineVariant),
-        labelStyle: typography.labelMedium,
+        labelStyle: typography.labelMedium?.copyWith(color: scheme.onSurface),
+        secondaryLabelStyle: typography.labelMedium?.copyWith(
+          color: scheme.onSurface,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.pill),

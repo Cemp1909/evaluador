@@ -146,7 +146,7 @@ class _StudentKnowledgeReportScreenState
           ),
           children: [
             Text(
-              'Evaluación de conocimiento del estudiante',
+              'Evaluación de conocimiento del salón',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: AppSpacing.xxs),
@@ -1191,7 +1191,9 @@ class _CategoriaPlanCard extends StatelessWidget {
 
     return Card(
       child: ExpansionTile(
-        initiallyExpanded: true,
+        key: PageStorageKey<String>('periodo-$periodo-${categoria.nombre}'),
+        initiallyExpanded: false,
+        maintainState: true,
         leading: Icon(_iconoCategoria(categoria.nombre), color: color),
         title: Text(
           categoria.nombre,

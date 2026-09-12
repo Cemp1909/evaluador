@@ -15,6 +15,34 @@ class PdfPreviewScreen extends StatefulWidget {
 
 class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
   bool _resumido = true;
+  bool _compartiendo = false;
+
+  Future<void> _guardarOCompartir() async {
+    if (_compartiendo) return;
+    setState(() => _compartiendo = true);
+    try {
+      final servicio = const PdfExportService();
+      final bytes = await servicio.generarReporte(
+        widget.reporte,
+        resumido: _resumido,
+      );
+      await servicio.compartirPdf(
+        bytes: bytes,
+        filename: servicio.nombreArchivoReporte(
+          widget.reporte,
+          resumido: _resumido,
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo compartir el PDF.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _compartiendo = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -46,6 +74,19 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
       canDebug: false,
       allowPrinting: true,
       allowSharing: true,
+    ),
+    bottomNavigationBar: SafeArea(
+      minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: FilledButton.icon(
+        onPressed: _compartiendo ? null : _guardarOCompartir,
+        icon: _compartiendo
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.ios_share_rounded),
+        label: Text(_compartiendo ? 'Preparando PDF…' : 'Guardar o compartir'),
+      ),
     ),
   );
 }

@@ -1,37 +1,52 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 
 import '../models/evaluacion.dart';
-import '../models/evaluacion_clase.dart';
 import '../services/pdf_export_service.dart';
 
-class ClasePdfPreviewScreen extends StatefulWidget {
-  const ClasePdfPreviewScreen({
+class ReporteCapacitacionesPreviewScreen extends StatefulWidget {
+  const ReporteCapacitacionesPreviewScreen({
     super.key,
-    required this.evaluacion,
-    required this.clase,
-    required this.evaluador,
+    required this.evaluaciones,
+    required this.inicio,
+    required this.fin,
+    required this.generadoPor,
   });
 
-  final Evaluacion evaluacion;
-  final EvaluacionClase clase;
-  final String evaluador;
+  final List<Evaluacion> evaluaciones;
+  final DateTime inicio;
+  final DateTime fin;
+  final String generadoPor;
 
   @override
-  State<ClasePdfPreviewScreen> createState() => _ClasePdfPreviewScreenState();
+  State<ReporteCapacitacionesPreviewScreen> createState() =>
+      _ReporteCapacitacionesPreviewScreenState();
 }
 
-class _ClasePdfPreviewScreenState extends State<ClasePdfPreviewScreen> {
+class _ReporteCapacitacionesPreviewScreenState
+    extends State<ReporteCapacitacionesPreviewScreen> {
   bool _compartiendo = false;
+  final _servicio = const PdfExportService();
+
+  Future<Uint8List> _generar() => _servicio.generarReporteCapacitaciones(
+    evaluaciones: widget.evaluaciones,
+    inicio: widget.inicio,
+    fin: widget.fin,
+    generadoPor: widget.generadoPor,
+  );
 
   Future<void> _guardarOCompartir() async {
     if (_compartiendo) return;
     setState(() => _compartiendo = true);
     try {
-      await const PdfExportService().compartirClase(
-        evaluacion: widget.evaluacion,
-        clase: widget.clase,
-        evaluador: widget.evaluador,
+      await _servicio.compartirPdf(
+        bytes: await _generar(),
+        filename: _servicio.nombreArchivoReporteCapacitaciones(
+          widget.inicio,
+          widget.fin,
+        ),
       );
     } catch (_) {
       if (mounted) {
@@ -46,17 +61,13 @@ class _ClasePdfPreviewScreenState extends State<ClasePdfPreviewScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text('Vista previa · Clase ${widget.clase.claseNumero}'),
-    ),
+    appBar: AppBar(title: const Text('Reporte quincenal')),
     body: PdfPreview(
-      build: (_) => const PdfExportService().generarClase(
-        evaluacion: widget.evaluacion,
-        clase: widget.clase,
-        evaluador: widget.evaluador,
+      build: (_) => _generar(),
+      pdfFileName: _servicio.nombreArchivoReporteCapacitaciones(
+        widget.inicio,
+        widget.fin,
       ),
-      pdfFileName:
-          '${widget.evaluacion.evaluadorTipo}_clase_${widget.clase.claseNumero}.pdf',
       canChangePageFormat: false,
       canChangeOrientation: false,
       canDebug: false,

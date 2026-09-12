@@ -1,4 +1,4 @@
-import 'exclusion_contenido.dart';
+import 'reemplazo_contenido.dart';
 
 class EvaluacionBloque {
   const EvaluacionBloque({

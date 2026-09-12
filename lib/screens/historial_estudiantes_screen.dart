@@ -45,7 +45,7 @@ class _HistorialEstudiantesScreenState
           TextField(
             onChanged: (value) => setState(() => _busqueda = value),
             decoration: const InputDecoration(
-              labelText: 'Buscar por estudiante o colegio',
+              labelText: 'Buscar por docente o colegio',
               prefixIcon: Icon(Icons.search_rounded),
             ),
           ),

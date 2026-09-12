@@ -63,6 +63,7 @@ void main() {
       Permiso.verResultadosAsignados,
       Permiso.administrarPreguntasPropias,
       Permiso.usarIa,
+      Permiso.gestionarAgenda,
       Permiso.actualizarPerfil,
     });
   });

@@ -8,6 +8,41 @@ import 'package:evaluador_app/models/visita_programada.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('carga varios profesores aprobados desde la configuración', () {
+    final config = AuthConfig.fromMap({
+      'ADMIN_USERNAME': 'admin',
+      'ADMIN_PASSWORD': 'admin123',
+      'COORDINADOR_USERNAME': 'coordinador',
+      'COORDINADOR_PASSWORD': 'coordi123',
+      'COORDINADOR_ZONA': 'Zona Centro',
+      'PROFESOR_1_USERNAME': 'sebastian',
+      'PROFESOR_1_PASSWORD': 'profesor123',
+      'PROFESOR_1_NOMBRE': 'Sebastian',
+      'PROFESOR_1_ZONA': 'Zona Centro',
+      'PROFESOR_2_USERNAME': 'vanessa',
+      'PROFESOR_2_PASSWORD': 'profesor123',
+      'PROFESOR_2_NOMBRE': 'Vanessa',
+      'PROFESOR_2_ZONA': 'Zona Centro',
+      'PROFESOR_3_USERNAME': 'dulfary',
+      'PROFESOR_3_PASSWORD': 'profesor123',
+      'PROFESOR_3_NOMBRE': 'Dulfary',
+      'PROFESOR_3_ZONA': 'Zona Centro',
+    });
+    final sesion = SesionProvider(config);
+
+    for (final usuario in ['sebastian', 'vanessa', 'dulfary']) {
+      expect(
+        sesion.iniciarSesion(usuario: usuario, password: 'profesor123'),
+        isNull,
+      );
+      expect(sesion.usuarioActual?.rol, RolUsuario.profesor);
+      expect(sesion.usuarioActual?.nombre.toLowerCase(), usuario);
+      sesion.cerrarSesion();
+    }
+    expect(sesion.profesores, hasLength(3));
+    expect(sesion.profesores.every((profesor) => profesor.aprobado), isTrue);
+  });
+
   test('rechaza credenciales desconocidas y no asigna rol de profesor', () {
     final sesion = SesionProvider(AuthConfig.test);
 

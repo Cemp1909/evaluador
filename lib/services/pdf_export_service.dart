@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
 
 import '../models/evaluacion.dart';
 import '../models/evaluacion_bloque.dart';
 import '../models/evaluacion_clase.dart';
 import '../models/student_knowledge_report.dart';
-import '../models/exclusion_contenido.dart';
+import '../models/reemplazo_contenido.dart';
 
 class PdfExportService {
   const PdfExportService();
@@ -22,6 +22,129 @@ class PdfExportService {
   static final _textSecondary = PdfColor.fromHex('#607477');
   static final _outline = PdfColor.fromHex('#D9E4E2');
 
+  Future<void> compartirPdf({
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile.fromData(bytes, mimeType: 'application/pdf')],
+        fileNameOverrides: [filename],
+        title: 'Reporte Course Child',
+        downloadFallbackEnabled: true,
+      ),
+    );
+  }
+
+  List<({Evaluacion evaluacion, EvaluacionClase clase, DateTime fecha})>
+  clasesCapacitacionEnRango({
+    required Iterable<Evaluacion> evaluaciones,
+    required DateTime inicio,
+    required DateTime fin,
+  }) {
+    final desde = DateTime(inicio.year, inicio.month, inicio.day);
+    final hasta = DateTime(fin.year, fin.month, fin.day, 23, 59, 59, 999);
+    final registros =
+        <({Evaluacion evaluacion, EvaluacionClase clase, DateTime fecha})>[];
+    for (final evaluacion in evaluaciones) {
+      for (final clase in evaluacion.clases) {
+        if (!_claseTieneRegistro(clase)) continue;
+        final fecha = clase.fecha ?? evaluacion.fechaCreacion;
+        if (fecha.isBefore(desde) || fecha.isAfter(hasta)) continue;
+        registros.add((evaluacion: evaluacion, clase: clase, fecha: fecha));
+      }
+    }
+    registros.sort((a, b) => a.fecha.compareTo(b.fecha));
+    return registros;
+  }
+
+  Future<Uint8List> generarReporteCapacitaciones({
+    required Iterable<Evaluacion> evaluaciones,
+    required DateTime inicio,
+    required DateTime fin,
+    required String generadoPor,
+  }) async {
+    final logo = await _cargarLogo();
+    final theme = await _cargarTema();
+    final registros = clasesCapacitacionEnRango(
+      evaluaciones: evaluaciones,
+      inicio: inicio,
+      fin: fin,
+    );
+    final totalRealizados = registros.fold<int>(0, (total, registro) {
+      return total + _contenidosRealizados(registro.clase);
+    });
+    final totalContenidos = registros.fold<int>(0, (total, registro) {
+      return total + _totalContenidos(registro.clase);
+    });
+    final document = pw.Document();
+    document.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        theme: theme,
+        margin: const pw.EdgeInsets.all(32),
+        header: (_) => _encabezado('Reporte quincenal de capacitaciones', logo),
+        footer: _piePagina,
+        build: (_) => [
+          _tarjetaInformacion([
+            ('Periodo', '${_fecha(inicio)} al ${_fecha(fin)}'),
+            ('Generado por', generadoPor),
+            ('Clases registradas', '${registros.length}'),
+            ('Contenidos realizados', '$totalRealizados de $totalContenidos'),
+          ]),
+          pw.SizedBox(height: 18),
+          _tituloSeccion('Detalle de clases evaluadas'),
+          if (registros.isEmpty)
+            pw.Text('No hay clases evaluadas en este periodo.')
+          else
+            for (final registro in registros)
+              _bloqueEvaluacion(
+                '${_fecha(registro.fecha)} · ${_tituloTipo(registro.evaluacion.evaluadorTipo)} · Clase ${registro.clase.claseNumero}',
+                'Colegio: ${registro.evaluacion.colegio.isEmpty ? 'Sin especificar' : registro.evaluacion.colegio}\n'
+                    'Profesor: ${registro.evaluacion.responsableNombre ?? 'Sin especificar'}\n'
+                    'Contenidos realizados: ${_contenidosRealizados(registro.clase)} de ${_totalContenidos(registro.clase)}\n'
+                    'Observaciones: ${registro.clase.observaciones.trim().isEmpty ? 'Sin observaciones' : registro.clase.observaciones.trim()}',
+              ),
+        ],
+      ),
+    );
+    return document.save();
+  }
+
+  String nombreArchivoReporteCapacitaciones(DateTime inicio, DateTime fin) =>
+      'CourseChild_capacitaciones_${_fechaArchivo(inicio)}_${_fechaArchivo(fin)}.pdf';
+
+  bool _claseTieneRegistro(EvaluacionClase clase) =>
+      clase.fecha != null ||
+      clase.observaciones.trim().isNotEmpty ||
+      clase.firmaDocenteUrl?.isNotEmpty == true ||
+      clase.firmasAsistentes.isNotEmpty ||
+      clase.bloques.any(
+        (bloque) =>
+            bloque.marcado ||
+            bloque.itemsMarcados.values.any((valor) => valor) ||
+            bloque.estadosContenido.values.any(
+              (estado) => estado != EstadoContenidoClase.pendiente,
+            ),
+      );
+
+  int _totalContenidos(EvaluacionClase clase) => clase.bloquesEvaluables.fold(
+    0,
+    (total, bloque) =>
+        total +
+        (bloque.itemsMarcados.isEmpty ? 1 : bloque.itemsMarcados.length),
+  );
+
+  int _contenidosRealizados(EvaluacionClase clase) =>
+      clase.bloquesEvaluables.fold(
+        0,
+        (total, bloque) =>
+            total +
+            (bloque.itemsMarcados.isEmpty
+                ? (bloque.marcado ? 1 : 0)
+                : bloque.itemsMarcados.values.where((valor) => valor).length),
+      );
+
   Future<void> compartirClase({
     required Evaluacion evaluacion,
     required EvaluacionClase clase,
@@ -32,7 +155,7 @@ class PdfExportService {
       clase: clase,
       evaluador: evaluador,
     );
-    await Printing.sharePdf(
+    await compartirPdf(
       bytes: bytes,
       filename:
           '${_archivo(evaluacion.evaluadorTipo)}_clase_${clase.claseNumero}_${_fechaArchivo(evaluacion.fechaCreacion)}.pdf',
@@ -69,7 +192,7 @@ class PdfExportService {
             ('Fecha de creación', _fechaHora(evaluacion.fechaCreacion)),
           ]),
           pw.SizedBox(height: 14),
-          ..._clase(clase, evaluacion.exclusiones),
+          ..._clase(clase, evaluacion.reemplazos),
           if (evaluacion.fotosUrls.isNotEmpty) ...[
             _tituloSeccion('Evidencia fotográfica'),
             _imagenes(evaluacion.fotosUrls, height: 210),
@@ -88,7 +211,7 @@ class PdfExportService {
       evaluacion: evaluacion,
       evaluador: evaluador,
     );
-    await Printing.sharePdf(
+    await compartirPdf(
       bytes: bytes,
       filename:
           '${_archivo(evaluacion.evaluadorTipo)}_${_fechaArchivo(evaluacion.fechaCreacion)}.pdf',
@@ -123,7 +246,7 @@ class PdfExportService {
           ]),
           pw.SizedBox(height: 18),
           ...evaluacion.clases.expand(
-            (clase) => _clase(clase, evaluacion.exclusiones),
+            (clase) => _clase(clase, evaluacion.reemplazos),
           ),
           if (evaluacion.fotosUrls.isNotEmpty) ...[
             _tituloSeccion('Evidencia fotográfica'),
@@ -137,10 +260,7 @@ class PdfExportService {
 
   Future<void> compartirReporte(StudentKnowledgeReport reporte) async {
     final bytes = await generarReporte(reporte);
-    await Printing.sharePdf(
-      bytes: bytes,
-      filename: nombreArchivoReporte(reporte),
-    );
+    await compartirPdf(bytes: bytes, filename: nombreArchivoReporte(reporte));
   }
 
   String nombreArchivoReporte(
@@ -163,7 +283,7 @@ class PdfExportService {
         margin: const pw.EdgeInsets.all(32),
         header: (context) => context.pageNumber == 1
             ? pw.SizedBox()
-            : _encabezado('Reporte de conocimiento del estudiante', logo),
+            : _encabezado('Reporte de conocimiento del salón', logo),
         footer: _piePagina,
         build: (_) => [
           _portadaReporte(reporte, logo, resumido),
@@ -193,7 +313,7 @@ class PdfExportService {
           _leyendaNotas(reporte),
           pw.SizedBox(height: 18),
           _tituloSeccion(
-            resumido ? 'Resumen de la evaluación' : 'Evaluación del estudiante',
+            resumido ? 'Resumen de la evaluación' : 'Evaluación del salón',
           ),
           ...reporte.evaluaciones.entries
               .where(
@@ -270,7 +390,7 @@ class PdfExportService {
         ),
         pw.SizedBox(height: 14),
         pw.Text(
-          'Reporte de conocimiento del estudiante',
+          'Reporte de conocimiento del salón',
           textAlign: pw.TextAlign.center,
           style: pw.TextStyle(
             fontSize: 21,
@@ -341,60 +461,49 @@ class PdfExportService {
 
   Iterable<pw.Widget> _clase(
     EvaluacionClase clase,
-    List<ExclusionContenido> exclusiones,
+    List<ReemplazoContenido> reemplazos,
   ) sync* {
-    final exclusionesClase = exclusiones
+    final reemplazosClase = reemplazos
         .where((item) => item.claseId == '${clase.claseNumero}')
         .toList();
-    final total = clase.totalAplicable(exclusionesClase);
+    final total = clase.bloquesEvaluables.fold<int>(
+      0,
+      (value, bloque) =>
+          value +
+          (bloque.itemsMarcados.isEmpty ? 1 : bloque.itemsMarcados.length),
+    );
     final completos = clase.bloquesEvaluables.fold<int>(
       0,
       (value, bloque) =>
           value +
           (bloque.itemsMarcados.isEmpty
               ? (bloque.marcado ? 1 : 0)
-              : bloque.itemsMarcados.entries
-                    .where(
-                      (item) =>
-                          item.value &&
-                          !exclusionesClase.any(
-                            (e) =>
-                                e.contenidoId ==
-                                clase.contenidoId(
-                                  bloque.bloqueNombre,
-                                  item.key,
-                                ),
-                          ),
-                    )
-                    .length),
+              : bloque.itemsMarcados.values.where((item) => item).length),
     );
     yield _tituloSeccion(
-      total == 0
-          ? 'Clase ${clase.claseNumero} · Sin contenidos aplicables por solicitud del colegio'
-          : 'Clase ${clase.claseNumero} · $completos de $total contenidos realizados',
+      'Clase ${clase.claseNumero} · $completos de $total contenidos realizados',
     );
     for (final bloque in clase.bloquesEvaluables) {
-      yield _tarjetaBloqueClase(bloque, clase, exclusionesClase);
+      yield _tarjetaBloqueClase(bloque, clase, reemplazosClase);
     }
-    if (exclusionesClase.isNotEmpty) {
-      yield _tituloSeccion('Contenidos excluidos por solicitud del colegio');
+    if (reemplazosClase.isNotEmpty) {
+      yield _tituloSeccion('Cambios temporales solicitados por el colegio');
       yield pw.Text(
-        'Estos contenidos fueron excluidos únicamente para esta clase por solicitud del colegio. La plantilla académica original no fue modificada.',
+        'Estos nombres se cambiaron únicamente para esta clase. La plantilla académica original no fue modificada.',
         style: pw.TextStyle(fontSize: 9, color: _textSecondary),
       );
       yield pw.SizedBox(height: 8);
-      for (final exclusion in exclusionesClase) {
+      for (final reemplazo in reemplazosClase) {
         yield _bloqueEvaluacion(
-          exclusion.contenidoNombre,
-          '${exclusion.bloque}\nMotivo: ${exclusion.motivo}'
-          '${exclusion.observacion?.trim().isNotEmpty == true ? '\nObservación: ${exclusion.observacion}' : ''}'
-          '\nColegio: ${exclusion.colegio}\nClase: ${exclusion.claseId}'
-          '\nFecha: ${_fechaHora(exclusion.fecha)}'
-          '\nRegistró: ${exclusion.nombreUsuario} (${exclusion.rolUsuario.name})',
+          reemplazo.nombreTemporal,
+          '${reemplazo.bloque}\nContenido original: ${reemplazo.nombreOriginal}'
+          '\nColegio: ${reemplazo.colegio}\nClase: ${reemplazo.claseId}'
+          '\nFecha: ${_fechaHora(reemplazo.fecha)}'
+          '\nRegistró: ${reemplazo.nombreUsuario} (${reemplazo.rolUsuario.name})',
         );
       }
     }
-    yield _recomendacionClase(_observacionAutomatica(clase, exclusionesClase));
+    yield _recomendacionClase(_observacionAutomatica(clase, reemplazosClase));
     yield _seccion(
       'Observaciones de la clase',
       clase.observaciones.trim().isEmpty
@@ -458,7 +567,7 @@ class PdfExportService {
   pw.Widget _tarjetaBloqueClase(
     EvaluacionBloque bloque,
     EvaluacionClase clase,
-    List<ExclusionContenido> exclusiones,
+    List<ReemplazoContenido> reemplazos,
   ) {
     final items = bloque.itemsMarcados.entries.toList();
     final total = items.isEmpty ? 1 : items.length;
@@ -515,24 +624,24 @@ class PdfExportService {
           pw.Divider(color: _outline, thickness: .6, height: 1),
           pw.SizedBox(height: 7),
           if (items.isEmpty)
-            if (exclusiones.any(
-              (e) =>
-                  e.contenidoId ==
-                  clase.contenidoId(bloque.bloqueNombre, bloque.bloqueNombre),
-            ))
-              _filaExcluida(bloque.bloqueNombre)
-            else
-              _filaCheck(bloque.bloqueNombre, bloque.marcado)
+            _filaCheck(
+              _nombreTemporal(
+                bloque.bloqueNombre,
+                clase.contenidoId(bloque.bloqueNombre, bloque.bloqueNombre),
+                reemplazos,
+              ),
+              bloque.marcado,
+            )
           else
             for (final item in items) ...[
-              if (exclusiones.any(
-                (e) =>
-                    e.contenidoId ==
-                    clase.contenidoId(bloque.bloqueNombre, item.key),
-              ))
-                _filaExcluida(item.key)
-              else
-                _filaCheck(item.key, item.value),
+              _filaCheck(
+                _nombreTemporal(
+                  item.key,
+                  clase.contenidoId(bloque.bloqueNombre, item.key),
+                  reemplazos,
+                ),
+                item.value,
+              ),
               if (item != items.last) pw.SizedBox(height: 6),
             ],
         ],
@@ -540,18 +649,16 @@ class PdfExportService {
     );
   }
 
-  pw.Widget _filaExcluida(String texto) => pw.Row(
-    children: [
-      pw.Container(width: 11, height: 11, color: _accent),
-      pw.SizedBox(width: 9),
-      pw.Expanded(
-        child: pw.Text(
-          '$texto · Excluido por el colegio',
-          style: pw.TextStyle(fontSize: 9, color: _accent),
-        ),
-      ),
-    ],
-  );
+  String _nombreTemporal(
+    String original,
+    String contenidoId,
+    List<ReemplazoContenido> reemplazos,
+  ) =>
+      reemplazos
+          .where((item) => item.contenidoId == contenidoId)
+          .firstOrNull
+          ?.nombreTemporal ??
+      original;
 
   pw.Widget _filaCheck(String texto, bool marcado) => pw.Row(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -1059,6 +1166,8 @@ class PdfExportService {
 
   String _fechaHora(DateTime value) =>
       '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year} ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+  String _fecha(DateTime value) =>
+      '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}';
   String _fechaArchivo(DateTime value) =>
       '${value.year}${value.month.toString().padLeft(2, '0')}${value.day.toString().padLeft(2, '0')}';
   String _archivo(String value) {
@@ -1093,31 +1202,23 @@ class PdfExportService {
 
   String _observacionAutomatica(
     EvaluacionClase clase, [
-    List<ExclusionContenido> exclusiones = const [],
+    List<ReemplazoContenido> reemplazos = const [],
   ]) {
     final pendientes = <String>[];
     for (final bloque in clase.bloquesEvaluables) {
       final contenidos = bloque.itemsMarcados.entries
-          .where(
-            (item) =>
-                !item.value &&
-                !exclusiones.any(
-                  (e) =>
-                      e.contenidoId ==
-                      clase.contenidoId(bloque.bloqueNombre, item.key),
-                ),
+          .where((item) => !item.value)
+          .map(
+            (item) => _nombreTemporal(
+              item.key,
+              clase.contenidoId(bloque.bloqueNombre, item.key),
+              reemplazos,
+            ),
           )
-          .map((item) => item.key)
           .toList();
       if (contenidos.isNotEmpty) {
         pendientes.add('${bloque.bloqueNombre}: ${contenidos.join(', ')}.');
-      } else if (bloque.itemsMarcados.isEmpty &&
-          !bloque.marcado &&
-          !exclusiones.any(
-            (e) =>
-                e.contenidoId ==
-                clase.contenidoId(bloque.bloqueNombre, bloque.bloqueNombre),
-          )) {
+      } else if (bloque.itemsMarcados.isEmpty && !bloque.marcado) {
         pendientes.add('${bloque.bloqueNombre}: no se enseñó.');
       }
     }

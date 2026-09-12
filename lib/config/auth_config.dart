@@ -9,6 +9,7 @@ class AuthConfig {
     this.demoProfesorPassword = '',
     this.demoProfesorNombre = 'Profesor demo',
     this.demoProfesorZona = 'Zona Demo',
+    this.profesoresIniciales = const [],
   });
 
   final String adminUsername;
@@ -20,6 +21,7 @@ class AuthConfig {
   final String demoProfesorPassword;
   final String demoProfesorNombre;
   final String demoProfesorZona;
+  final List<ProfesorInicialConfig> profesoresIniciales;
 
   factory AuthConfig.fromMap(Map<String, String> values) => AuthConfig(
     adminUsername: values['ADMIN_USERNAME'] ?? '',
@@ -31,6 +33,19 @@ class AuthConfig {
     demoProfesorPassword: values['DEMO_PROFESOR_PASSWORD'] ?? '',
     demoProfesorNombre: values['DEMO_PROFESOR_NOMBRE'] ?? 'Profesor demo',
     demoProfesorZona: values['DEMO_PROFESOR_ZONA'] ?? 'Zona Demo',
+    profesoresIniciales: [
+      for (var indice = 1; indice <= 20; indice++)
+        if ((values['PROFESOR_${indice}_USERNAME'] ?? '').trim().isNotEmpty)
+          ProfesorInicialConfig(
+            usuario: values['PROFESOR_${indice}_USERNAME']!.trim(),
+            password: values['PROFESOR_${indice}_PASSWORD'] ?? '',
+            nombre:
+                (values['PROFESOR_${indice}_NOMBRE'] ??
+                        values['PROFESOR_${indice}_USERNAME']!)
+                    .trim(),
+            zona: (values['PROFESOR_${indice}_ZONA'] ?? '').trim(),
+          ),
+    ],
   );
 
   static const test = AuthConfig(
@@ -44,4 +59,18 @@ class AuthConfig {
     demoProfesorNombre: 'Profesor demo',
     demoProfesorZona: 'Zona Demo',
   );
+}
+
+class ProfesorInicialConfig {
+  const ProfesorInicialConfig({
+    required this.usuario,
+    required this.password,
+    required this.nombre,
+    required this.zona,
+  });
+
+  final String usuario;
+  final String password;
+  final String nombre;
+  final String zona;
 }

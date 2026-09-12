@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/visita_programada.dart';
+import '../models/usuario_sesion.dart';
 import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
 
@@ -25,6 +26,7 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
   @override
   Widget build(BuildContext context) {
     final sesion = context.watch<SesionProvider>();
+    final esProfesor = sesion.usuarioActual?.rol == RolUsuario.profesor;
     final visitas = sesion.visitas;
     final ahora = DateTime.now();
     final recordatorios = sesion.actividadesProximas(
@@ -37,11 +39,12 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
       appBar: AppBar(
         title: const Text('Agenda de evaluaciones'),
         actions: [
-          IconButton(
-            tooltip: 'Bloquear fecha',
-            onPressed: () => _gestionarFechaBloqueada(context),
-            icon: const Icon(Icons.event_busy_outlined),
-          ),
+          if (!esProfesor)
+            IconButton(
+              tooltip: 'Bloquear fecha',
+              onPressed: () => _gestionarFechaBloqueada(context),
+              icon: const Icon(Icons.event_busy_outlined),
+            ),
           IconButton(
             tooltip: 'Filtros',
             onPressed: () => _mostrarFiltros(context),
@@ -49,11 +52,13 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _crear(context),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Programar visita'),
-      ),
+      floatingActionButton: esProfesor
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _crear(context),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Programar visita'),
+            ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg,
@@ -276,6 +281,9 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
     VisitaProgramada visita, {
     bool interna = false,
   }) {
+    final esProfesor =
+        context.read<SesionProvider>().usuarioActual?.rol ==
+        RolUsuario.profesor;
     final color = _colorTipo(visita.tipo);
     final contenido = Container(
       margin: EdgeInsets.only(bottom: interna ? 10 : 12),
@@ -346,21 +354,23 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
               '${visita.numeroClase == null ? '' : '\nClase: ${visita.numeroClase}'}'
               '${visita.ultimaNovedad.isEmpty ? '' : '\nNovedad: ${visita.ultimaNovedad}'}',
             ),
-            trailing: PopupMenuButton<EstadoVisita>(
-              tooltip: 'Cambiar estado',
-              onSelected: (estado) => context
-                  .read<SesionProvider>()
-                  .actualizarEstadoVisita(visita.id, estado),
-              itemBuilder: (_) => EstadoVisita.values
-                  .where((estado) => estado != EstadoVisita.cancelada)
-                  .map(
-                    (estado) => PopupMenuItem(
-                      value: estado,
-                      child: Text(_nombreEstado(estado)),
-                    ),
-                  )
-                  .toList(),
-            ),
+            trailing: esProfesor
+                ? null
+                : PopupMenuButton<EstadoVisita>(
+                    tooltip: 'Cambiar estado',
+                    onSelected: (estado) => context
+                        .read<SesionProvider>()
+                        .actualizarEstadoVisita(visita.id, estado),
+                    itemBuilder: (_) => EstadoVisita.values
+                        .where((estado) => estado != EstadoVisita.cancelada)
+                        .map(
+                          (estado) => PopupMenuItem(
+                            value: estado,
+                            child: Text(_nombreEstado(estado)),
+                          ),
+                        )
+                        .toList(),
+                  ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -368,27 +378,40 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                OutlinedButton.icon(
-                  onPressed: () => _editarActividad(context, visita),
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text('Editar'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => _editarResponsables(context, visita),
-                  icon: const Icon(Icons.manage_accounts_outlined),
-                  label: const Text('Responsables'),
-                ),
+                if (!esProfesor)
+                  OutlinedButton.icon(
+                    onPressed: () => _editarActividad(context, visita),
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Editar'),
+                  ),
+                if (!esProfesor)
+                  OutlinedButton.icon(
+                    onPressed: () => _editarResponsables(context, visita),
+                    icon: const Icon(Icons.manage_accounts_outlined),
+                    label: const Text('Responsables'),
+                  ),
                 if (visita.ubicacion.isNotEmpty)
                   OutlinedButton.icon(
                     onPressed: () => _abrirMapa(visita.ubicacion),
                     icon: const Icon(Icons.map_outlined),
                     label: const Text('Mapa'),
                   ),
-                OutlinedButton.icon(
-                  onPressed: () => _reprogramar(context, visita),
-                  icon: const Icon(Icons.edit_calendar_outlined),
-                  label: const Text('Reprogramar'),
-                ),
+                if (!esProfesor)
+                  OutlinedButton.icon(
+                    onPressed: () => _reprogramar(context, visita),
+                    icon: const Icon(Icons.edit_calendar_outlined),
+                    label: const Text('Reprogramar'),
+                  ),
+                if (esProfesor && !visita.cancelada && !visita.completada)
+                  FilledButton.icon(
+                    onPressed: () =>
+                        context.read<SesionProvider>().actualizarEstadoVisita(
+                          visita.id,
+                          EstadoVisita.realizada,
+                        ),
+                    icon: const Icon(Icons.task_alt_rounded),
+                    label: const Text('Marcar como realizada'),
+                  ),
                 if (!visita.cancelada)
                   TextButton.icon(
                     onPressed: () => _cancelar(context, visita),
@@ -491,71 +514,82 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
     BuildContext context,
     VisitaProgramada visita,
   ) async {
-    final profesor = TextEditingController(text: visita.profesorResponsable);
-    final acompanantes = TextEditingController(
-      text: visita.profesoresAcompanantes.join(', '),
-    );
+    final profesores = _profesoresDisponibles(context);
+    var profesor = visita.profesorResponsable;
+    if (profesor.isNotEmpty && !profesores.contains(profesor)) {
+      profesores.add(profesor);
+    }
+    final acompanantes = visita.profesoresAcompanantes.toSet();
     final ubicacion = TextEditingController(text: visita.ubicacion);
     final guardar = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Responsables y ubicación'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: profesor,
-                decoration: const InputDecoration(
-                  labelText: 'Profesor responsable',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Responsables y ubicación'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: profesores.contains(profesor) ? profesor : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Profesor responsable',
+                    prefixIcon: Icon(Icons.person_outline_rounded),
+                  ),
+                  items: [
+                    for (final nombre in profesores)
+                      DropdownMenuItem(value: nombre, child: Text(nombre)),
+                  ],
+                  onChanged: (value) => setState(() => profesor = value ?? ''),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: acompanantes,
-                decoration: const InputDecoration(
-                  labelText: 'Profesores acompañantes',
-                  hintText: 'Separados por comas',
+                const SizedBox(height: 12),
+                _SelectorAcompanantes(
+                  profesores: profesores
+                      .where((nombre) => nombre != profesor)
+                      .toList(),
+                  seleccionados: acompanantes,
+                  onChanged: (nombre, seleccionado) => setState(() {
+                    seleccionado
+                        ? acompanantes.add(nombre)
+                        : acompanantes.remove(nombre);
+                  }),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: ubicacion,
-                decoration: const InputDecoration(
-                  labelText: 'Sede, dirección o punto de encuentro',
-                  prefixIcon: Icon(Icons.location_on_outlined),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: ubicacion,
+                  decoration: const InputDecoration(
+                    labelText: 'Sede, dirección o punto de encuentro',
+                    prefixIcon: Icon(Icons.location_on_outlined),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: profesor.isEmpty
+                  ? null
+                  : () => Navigator.pop(context, true),
+              child: const Text('Guardar'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Guardar'),
-          ),
-        ],
       ),
     );
-    if (guardar == true && profesor.text.trim().isNotEmpty && context.mounted) {
+    if (guardar == true && profesor.isNotEmpty && context.mounted) {
+      acompanantes.remove(profesor);
       context.read<SesionProvider>().actualizarResponsablesVisita(
         id: visita.id,
-        profesor: profesor.text,
-        acompanantes: acompanantes.text
-            .split(',')
-            .map((nombre) => nombre.trim())
-            .where((nombre) => nombre.isNotEmpty)
-            .toList(),
+        profesor: profesor,
+        acompanantes: acompanantes.toList(),
         ubicacion: ubicacion.text,
       );
     }
     Future<void>.delayed(const Duration(milliseconds: 400), () {
-      profesor.dispose();
-      acompanantes.dispose();
       ubicacion.dispose();
     });
   }
@@ -565,7 +599,11 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
     VisitaProgramada visita,
   ) async {
     final colegio = TextEditingController(text: visita.colegio);
-    final profesor = TextEditingController(text: visita.profesorResponsable);
+    final profesores = _profesoresDisponibles(context);
+    var profesor = visita.profesorResponsable;
+    if (profesor.isNotEmpty && !profesores.contains(profesor)) {
+      profesores.add(profesor);
+    }
     final observacion = TextEditingController(text: visita.observacion);
     var tipo = visita.tipo;
     var fecha = visita.fecha;
@@ -586,11 +624,16 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
                   decoration: const InputDecoration(labelText: 'Colegio'),
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: profesor,
+                DropdownButtonFormField<String>(
+                  initialValue: profesores.contains(profesor) ? profesor : null,
                   decoration: const InputDecoration(
                     labelText: 'Profesor responsable',
                   ),
+                  items: [
+                    for (final nombre in profesores)
+                      DropdownMenuItem(value: nombre, child: Text(nombre)),
+                  ],
+                  onChanged: (value) => setState(() => profesor = value ?? ''),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
@@ -743,14 +786,14 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
       ),
     );
     if (guardar == true && context.mounted) {
-      if (colegio.text.trim().isEmpty || profesor.text.trim().isEmpty) {
+      if (colegio.text.trim().isEmpty || profesor.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Colegio y profesor son obligatorios.')),
         );
       } else {
         final actualizada = visita.copyWith(
           colegio: colegio.text.trim(),
-          profesorResponsable: profesor.text.trim(),
+          profesorResponsable: profesor,
           tipo: tipo,
           fecha: fecha,
           duracionMinutos: duracion,
@@ -773,7 +816,6 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
     }
     Future<void>.delayed(const Duration(milliseconds: 400), () {
       colegio.dispose();
-      profesor.dispose();
       observacion.dispose();
     });
   }
@@ -914,8 +956,9 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
 
   Future<void> _crear(BuildContext context) async {
     final colegio = TextEditingController();
-    final profesor = TextEditingController();
-    final acompanantes = TextEditingController();
+    final profesores = _profesoresDisponibles(context);
+    var profesor = '';
+    final acompanantes = <String>{};
     final ubicacion = TextEditingController();
     final nota = TextEditingController();
     var tipo = 'Evaluación por colegio';
@@ -940,23 +983,30 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
                   decoration: const InputDecoration(labelText: 'Colegio'),
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: profesor,
-                  textCapitalization: TextCapitalization.words,
+                DropdownButtonFormField<String>(
+                  initialValue: null,
                   decoration: const InputDecoration(
                     labelText: 'Profesor responsable',
-                    hintText: 'Profesor que dará la clase o evaluación',
+                    hintText: 'Selecciona un profesor',
                     prefixIcon: Icon(Icons.person_outline_rounded),
                   ),
+                  items: [
+                    for (final nombre in profesores)
+                      DropdownMenuItem(value: nombre, child: Text(nombre)),
+                  ],
+                  onChanged: (value) => setState(() => profesor = value ?? ''),
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: acompanantes,
-                  decoration: const InputDecoration(
-                    labelText: 'Profesores acompañantes (opcional)',
-                    hintText: 'Separados por comas',
-                    prefixIcon: Icon(Icons.groups_outlined),
-                  ),
+                _SelectorAcompanantes(
+                  profesores: profesores
+                      .where((nombre) => nombre != profesor)
+                      .toList(),
+                  seleccionados: acompanantes,
+                  onChanged: (nombre, seleccionado) => setState(() {
+                    seleccionado
+                        ? acompanantes.add(nombre)
+                        : acompanantes.remove(nombre);
+                  }),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -1177,8 +1227,9 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
     );
     if (guardar == true &&
         colegio.text.trim().isNotEmpty &&
-        profesor.text.trim().isNotEmpty &&
+        profesor.isNotEmpty &&
         context.mounted) {
+      acompanantes.remove(profesor);
       final esCapacitacion =
           tipo == 'Capacitación preescolar' || tipo == 'Capacitación primaria';
       final visita = VisitaProgramada(
@@ -1186,16 +1237,12 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
         fecha: fecha,
         colegio: colegio.text.trim(),
         tipo: tipo,
-        profesorResponsable: profesor.text.trim(),
+        profesorResponsable: profesor,
         periodo: tipo == 'Evaluación por colegio' ? periodo : null,
         numeroClase: esCapacitacion ? numeroClase : null,
         observacion: nota.text.trim(),
         duracionMinutos: duracionMinutos,
-        profesoresAcompanantes: acompanantes.text
-            .split(',')
-            .map((nombre) => nombre.trim())
-            .where((nombre) => nombre.isNotEmpty)
-            .toList(),
+        profesoresAcompanantes: acompanantes.toList(),
         ubicacion: ubicacion.text.trim(),
         estado: EstadoVisita.pendienteConfirmacion,
       );
@@ -1228,11 +1275,22 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
     // AnimatedState intente escuchar un ChangeNotifier ya destruido.
     Future<void>.delayed(const Duration(milliseconds: 400), () {
       colegio.dispose();
-      profesor.dispose();
-      acompanantes.dispose();
       ubicacion.dispose();
       nota.dispose();
     });
+  }
+
+  List<String> _profesoresDisponibles(BuildContext context) {
+    final nombres = context
+        .read<SesionProvider>()
+        .profesoresVisibles()
+        .where((profesor) => profesor.aprobado)
+        .map((profesor) => profesor.nombre.trim())
+        .where((nombre) => nombre.isNotEmpty)
+        .toSet()
+        .toList();
+    nombres.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return nombres;
   }
 
   static String _fecha(DateTime fecha) =>
@@ -1244,6 +1302,49 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
   static String _hora(DateTime fecha) {
     final hora = fecha.hour % 12 == 0 ? 12 : fecha.hour % 12;
     return '$hora:${fecha.minute.toString().padLeft(2, '0')} ${fecha.hour >= 12 ? 'p. m.' : 'a. m.'}';
+  }
+}
+
+class _SelectorAcompanantes extends StatelessWidget {
+  const _SelectorAcompanantes({
+    required this.profesores,
+    required this.seleccionados,
+    required this.onChanged,
+  });
+
+  final List<String> profesores;
+  final Set<String> seleccionados;
+  final void Function(String nombre, bool seleccionado) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      key: const PageStorageKey('selector-profesores-acompanantes'),
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.groups_outlined),
+      title: const Text('Profesores acompañantes (opcional)'),
+      subtitle: Text(
+        seleccionados.isEmpty
+            ? 'Ninguno seleccionado'
+            : seleccionados.join(', '),
+      ),
+      children: [
+        if (profesores.isEmpty)
+          const ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text('No hay otros profesores disponibles'),
+          )
+        else
+          for (final nombre in profesores)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(nombre),
+              value: seleccionados.contains(nombre),
+              onChanged: (value) => onChanged(nombre, value ?? false),
+            ),
+      ],
+    );
   }
 }
 

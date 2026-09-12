@@ -71,8 +71,8 @@ class ProfesorHomeScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           HomeActionCard(
             icon: Icons.assignment_ind_outlined,
-            title: 'Student evaluations',
-            subtitle: 'Evaluate student knowledge by grade and period.',
+            title: 'Classroom evaluations',
+            subtitle: 'Evaluate the entire classroom by grade and period.',
             onTap: () => Navigator.pushNamed(
               context,
               StudentKnowledgeReportScreen.routeName,

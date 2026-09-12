@@ -77,13 +77,6 @@ class _ClasesScreenState extends State<ClasesScreen> {
                 totalContenidos: _totalContenidosClase(
                   _evaluacion.clases[index],
                 ),
-                sinContenidosAplicables:
-                    _totalContenidosClase(_evaluacion.clases[index]) == 0 &&
-                    _evaluacion.exclusiones.any(
-                      (e) =>
-                          e.claseId ==
-                          '${_evaluacion.clases[index].claseNumero}',
-                    ),
                 onTap: () => _abrirClase(index),
               ),
               if (index < widget.tipo.clases.length - 1)

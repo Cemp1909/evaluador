@@ -10,14 +10,12 @@ class ClaseCard extends StatefulWidget {
     required this.contenidosMarcados,
     required this.totalContenidos,
     required this.onTap,
-    this.sinContenidosAplicables = false,
   });
 
   final int numero;
   final int contenidosMarcados;
   final int totalContenidos;
   final VoidCallback onTap;
-  final bool sinContenidosAplicables;
 
   @override
   State<ClaseCard> createState() => _ClaseCardState();
@@ -125,9 +123,7 @@ class _ClaseCardState extends State<ClaseCard> {
                         ),
                         const SizedBox(height: 5),
                         Text(
-                          widget.sinContenidosAplicables
-                              ? 'Sin contenidos aplicables por solicitud del colegio'
-                              : '${widget.contenidosMarcados} of ${widget.totalContenidos} items completed',
+                          '${widget.contenidosMarcados} of ${widget.totalContenidos} items completed',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
@@ -137,15 +133,11 @@ class _ClaseCardState extends State<ClaseCard> {
                   _StatusBadge(
                     label: _completa
                         ? 'Completed'
-                        : widget.sinContenidosAplicables
-                        ? 'Excluded'
                         : inProgress
                         ? 'In progress'
                         : 'Pending',
                     color: _completa
                         ? AppColors.success
-                        : widget.sinContenidosAplicables
-                        ? AppColors.accent
                         : inProgress
                         ? AppColors.accent
                         : scheme.onSurfaceVariant,

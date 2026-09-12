@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/bloque.dart';
-import '../models/exclusion_contenido.dart';
+import '../models/reemplazo_contenido.dart';
 import '../theme/app_theme.dart';
 
 class BloqueCard extends StatelessWidget {
@@ -14,9 +14,9 @@ class BloqueCard extends StatelessWidget {
     required this.onBloqueChanged,
     this.habilitado = true,
     this.mensajeDeshabilitado,
-    this.exclusiones = const {},
-    this.onExcluir,
-    this.onDeshacerExclusion,
+    this.reemplazos = const {},
+    this.onCambiar,
+    this.onDeshacerCambio,
     this.estadosContenido = const {},
   });
 
@@ -27,16 +27,14 @@ class BloqueCard extends StatelessWidget {
   final ValueChanged<bool> onBloqueChanged;
   final bool habilitado;
   final String? mensajeDeshabilitado;
-  final Map<String, String> exclusiones;
-  final ValueChanged<String>? onExcluir;
-  final ValueChanged<String>? onDeshacerExclusion;
+  final Map<String, String> reemplazos;
+  final ValueChanged<String>? onCambiar;
+  final ValueChanged<String>? onDeshacerCambio;
   final Map<String, EstadoContenidoClase> estadosContenido;
 
   @override
   Widget build(BuildContext context) {
     final completados = itemsMarcados.values.where((value) => value).length;
-    final totalContenidos = bloque.items.isEmpty ? 1 : bloque.items.length;
-    final bloqueExcluido = exclusiones.length == totalContenidos;
     final categoryColor = _colorParaBloque(bloque.nombre);
 
     return IgnorePointer(
@@ -96,10 +94,6 @@ class BloqueCard extends StatelessWidget {
                     ),
                     if (!habilitado && mensajeDeshabilitado != null)
                       Chip(label: Text(mensajeDeshabilitado!))
-                    else if (bloqueExcluido)
-                      const Chip(
-                        label: Text('Excluido por solicitud del colegio'),
-                      )
                     else if (bloque.items.isNotEmpty)
                       TextButton(
                         onPressed: () => onBloqueChanged(!marcado),
@@ -118,13 +112,13 @@ class BloqueCard extends StatelessWidget {
                     estado: marcado
                         ? EstadoContenidoClase.ensenado
                         : EstadoContenidoClase.pendiente,
-                    motivoExclusion: exclusiones[bloque.nombre],
-                    onExcluir: onExcluir == null
+                    nombreTemporal: reemplazos[bloque.nombre],
+                    onCambiar: onCambiar == null
                         ? null
-                        : () => onExcluir!(bloque.nombre),
-                    onDeshacer: onDeshacerExclusion == null
+                        : () => onCambiar!(bloque.nombre),
+                    onDeshacer: onDeshacerCambio == null
                         ? null
-                        : () => onDeshacerExclusion!(bloque.nombre),
+                        : () => onDeshacerCambio!(bloque.nombre),
                   )
                 else
                   for (final item in bloque.items)
@@ -135,16 +129,16 @@ class BloqueCard extends StatelessWidget {
                         label: item.texto,
                         checked: itemsMarcados[item.texto] ?? false,
                         onChanged: (value) => onItemChanged(item.texto, value),
-                        motivoExclusion: exclusiones[item.texto],
+                        nombreTemporal: reemplazos[item.texto],
                         estado:
                             estadosContenido[item.texto] ??
                             EstadoContenidoClase.pendiente,
-                        onExcluir: onExcluir == null
+                        onCambiar: onCambiar == null
                             ? null
-                            : () => onExcluir!(item.texto),
-                        onDeshacer: onDeshacerExclusion == null
+                            : () => onCambiar!(item.texto),
+                        onDeshacer: onDeshacerCambio == null
                             ? null
-                            : () => onDeshacerExclusion!(item.texto),
+                            : () => onDeshacerCambio!(item.texto),
                       ),
                     ),
               ],
@@ -202,8 +196,8 @@ class _ChecklistItem extends StatelessWidget {
     required this.label,
     required this.checked,
     required this.onChanged,
-    this.motivoExclusion,
-    this.onExcluir,
+    this.nombreTemporal,
+    this.onCambiar,
     this.onDeshacer,
     this.estado = EstadoContenidoClase.pendiente,
   });
@@ -211,8 +205,8 @@ class _ChecklistItem extends StatelessWidget {
   final String label;
   final bool checked;
   final ValueChanged<bool> onChanged;
-  final String? motivoExclusion;
-  final VoidCallback? onExcluir;
+  final String? nombreTemporal;
+  final VoidCallback? onCambiar;
   final VoidCallback? onDeshacer;
   final EstadoContenidoClase estado;
 
@@ -236,7 +230,7 @@ class _ChecklistItem extends StatelessWidget {
         ),
       ),
       child: InkWell(
-        onTap: motivoExclusion == null ? () => onChanged(!checked) : null,
+        onTap: () => onChanged(!checked),
         borderRadius: BorderRadius.circular(AppRadius.small),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
@@ -286,11 +280,11 @@ class _ChecklistItem extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(label),
-                      if (motivoExclusion != null) ...[
+                      Text(nombreTemporal ?? label),
+                      if (nombreTemporal != null) ...[
                         const SizedBox(height: 4),
                         Text(
-                          'Excluido por el colegio · $motivoExclusion',
+                          'Cambio temporal para esta clase · Original: $label',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: AppColors.accent,
@@ -303,23 +297,57 @@ class _ChecklistItem extends StatelessWidget {
                           EstadoContenidoClase.pendiente => 'Pendiente',
                           EstadoContenidoClase.ensenado => 'Enseñado',
                           EstadoContenidoClase.noEnsenado => 'No enseñado',
-                          EstadoContenidoClase.excluidoPorColegio =>
-                            'Excluido por el colegio',
+                          EstadoContenidoClase.reemplazadoTemporalmente =>
+                            'Cambiado temporalmente',
                         }, style: Theme.of(context).textTheme.bodySmall),
                       ],
                     ],
                   ),
                 ),
               ),
-              if (motivoExclusion == null && onExcluir != null)
-                TextButton(
-                  onPressed: onExcluir,
-                  child: const Text('Excluir para esta clase'),
+              if (nombreTemporal == null && onCambiar != null)
+                Tooltip(
+                  message: 'Cambiar temporalmente para esta clase',
+                  child: SizedBox(
+                    width: 62,
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 6,
+                        ),
+                        minimumSize: const Size(0, 48),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: onCambiar,
+                      child: const Text(
+                        'Cambiar\nclase',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
                 ),
-              if (motivoExclusion != null && onDeshacer != null)
-                TextButton(
-                  onPressed: onDeshacer,
-                  child: const Text('Deshacer exclusión'),
+              if (nombreTemporal != null && onDeshacer != null)
+                Tooltip(
+                  message: 'Restaurar contenido original',
+                  child: SizedBox(
+                    width: 62,
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 6,
+                        ),
+                        minimumSize: const Size(0, 48),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: onDeshacer,
+                      child: const Text(
+                        'Restaurar\noriginal',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
                 ),
             ],
           ),
