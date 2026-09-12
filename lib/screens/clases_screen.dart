@@ -28,6 +28,15 @@ class ClasesScreen extends StatefulWidget {
 class _ClasesScreenState extends State<ClasesScreen> {
   final _service = EvaluacionService();
   late Evaluacion _evaluacion = widget.evaluacionInicial;
+  late final TextEditingController _colegioController = TextEditingController(
+    text: widget.evaluacionInicial.colegio,
+  );
+
+  @override
+  void dispose() {
+    _colegioController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +73,22 @@ class _ClasesScreenState extends State<ClasesScreen> {
             EvaluacionProgressCard(
               completados: contenidosMarcados,
               total: totalContenidos,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: _colegioController,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Colegio',
+                hintText: 'Escribe el nombre del colegio',
+                prefixIcon: Icon(Icons.domain_outlined),
+              ),
+              onChanged: (valor) {
+                _evaluacion = _evaluacion.copyWith(colegio: valor.trim());
+                context.read<SesionProvider>().guardarBorradorEvaluacion(
+                  _evaluacion,
+                );
+              },
             ),
             const SizedBox(height: AppSpacing.xl),
             Text('Class plan', style: Theme.of(context).textTheme.titleLarge),
