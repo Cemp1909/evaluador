@@ -1693,8 +1693,6 @@ class SesionProvider extends ChangeNotifier {
       'admin',
       'administrador',
       'administrator',
-      'coordinador',
-      'coordinator',
       'superadmin',
       'root',
     }.contains(normalizado);
@@ -1959,6 +1957,31 @@ class SesionProvider extends ChangeNotifier {
       return null;
     } catch (_) {
       return 'No se pudo activar el profesor en Supabase.';
+    }
+  }
+
+  Future<String?> convertirProfesorEnCoordinador({
+    required String usuario,
+    required String zona,
+  }) async {
+    if (!usaSupabase || !tienePermiso(Permiso.administrarUsuarios)) {
+      return 'Solo el administrador puede asignar coordinadores.';
+    }
+    final zonaLimpia = zona.trim();
+    if (zonaLimpia.isEmpty) return 'Escribe la zona del coordinador.';
+    try {
+      await _supabaseClient!
+          .from('perfiles')
+          .update({'rol': 'coordinador', 'zona': zonaLimpia, 'activo': true})
+          .eq('id', usuario)
+          .eq('rol', 'profesor')
+          .select('id')
+          .single();
+      _profesoresRemotos.removeWhere((profesor) => profesor.usuario == usuario);
+      notifyListeners();
+      return null;
+    } catch (_) {
+      return 'No se pudo convertir el profesor en coordinador.';
     }
   }
 

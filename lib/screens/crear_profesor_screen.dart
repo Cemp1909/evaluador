@@ -381,8 +381,6 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
                             'admin',
                             'administrador',
                             'administrator',
-                            'coordinador',
-                            'coordinator',
                             'superadmin',
                             'root',
                           }.contains(value.trim().toLowerCase())) {

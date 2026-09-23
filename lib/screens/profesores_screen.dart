@@ -196,18 +196,38 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
                                   _EstadoAcceso(aprobado: profesor.aprobado),
                                 ],
                               ),
-                              if (!profesor.aprobado && puedeAprobar) ...[
+                              if (puedeAprobar) ...[
                                 const SizedBox(height: AppSpacing.md),
-                                FilledButton.icon(
-                                  onPressed: () => _aprobar(
-                                    context,
-                                    profesor.usuario,
-                                    profesor.nombre,
-                                  ),
-                                  icon: const Icon(
-                                    Icons.verified_user_outlined,
-                                  ),
-                                  label: const Text('Approve'),
+                                Wrap(
+                                  spacing: AppSpacing.sm,
+                                  runSpacing: AppSpacing.sm,
+                                  alignment: WrapAlignment.end,
+                                  children: [
+                                    if (!profesor.aprobado)
+                                      FilledButton.icon(
+                                        onPressed: () => _aprobar(
+                                          context,
+                                          profesor.usuario,
+                                          profesor.nombre,
+                                        ),
+                                        icon: const Icon(
+                                          Icons.verified_user_outlined,
+                                        ),
+                                        label: const Text('Approve'),
+                                      ),
+                                    OutlinedButton.icon(
+                                      onPressed: () => _hacerCoordinador(
+                                        context,
+                                        profesor.usuario,
+                                        profesor.nombre,
+                                        profesor.zona,
+                                      ),
+                                      icon: const Icon(
+                                        Icons.manage_accounts_outlined,
+                                      ),
+                                      label: const Text('Hacer coordinador'),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ],
@@ -222,7 +242,11 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
     );
   }
 
-  Future<void> _aprobar(BuildContext context, String usuario, String nombre) async {
+  Future<void> _aprobar(
+    BuildContext context,
+    String usuario,
+    String nombre,
+  ) async {
     final error = await context
         .read<SesionProvider>()
         .aprobarProfesorPersistente(usuario);
@@ -234,6 +258,47 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
               ? 'Access approved for $nombre.'
               : _traducirError(error),
         ),
+      ),
+    );
+  }
+
+  Future<void> _hacerCoordinador(
+    BuildContext context,
+    String usuario,
+    String nombre,
+    String zonaActual,
+  ) async {
+    final controller = TextEditingController(text: zonaActual);
+    final zona = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Convertir a $nombre en coordinador'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Zona asignada'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (!context.mounted || zona == null) return;
+    final error = await context
+        .read<SesionProvider>()
+        .convertirProfesorEnCoordinador(usuario: usuario, zona: zona);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(error ?? '$nombre ahora tiene acceso como coordinador.'),
       ),
     );
   }
