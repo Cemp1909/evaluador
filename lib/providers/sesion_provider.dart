@@ -1645,6 +1645,9 @@ class SesionProvider extends ChangeNotifier {
     if (!RegExp(r'^[a-z0-9._-]{3,30}$').hasMatch(usuarioLimpio)) {
       return 'El usuario debe tener de 3 a 30 letras, números, puntos, guiones o guion bajo.';
     }
+    if (_usuarioAdministrativoReservado(usuarioLimpio)) {
+      return 'Ese nombre de usuario está reservado.';
+    }
     if (password.length < 8) {
       return 'La contraseña debe tener mínimo 8 caracteres.';
     }
@@ -1682,6 +1685,19 @@ class SesionProvider extends ChangeNotifier {
     final valor = usuario.trim().toLowerCase();
     // Conserva compatibilidad con cuentas antiguas que ingresaban por correo.
     return valor.contains('@') ? valor : '$valor@usuarios.evaluador.app';
+  }
+
+  bool _usuarioAdministrativoReservado(String usuario) {
+    final normalizado = usuario.trim().toLowerCase();
+    return const {
+      'admin',
+      'administrador',
+      'administrator',
+      'coordinador',
+      'coordinator',
+      'superadmin',
+      'root',
+    }.contains(normalizado);
   }
 
   Future<String?> restaurarSesionSupabase() async {

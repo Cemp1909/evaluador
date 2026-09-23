@@ -377,6 +377,17 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
                           ).hasMatch(value.trim())) {
                             return 'Usa de 3 a 30 letras, números, puntos o guiones.';
                           }
+                          if (const {
+                            'admin',
+                            'administrador',
+                            'administrator',
+                            'coordinador',
+                            'coordinator',
+                            'superadmin',
+                            'root',
+                          }.contains(value.trim().toLowerCase())) {
+                            return 'Ese nombre de usuario está reservado.';
+                          }
                           return null;
                         },
                       ),
