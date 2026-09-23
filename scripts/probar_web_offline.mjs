@@ -46,7 +46,7 @@ try {
     else await rows([]);
   });
   await context.setOffline(false);
-  for (const [name, value] of [['Correo electrónico','prueba@example.test'],['Password','prueba']]) {
+  for (const [name, value] of [['Usuario','prueba'],['Password','prueba']]) {
     const input = page.getByRole('textbox', {name, exact:true});
     await input.click();
     // Flutter conecta el editor nativo en el siguiente frame de foco.
@@ -72,7 +72,7 @@ try {
   await second.goto(process.env.TEST_APP_URL ?? 'http://localhost:8765');
   await second.locator('flutter-view').waitFor();
   await second.locator('flt-semantics-placeholder').evaluate(element => element.click());
-  await second.getByRole('textbox', {name:'Correo electrónico'}).waitFor({timeout:15000});
+  await second.getByRole('textbox', {name:'Usuario'}).waitFor({timeout:15000});
   const secondView = await second.locator('body').ariaSnapshot();
   assert.match(secondView, /otra pestaña/);
   await second.close();
