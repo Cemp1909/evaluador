@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models/clase.dart';
+import '../models/docente_colegio.dart';
+import '../widgets/docentes_colegio_card.dart';
 import '../models/evaluacion.dart';
 import '../models/evaluacion_clase.dart';
 import '../models/firma_docente.dart';
@@ -61,6 +63,38 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
     }
   }
 
+  Future<void> _colaGuardado = Future<void>.value();
+  int _pendientes = 0;
+  String? _errorGuardado;
+
+  void _editar(VoidCallback cambio) {
+    setState(cambio);
+    _guardarCambios();
+  }
+
+  Future<bool> _guardarCambios() {
+    final sesion = context.read<SesionProvider>();
+    final instantanea = _evaluacion;
+    setState(() => _pendientes++);
+    final tarea = _colaGuardado.then((_) async {
+      final error = await sesion.guardarBorradorEvaluacionPersistente(instantanea);
+      if (mounted) {
+        setState(() {
+          _pendientes--;
+          _errorGuardado = error;
+        });
+      }
+      return error == null;
+    });
+    _colaGuardado = tarea.then<void>((_) {});
+    return tarea;
+  }
+
+  Future<void> _salir() async {
+    if (!await _guardarCambios() || !mounted) return;
+    Navigator.of(context).pop(_evaluacion);
+  }
+
   @override
   void dispose() {
     _observacionesController.dispose();
@@ -79,14 +113,22 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) Navigator.of(context).pop(_evaluacion);
+        if (!didPop) _salir();
       },
       child: Scaffold(
         appBar: AppBar(
           title: const AppBrandTitle(compact: true),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(36),
+            child: TextButton(
+              onPressed: _pendientes > 0 ? null : _guardarCambios,
+              child: Text(_pendientes > 0 ? 'Guardando cambios…' :
+                  _errorGuardado ?? 'Guardar cambios'),
+            ),
+          ),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(_evaluacion),
+            onPressed: _salir,
           ),
         ),
         body: ListView(
@@ -97,6 +139,40 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
             AppSpacing.xl,
           ),
           children: [
+            DocentesColegioCard(
+              colegio: _evaluacion.colegio,
+              evaluacion: _evaluacion,
+              nivel: _evaluacion.evaluadorTipo == 'capacitacion_primaria'
+                  ? NivelDocente.primaria
+                  : NivelDocente.preescolar,
+              asistencia: clase.asistencia,
+              onChanged: _evaluacion.estado == EstadoEvaluacion.completada
+                  ? null
+                  : (asistencia) async {
+                      final nueva = _evaluacion.copyWith(
+                        clases: [
+                          for (final actual in _evaluacion.clases)
+                            actual.claseNumero == clase.claseNumero
+                                ? actual.copyWith(
+                                    asistencia: asistencia,
+                                    fecha: actual.fecha ?? DateTime.now(),
+                                  )
+                                : actual,
+                        ],
+                      );
+                      final error = await context
+                          .read<SesionProvider>()
+                          .guardarBorradorEvaluacionPersistente(nueva);
+                      if (!context.mounted) return;
+                      if (error != null) {
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(error)));
+                        return;
+                      }
+                      setState(() => _evaluacion = nueva);
+                    },
+            ),
             Text(
               'Clase ${widget.plantilla.numero}',
               style: Theme.of(context).textTheme.headlineSmall,
@@ -147,7 +223,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
                         emptySelectionAllowed: true,
                         onSelectionChanged: (seleccion) {
                           if (seleccion.isEmpty) return;
-                          setState(() {
+                          _editar(() {
                             _evaluacion = widget.service
                                 .seleccionarBloqueCanciones(
                                   evaluacion: _evaluacion,
@@ -200,7 +276,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
                   ),
                 ),
                 onItemChanged: (itemTexto, marcado) {
-                  setState(() {
+                  _editar(() {
                     _evaluacion = widget.service.actualizarItem(
                       evaluacion: _evaluacion,
                       claseNumero: widget.plantilla.numero,
@@ -211,7 +287,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
                   });
                 },
                 onBloqueChanged: (marcado) {
-                  setState(() {
+                  _editar(() {
                     _evaluacion = widget.service.actualizarBloque(
                       evaluacion: _evaluacion,
                       claseNumero: widget.plantilla.numero,
@@ -277,6 +353,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
                   claseNumero: widget.plantilla.numero,
                   observaciones: texto,
                 );
+                _guardarCambios();
               },
             ),
             const SizedBox(height: 28),
@@ -420,13 +497,14 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
     );
     if (confirmado != true || !mounted) return;
     final sesion = context.read<SesionProvider>();
-    final error = sesion.reemplazarContenidoClase(
+    final error = await sesion.reemplazarContenidoClasePersistente(
       evaluacion: _evaluacion,
       claseNumero: clase.claseNumero,
       bloque: bloque,
       contenido: contenido,
       nombreTemporal: nombreTemporal.text,
     );
+    if (!mounted) return;
     if (error != null) {
       ScaffoldMessenger.of(
         context,
@@ -438,9 +516,13 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
     );
   }
 
-  void _deshacerCambio(String contenidoId) {
+  Future<void> _deshacerCambio(String contenidoId) async {
     final sesion = context.read<SesionProvider>();
-    final error = sesion.deshacerReemplazoContenido(_evaluacion, contenidoId);
+    final error = await sesion.deshacerReemplazoContenidoPersistente(
+      _evaluacion,
+      contenidoId,
+    );
+    if (!mounted) return;
     if (error != null) {
       ScaffoldMessenger.of(
         context,
@@ -552,7 +634,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
       'Firma del docente representante',
     );
     if (firma == null || !mounted) return;
-    setState(() {
+    _editar(() {
       _evaluacion = widget.service.actualizarFirmaRepresentante(
         evaluacion: _evaluacion,
         claseNumero: widget.plantilla.numero,
@@ -567,7 +649,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
       '¿Deseas eliminar este docente asistente y su firma?',
     );
     if (!confirmar || !mounted) return;
-    setState(() {
+    _editar(() {
       _evaluacion = widget.service.eliminarFirmaAsistente(
         evaluacion: _evaluacion,
         claseNumero: widget.plantilla.numero,
@@ -582,7 +664,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
       '¿Deseas eliminar esta fotografía? Esta acción no se puede deshacer.',
     );
     if (!confirmar || !mounted) return;
-    setState(() {
+    _editar(() {
       _evaluacion = widget.service.eliminarFoto(_evaluacion, index);
     });
   }
@@ -625,7 +707,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
       'Firma de $nombre',
     );
     if (firma == null || !mounted) return;
-    setState(() {
+    _editar(() {
       _evaluacion = widget.service.agregarFirmaAsistente(
         evaluacion: _evaluacion,
         claseNumero: widget.plantilla.numero,
@@ -678,7 +760,7 @@ class _ClaseDetailScreenState extends State<ClaseDetailScreen> {
       }
       final base64 = base64Encode(await foto.readAsBytes());
       if (!mounted) return;
-      setState(() {
+      _editar(() {
         _evaluacion = widget.service.agregarFoto(_evaluacion, base64);
       });
     } on PlatformException {

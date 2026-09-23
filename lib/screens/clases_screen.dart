@@ -1,3 +1,4 @@
+import '../widgets/selector_registro.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/evaluacion.dart';
@@ -75,19 +76,32 @@ class _ClasesScreenState extends State<ClasesScreen> {
               total: totalContenidos,
             ),
             const SizedBox(height: AppSpacing.md),
-            TextField(
+            SelectorRegistro(
               controller: _colegioController,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Colegio',
-                hintText: 'Escribe el nombre del colegio',
-                prefixIcon: Icon(Icons.domain_outlined),
-              ),
-              onChanged: (valor) {
-                _evaluacion = _evaluacion.copyWith(colegio: valor.trim());
-                context.read<SesionProvider>().guardarBorradorEvaluacion(
-                  _evaluacion,
-                );
+              opciones: context.watch<SesionProvider>().colegiosRegistrados,
+              etiqueta: 'Colegio',
+              icono: Icons.domain_outlined,
+              onChanged: (valor) async {
+                final sesion = context.read<SesionProvider>();
+                final anterior = _evaluacion;
+                final nueva = sesion.usaSupabase
+                    ? sesion.borradorEvaluacion(widget.tipo.codigo, colegio: valor) ??
+                        _service.crearDesdePlantilla(widget.tipo).copyWith(
+                          colegio: valor.trim(),
+                          responsableNombre: sesion.usuarioActual?.nombre,
+                        )
+                    : _evaluacion.copyWith(colegio: valor.trim());
+                final error = await sesion.guardarBorradorEvaluacionPersistente(nueva);
+                if (!context.mounted) return;
+                if (error != null) {
+                  _colegioController.text = anterior.colegio;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(error)),
+                  );
+                  setState(() {});
+                  return;
+                }
+                setState(() => _evaluacion = nueva);
               },
             ),
             const SizedBox(height: AppSpacing.xl),
@@ -136,9 +150,17 @@ class _ClasesScreenState extends State<ClasesScreen> {
     );
     if (resultado != null && mounted) {
       setState(() => _evaluacion = resultado);
-      context.read<SesionProvider>().guardarBorradorEvaluacion(resultado);
+      final error = await context
+          .read<SesionProvider>()
+          .guardarBorradorEvaluacionPersistente(resultado);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Borrador guardado automáticamente.')),
+        SnackBar(content: Text(
+          error ??
+              (context.read<SesionProvider>().usaSupabase
+                  ? 'Borrador guardado en Supabase.'
+                  : 'Borrador guardado durante esta sesión.'),
+        )),
       );
     }
   }

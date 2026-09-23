@@ -18,8 +18,11 @@ class ComparacionPeriodosScreen extends StatelessWidget {
     final sesion = context.watch<SesionProvider>();
     final reportes =
         sesion
-            .historialEstudiante(reporteBase.profesorEvaluado)
-            .where((reporte) => reporte.grado == reporteBase.grado)
+            .historialSalon(
+              reporteBase.colegio,
+              reporteBase.grado,
+              profesor: reporteBase.profesorResponsableSalon,
+            )
             .toList()
           ..sort((a, b) => a.periodo.compareTo(b.periodo));
     final puedeAprobar = sesion.usuarioActual?.rol == RolUsuario.coordinador;
@@ -42,12 +45,12 @@ class ComparacionPeriodosScreen extends StatelessWidget {
         ),
         children: [
           Text(
-            reporteBase.profesorEvaluado,
+            reporteBase.grado,
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
-            '${reporteBase.grado} · ${reporteBase.colegio}',
+            '${reporteBase.colegio} · ${reporteBase.profesorResponsableSalon}',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -273,10 +276,13 @@ class ComparacionPeriodosScreen extends StatelessWidget {
       'Firma de aprobación del coordinador',
     );
     if (firma == null || !context.mounted) return;
-    final error = context.read<SesionProvider>().aprobarReporteConocimiento(
+    final error = await context
+        .read<SesionProvider>()
+        .aprobarReporteConocimientoPersistente(
       reporteId: reporte.id,
       firma: firma,
     );
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(error ?? 'Reporte aprobado y firmado correctamente.'),

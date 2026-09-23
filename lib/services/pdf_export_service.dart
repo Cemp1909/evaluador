@@ -119,6 +119,7 @@ class PdfExportService {
       clase.observaciones.trim().isNotEmpty ||
       clase.firmaDocenteUrl?.isNotEmpty == true ||
       clase.firmasAsistentes.isNotEmpty ||
+      clase.asistencia.isNotEmpty ||
       clase.bloques.any(
         (bloque) =>
             bloque.marcado ||
@@ -267,7 +268,7 @@ class PdfExportService {
     StudentKnowledgeReport reporte, {
     bool resumido = false,
   }) =>
-      'CourseChild_${_archivo(reporte.profesorEvaluado)}_${_archivo(reporte.grado)}_P${reporte.periodo}_${_fechaArchivo(reporte.fechaHora)}${resumido ? '_resumido' : '_detallado'}.pdf';
+      'CourseChild_${_archivo(reporte.colegio)}_${_archivo(reporte.grado)}_P${reporte.periodo}_${_fechaArchivo(reporte.fechaHora)}${resumido ? '_resumido' : '_detallado'}.pdf';
 
   Future<Uint8List> generarReporte(
     StudentKnowledgeReport reporte, {
@@ -293,7 +294,10 @@ class PdfExportService {
             ('Fecha y hora', _fechaHora(reporte.fechaHora)),
             ('Período', 'Período ${reporte.periodo}'),
             ('Docente de Course Child', reporte.docente),
-            ('Docente evaluado', reporte.profesorEvaluado),
+            (
+              'Profesor responsable del salón',
+              reporte.profesorResponsableSalon,
+            ),
             ('Colegio', reporte.colegio),
             ('Grado', reporte.grado),
             ('Nota final', '${reporte.notaFinal.toStringAsFixed(1)} / 5,0'),
@@ -311,6 +315,30 @@ class PdfExportService {
           ]),
           pw.SizedBox(height: 22),
           _leyendaNotas(reporte),
+          if (!reporte.firmasCompletas) ...[
+            pw.SizedBox(height: 12),
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              decoration: pw.BoxDecoration(
+                color: PdfColor.fromHex('#FFF4E5'),
+                borderRadius: pw.BorderRadius.circular(8),
+                border: pw.Border.all(color: PdfColor.fromHex('#F29F3D')),
+              ),
+              child: pw.Text(
+                'BORRADOR · Faltan ${3 - reporte.cantidadFirmas} ${3 - reporte.cantidadFirmas == 1 ? 'firma' : 'firmas'}. Este documento aún no es el reporte definitivo.',
+                textAlign: pw.TextAlign.center,
+                style: pw.TextStyle(
+                  color: PdfColor.fromHex('#8A4B08'),
+                  fontSize: 9,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
           pw.SizedBox(height: 18),
           _tituloSeccion(
             resumido ? 'Resumen de la evaluación' : 'Evaluación del salón',
@@ -335,7 +363,7 @@ class PdfExportService {
               pw.SizedBox(width: 10),
               pw.Expanded(
                 child: _tarjetaFirma(
-                  reporte.profesorEvaluado,
+                  reporte.profesorResponsableSalon,
                   reporte.firmaDocenteColegio,
                 ),
               ),
@@ -414,11 +442,13 @@ class PdfExportService {
           ),
           child: pw.Column(
             children: [
-              pw.Text(reporte.profesorEvaluado),
-              pw.SizedBox(height: 8),
               pw.Text('${reporte.grado} · Período ${reporte.periodo}'),
               pw.SizedBox(height: 8),
               pw.Text(reporte.colegio),
+              pw.SizedBox(height: 8),
+              pw.Text(
+                'Profesor responsable: ${reporte.profesorResponsableSalon}',
+              ),
               pw.SizedBox(height: 14),
               pw.Text(
                 'Nota ${reporte.notaFinal.toStringAsFixed(1)} / 5,0 · ${reporte.desempeno}',
@@ -512,6 +542,14 @@ class PdfExportService {
     );
     if (clase.firmaDocenteUrl?.isNotEmpty == true) {
       yield _firma('Docente representante', clase.firmaDocenteUrl!);
+    }
+    if (clase.asistencia.isNotEmpty) {
+      yield _seccion(
+        'Asistencia de docentes',
+        clase.asistencia.entries
+            .map((e) => '${e.key}: ${e.value ? 'Asistió' : 'No asistió'}')
+            .join('\n'),
+      );
     }
     for (final firma in clase.firmasAsistentes) {
       yield _firma(firma.nombre, firma.firmaBase64);

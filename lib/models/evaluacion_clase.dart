@@ -9,6 +9,7 @@ class EvaluacionClase {
     this.fecha,
     this.firmaDocenteUrl,
     this.firmasAsistentes = const [],
+    this.asistencia = const {},
     this.observaciones = '',
     this.bloqueCancionesSeleccionado,
     required this.bloques,
@@ -20,6 +21,7 @@ class EvaluacionClase {
   final DateTime? fecha;
   final String? firmaDocenteUrl;
   final List<FirmaDocente> firmasAsistentes;
+  final Map<String, bool> asistencia;
   final String observaciones;
   final String? bloqueCancionesSeleccionado;
   final List<EvaluacionBloque> bloques;
@@ -55,10 +57,12 @@ class EvaluacionClase {
     DateTime? fecha,
     String? firmaDocenteUrl,
     List<FirmaDocente>? firmasAsistentes,
+    Map<String, bool>? asistencia,
     String? observaciones,
     String? bloqueCancionesSeleccionado,
     List<EvaluacionBloque>? bloques,
   }) => EvaluacionClase(
+    asistencia: asistencia ?? this.asistencia,
     id: id,
     evaluacionId: evaluacionId,
     claseNumero: claseNumero,
@@ -75,6 +79,7 @@ class EvaluacionClase {
     Map<String, dynamic> json, {
     List<EvaluacionBloque> bloques = const [],
   }) => EvaluacionClase(
+    asistencia: Map<String, bool>.from(json['asistencia'] as Map? ?? {}),
     id: json['id'] as String?,
     evaluacionId: json['evaluacion_id'] as String?,
     claseNumero: json['clase_numero'] as int,
@@ -95,6 +100,7 @@ class EvaluacionClase {
     if (id != null) 'id': id,
     if (evaluacionId != null) 'evaluacion_id': evaluacionId,
     'clase_numero': claseNumero,
+    'asistencia': asistencia,
     'fecha': fecha?.toIso8601String(),
     'firma_docente_url': firmaDocenteUrl,
     'firmas_asistentes': firmasAsistentes

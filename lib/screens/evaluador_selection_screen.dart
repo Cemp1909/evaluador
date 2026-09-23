@@ -63,17 +63,48 @@ class EvaluadorSelectionScreen extends StatelessWidget {
                   '${evaluadoresDisponibles[index].clases.length} class sessions',
               prominent: true,
               accentColor: index == 0 ? AppColors.accent : AppColors.primary,
-              onTap: () {
+              onTap: () async {
                 final tipo = evaluadoresDisponibles[index];
                 final sesion = context.read<SesionProvider>();
-                final evaluacion =
+                var evaluacion =
                     sesion.borradorEvaluacion(tipo.codigo) ??
                     EvaluacionService()
                         .crearDesdePlantilla(tipo)
                         .copyWith(
                           responsableNombre: sesion.usuarioActual?.nombre,
                         );
-                sesion.guardarBorradorEvaluacion(evaluacion);
+                if (sesion.usaSupabase && evaluacion.colegio.trim().isEmpty) {
+                  if (sesion.colegiosRegistrados.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Primero registra o asigna un colegio.')),
+                    );
+                    return;
+                  }
+                  final colegio = await showDialog<String>(
+                    context: context,
+                    builder: (ctx) => SimpleDialog(
+                      title: const Text('Colegio de la capacitación'),
+                      children: [
+                        for (final nombre in sesion.colegiosRegistrados)
+                          SimpleDialogOption(
+                            onPressed: () => Navigator.pop(ctx, nombre),
+                            child: Text(nombre),
+                          ),
+                      ],
+                    ),
+                  );
+                  if (colegio == null || !context.mounted) return;
+                  evaluacion = evaluacion.copyWith(colegio: colegio);
+                }
+                final error = await sesion
+                    .guardarBorradorEvaluacionPersistente(evaluacion);
+                if (!context.mounted) return;
+                if (error != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(error)),
+                  );
+                  return;
+                }
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) =>

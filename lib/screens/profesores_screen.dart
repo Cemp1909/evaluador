@@ -222,8 +222,11 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
     );
   }
 
-  void _aprobar(BuildContext context, String usuario, String nombre) {
-    final error = context.read<SesionProvider>().aprobarProfesor(usuario);
+  Future<void> _aprobar(BuildContext context, String usuario, String nombre) async {
+    final error = await context
+        .read<SesionProvider>()
+        .aprobarProfesorPersistente(usuario);
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(

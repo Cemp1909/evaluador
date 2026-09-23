@@ -22,7 +22,16 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usuarioController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _ocultarPassword = true;
+  bool _cargando = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _restaurarSesion();
+    });
+  }
 
   @override
   void dispose() {
@@ -34,6 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final usaSupabase = context.watch<SesionProvider>().usaSupabase;
     return Scaffold(
       body: DecoratedBox(
         decoration: BoxDecoration(
@@ -126,14 +136,25 @@ class _LoginScreenState extends State<LoginScreen> {
                           controller: _usuarioController,
                           textInputAction: TextInputAction.next,
                           autocorrect: false,
-                          decoration: const InputDecoration(
-                            labelText: 'Username',
-                            prefixIcon: Icon(Icons.person_outline_rounded),
+                          decoration: InputDecoration(
+                            labelText: usaSupabase
+                                ? 'Correo electrónico'
+                                : 'Username',
+                            prefixIcon: const Icon(
+                              Icons.person_outline_rounded,
+                            ),
                           ),
-                          validator: (value) =>
-                              value == null || value.trim().isEmpty
-                              ? 'Enter your username.'
-                              : null,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return usaSupabase
+                                  ? 'Escribe tu correo electrónico.'
+                                  : 'Enter your username.';
+                            }
+                            if (usaSupabase && !value.contains('@')) {
+                              return 'Escribe un correo válido.';
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: AppSpacing.sm + 2),
                         TextFormField(
@@ -208,21 +229,24 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                         const SizedBox(height: AppSpacing.lg),
                         FilledButton.icon(
-                          onPressed: _ingresar,
+                          onPressed: _cargando ? null : _ingresar,
                           icon: const Icon(Icons.login_rounded),
-                          label: const Text('Sign in'),
+                          label: Text(_cargando ? 'Conectando...' : 'Sign in'),
                         ),
                         const SizedBox(height: AppSpacing.sm),
-                        OutlinedButton.icon(
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pushNamed(CrearProfesorScreen.solicitudRoute),
-                          icon: const Icon(Icons.person_add_alt_1_rounded),
-                          label: const Text('Request teacher access'),
-                        ),
+                        if (!usaSupabase)
+                          OutlinedButton.icon(
+                            onPressed: () => Navigator.of(
+                              context,
+                            ).pushNamed(CrearProfesorScreen.solicitudRoute),
+                            icon: const Icon(Icons.person_add_alt_1_rounded),
+                            label: const Text('Request teacher access'),
+                          ),
                         const SizedBox(height: AppSpacing.lg),
                         Text(
-                          'Prototype version · Data is deleted when the app closes',
+                          usaSupabase
+                              ? 'Cuenta conectada a Supabase. Los datos académicos se guardan allí cuando están aplicadas todas las migraciones.'
+                              : 'Prototype version · Data is deleted when the app closes',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
@@ -238,19 +262,48 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _ingresar() {
+  Future<void> _restaurarSesion() async {
+    final sesion = context.read<SesionProvider>();
+    if (!sesion.usaSupabase || !sesion.tieneSesionRemota) return;
+    setState(() => _cargando = true);
+    final error = await sesion.restaurarSesionSupabase();
+    if (!mounted) return;
+    setState(() {
+      _cargando = false;
+      _error = error;
+    });
+    if (error == null) _navegar(sesion.usuarioActual!.rol);
+  }
+
+  Future<void> _ingresar() async {
+    if (_cargando) return;
     if (!_formKey.currentState!.validate()) return;
     final sesion = context.read<SesionProvider>();
-    final error = sesion.iniciarSesion(
-      usuario: _usuarioController.text,
-      password: _passwordController.text,
-    );
+    setState(() {
+      _cargando = true;
+      _error = null;
+    });
+    final error = sesion.usaSupabase
+        ? await sesion.iniciarSesionSupabase(
+            correo: _usuarioController.text,
+            password: _passwordController.text,
+          )
+        : sesion.iniciarSesion(
+            usuario: _usuarioController.text,
+            password: _passwordController.text,
+          );
+    if (!mounted) return;
+    setState(() => _cargando = false);
     if (error != null) {
       setState(() => _error = _traducirError(error));
       return;
     }
 
-    final route = switch (sesion.usuarioActual!.rol) {
+    _navegar(sesion.usuarioActual!.rol);
+  }
+
+  void _navegar(RolUsuario rol) {
+    final route = switch (rol) {
       RolUsuario.administrador => GestionHomeScreen.adminRoute,
       RolUsuario.coordinador => GestionHomeScreen.coordinadorRoute,
       RolUsuario.profesor => ProfesorHomeScreen.routeName,

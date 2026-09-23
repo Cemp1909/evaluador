@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/student_knowledge_report.dart';
+import '../models/docente_colegio.dart';
+import '../models/contacto_colegio.dart';
+import '../models/resumen_seguimiento_profesor.dart';
 import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/docentes_colegio_card.dart';
+import '../security/rbac.dart';
 
 class PanelColegiosScreen extends StatelessWidget {
   const PanelColegiosScreen({super.key});
@@ -17,10 +22,25 @@ class PanelColegiosScreen extends StatelessWidget {
     for (final reporte in reportes) {
       colegios.putIfAbsent(reporte.colegio, () => []).add(reporte);
     }
+    final sesion = context.watch<SesionProvider>();
+    for (final nombre in sesion.colegiosRegistrados) {
+      if (!colegios.keys.any(
+        (key) => key.trim().toLowerCase() == nombre.trim().toLowerCase(),
+      )) {
+        colegios[nombre] = [];
+      }
+    }
     final entradas = colegios.entries.toList()
       ..sort((a, b) => a.key.compareTo(b.key));
     return Scaffold(
       appBar: AppBar(title: const Text('Panel de colegios')),
+      floatingActionButton: sesion.tienePermiso(Permiso.asignarProfesores)
+          ? FloatingActionButton.extended(
+              onPressed: () => editarDocentesColegio(context),
+              icon: const Icon(Icons.group_add),
+              label: const Text('Asignar docentes'),
+            )
+          : null,
       body: entradas.isEmpty
           ? Center(
               child: Padding(
@@ -68,7 +88,7 @@ class PanelColegiosScreen extends StatelessWidget {
                       0,
                       (total, reporte) => total + reporte.notaFinal,
                     ) /
-                    entrada.value.length;
+                    (entrada.value.isEmpty ? 1 : entrada.value.length);
                 final bajos = entrada.value
                     .expand((reporte) => reporte.resultadosContenido.values)
                     .where(
@@ -111,6 +131,64 @@ class PanelColegiosScreen extends StatelessWidget {
                       AppSpacing.md,
                     ),
                     children: [
+                      if (sesion.contactoColegio(entrada.key).ciudad.isNotEmpty)
+                        Text('Ciudad: ${sesion.contactoColegio(entrada.key).ciudad}'),
+                      if (sesion.contactoColegio(entrada.key).direccion.isNotEmpty)
+                        Text('Dirección: ${sesion.contactoColegio(entrada.key).direccion}'),
+                      if (sesion.contactoColegio(entrada.key).telefono.isNotEmpty)
+                        Text('Teléfono: ${sesion.contactoColegio(entrada.key).telefono}'),
+                      if (sesion.tienePermiso(Permiso.asignarProfesores))
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: () => _editarContactoColegio(context, entrada.key),
+                            icon: const Icon(Icons.edit_location_alt_outlined),
+                            label: const Text('Editar datos del colegio'),
+                          ),
+                        ),
+                      Text(
+                        'Preescolar: ${sesion.docentesColegio(entrada.key, nivel: NivelDocente.preescolar).join(', ')}',
+                      ),
+                      Text(
+                        'Primaria: ${sesion.docentesColegio(entrada.key, nivel: NivelDocente.primaria).join(', ')}',
+                      ),
+                      if (sesion
+                          .asignacionesDocentesColegio(
+                            entrada.key,
+                            incluirInactivas: true,
+                          )
+                          .any((item) => !item.activo)) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Historial de asignaciones',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                        ),
+                        for (final asignacion
+                            in sesion
+                                .asignacionesDocentesColegio(
+                                  entrada.key,
+                                  incluirInactivas: true,
+                                )
+                                .where((item) => !item.activo))
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '${asignacion.nombre} · ${asignacion.nivel.nombre} · '
+                              '${_fechaCorta(asignacion.fechaInicio)} a ${_fechaCorta(asignacion.fechaFin!)}',
+                            ),
+                          ),
+                      ],
+                      if (sesion.tienePermiso(Permiso.asignarProfesores))
+                        TextButton(
+                          onPressed: () => editarDocentesColegio(
+                            context,
+                            colegio: entrada.key,
+                          ),
+                          child: const Text('Editar docentes'),
+                        ),
                       const Divider(height: AppSpacing.md),
                       _Metrica('Nota promedio', promedio.toStringAsFixed(1)),
                       _Metrica('Grados evaluados', '$grados'),
@@ -119,6 +197,25 @@ class PanelColegiosScreen extends StatelessWidget {
                         'Reportes aprobados',
                         '${entrada.value.where((e) => e.aprobadoPorCoordinador).length}',
                       ),
+                      const Divider(height: AppSpacing.lg),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Seguimiento por profesor',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      if (sesion.seguimientoProfesores(entrada.key).isEmpty)
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('No hay profesores asignados.'),
+                        )
+                      else
+                        for (final resumen in sesion.seguimientoProfesores(
+                          entrada.key,
+                        ))
+                          _ProfesorSeguimientoCard(resumen: resumen),
                     ],
                   ),
                 );
@@ -126,6 +223,152 @@ class PanelColegiosScreen extends StatelessWidget {
             ),
     );
   }
+}
+
+Future<void> _editarContactoColegio(BuildContext context, String colegio) async {
+  final sesion = context.read<SesionProvider>();
+  final actual = sesion.contactoColegio(colegio);
+  final ciudad = TextEditingController(text: actual.ciudad);
+  final direccion = TextEditingController(text: actual.direccion);
+  final telefono = TextEditingController(text: actual.telefono);
+  try {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Datos de $colegio'),
+        content: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: ciudad,
+                decoration: const InputDecoration(labelText: 'Ciudad o municipio'),
+              ),
+              TextField(
+                controller: direccion,
+                decoration: const InputDecoration(labelText: 'Dirección'),
+              ),
+              TextField(
+                controller: telefono,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: 'Teléfono'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final error = await sesion.guardarContactoColegio(
+                colegio,
+                ContactoColegio(
+                  ciudad: ciudad.text,
+                  direccion: direccion.text,
+                  telefono: telefono.text,
+                ),
+              );
+              if (!dialogContext.mounted) return;
+              if (error != null) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  SnackBar(content: Text(error)),
+                );
+                return;
+              }
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  } finally {
+    ciudad.dispose();
+    direccion.dispose();
+    telefono.dispose();
+  }
+}
+
+String _fechaCorta(DateTime fecha) =>
+    '${fecha.day.toString().padLeft(2, '0')}/'
+    '${fecha.month.toString().padLeft(2, '0')}/${fecha.year}';
+
+class _ProfesorSeguimientoCard extends StatelessWidget {
+  const _ProfesorSeguimientoCard({required this.resumen});
+
+  final ResumenSeguimientoProfesor resumen;
+
+  @override
+  Widget build(BuildContext context) => Card.outlined(
+    margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+    child: ExpansionTile(
+      leading: const Icon(Icons.person_outline),
+      title: Text(resumen.profesor),
+      subtitle: Text(
+        resumen.clasesAsistidas + resumen.inasistencias == 0
+            ? '${resumen.nivel?.nombre ?? 'Nivel sin asignar'} · Asistencia aún sin registrar'
+            : '${resumen.nivel?.nombre ?? 'Nivel sin asignar'} · Asistencia ${resumen.porcentajeAsistencia.toStringAsFixed(0)}%',
+      ),
+      childrenPadding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        0,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      children: [
+        _Metrica('Clases cumplidas', '${resumen.clasesAsistidas}'),
+        _Metrica('Inasistencias', '${resumen.inasistencias}'),
+        _Metrica('Clases por registrar', '${resumen.clasesPendientes}'),
+        _Metrica('Contenidos enseñados', '${resumen.contenidosEnsenados}'),
+        _Metrica('Contenidos pendientes', '${resumen.contenidosPendientes}'),
+        _Metrica(
+          'Contenidos reemplazados',
+          '${resumen.contenidosReemplazados}',
+        ),
+        if (resumen.avancesSalon.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
+          _DetalleSeguimiento(
+            titulo: 'Avance del salón por período (informativo)',
+            valores: resumen.avancesSalon,
+          ),
+        ],
+        if (resumen.observaciones.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
+          _DetalleSeguimiento(
+            titulo: 'Observaciones',
+            valores: resumen.observaciones,
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+class _DetalleSeguimiento extends StatelessWidget {
+  const _DetalleSeguimiento({required this.titulo, required this.valores});
+
+  final String titulo;
+  final List<String> valores;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerLeft,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(titulo, style: Theme.of(context).textTheme.titleSmall),
+        for (final valor in valores)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text('• $valor'),
+          ),
+      ],
+    ),
+  );
 }
 
 class _Metrica extends StatelessWidget {

@@ -45,7 +45,7 @@ void main() {
       StudentKnowledgeReport(
         fechaHora: DateTime(2026, 8, 13, 10, 30),
         docente: sesion.usuarioActual!.nombre,
-        profesorEvaluado: 'María González',
+        profesorEvaluado: '',
         colegio: 'Colegio Central',
         grado: 'Segundo',
         periodo: 1,
@@ -62,12 +62,9 @@ void main() {
     expect(sesion.reportesConocimiento, hasLength(1));
     expect(sesion.reportesConocimiento.single.docente, 'Administrador');
     expect(sesion.reportesConocimiento.single.colegio, 'Colegio Central');
-    expect(
-      sesion.reportesConocimiento.single.profesorEvaluado,
-      'María González',
-    );
+    expect(sesion.reportesConocimiento.single.profesorEvaluado, isEmpty);
     expect(sesion.reportesConocimiento.single.fotosEvidencia, hasLength(2));
-    expect(sesion.historialEstudiante('maría gonzález'), hasLength(1));
+    expect(sesion.historialSalon('colegio central', 'segundo'), hasLength(1));
   });
 
   test('el coordinador aprueba y firma un reporte guardado', () {
@@ -107,5 +104,24 @@ void main() {
       isNull,
     );
     expect(sesion.reportesConocimiento.single.aprobadoPorCoordinador, isTrue);
+  });
+
+  test('identifica un PDF borrador cuando faltan firmas', () {
+    final reporte = StudentKnowledgeReport(
+      fechaHora: DateTime(2026, 9, 23),
+      docente: 'Evaluador',
+      profesorEvaluado: 'Docente',
+      colegio: 'Colegio Central',
+      grado: 'Jardín',
+      periodo: 1,
+      evaluaciones: const {},
+      compromiso: 'Practicar',
+      firmaColegio: 'firma-colegio',
+      firmaDocenteColegio: '',
+      firmaDocenteCourseChild: '',
+    );
+
+    expect(reporte.cantidadFirmas, 1);
+    expect(reporte.firmasCompletas, isFalse);
   });
 }

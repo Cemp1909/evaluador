@@ -36,7 +36,7 @@ class StudentKnowledgeReport {
     this.id = 'REPORTE-LOCAL',
     required this.fechaHora,
     required this.docente,
-    required this.profesorEvaluado,
+    this.profesorEvaluado = '',
     required this.colegio,
     required this.grado,
     required this.periodo,
@@ -63,7 +63,12 @@ class StudentKnowledgeReport {
   final String id;
   final DateTime fechaHora;
   final String docente;
+
+  /// Campo heredado de reportes anteriores. La evaluación actual pertenece al
+  /// salón y no se usa para calcular ni mostrar desempeño de profesores.
   final String profesorEvaluado;
+
+  String get profesorResponsableSalon => profesorEvaluado;
   final String colegio;
   final String grado;
   final int periodo;
@@ -87,6 +92,12 @@ class StudentKnowledgeReport {
   final DateTime? fechaAprobacion;
 
   bool get aprobadoPorCoordinador => firmaCoordinador?.isNotEmpty == true;
+  int get cantidadFirmas => [
+    firmaColegio,
+    firmaDocenteColegio,
+    firmaDocenteCourseChild,
+  ].where((firma) => firma.trim().isNotEmpty).length;
+  bool get firmasCompletas => cantidadFirmas == 3;
 
   double get notaFinal =>
       nota ??

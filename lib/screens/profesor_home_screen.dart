@@ -25,8 +25,9 @@ class ProfesorHomeScreen extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: 'Sign out',
-            onPressed: () {
-              context.read<SesionProvider>().cerrarSesion();
+            onPressed: () async {
+              await context.read<SesionProvider>().cerrarSesion();
+              if (!context.mounted) return;
               Navigator.of(
                 context,
               ).pushNamedAndRemoveUntil(LoginScreen.routeName, (_) => false);

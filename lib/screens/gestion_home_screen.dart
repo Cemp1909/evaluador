@@ -10,6 +10,7 @@ import '../widgets/home_action_card.dart';
 import '../widgets/local_mode_banner.dart';
 import 'crear_profesor_screen.dart';
 import 'evaluador_selection_screen.dart';
+import 'evaluacion_profesores_screen.dart';
 import 'login_screen.dart';
 import 'profesores_screen.dart';
 import 'configuracion_notas_screen.dart';
@@ -235,11 +236,24 @@ class GestionHomeScreen extends StatelessWidget {
               accentColor: AppColors.success,
             ),
             const SizedBox(height: AppSpacing.md),
+            HomeActionCard(
+              icon: Icons.assignment_ind_outlined,
+              title: 'Evaluación y reconocimiento de profesores',
+              subtitle:
+                  'Revisa asistencia, avance de salones y evaluación docente.',
+              onTap: () => Navigator.pushNamed(
+                context,
+                EvaluacionProfesoresScreen.routeName,
+              ),
+              accentColor: AppColors.accent,
+            ),
+            const SizedBox(height: AppSpacing.md),
           ],
           HomeActionCard(
             icon: Icons.domain_outlined,
             title: 'Panel de colegios',
-            subtitle: 'Consulta resultados consolidados por institución.',
+            subtitle:
+                'Consulta resultados por institución y seguimiento de sus profesores.',
             onTap: () =>
                 Navigator.pushNamed(context, PanelColegiosScreen.routeName),
             accentColor: AppColors.primary,
@@ -257,8 +271,9 @@ class GestionHomeScreen extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             HomeActionCard(
               icon: Icons.tune_rounded,
-              title: 'Configuración de notas',
-              subtitle: 'Ajustar puntajes y rangos de desempeño.',
+              title: 'Configuración de notas y requisitos',
+              subtitle:
+                  'Ajustar puntajes, asistencia y evaluación mínima de profesores.',
               onTap: () => Navigator.pushNamed(
                 context,
                 ConfiguracionNotasScreen.routeName,
@@ -271,8 +286,9 @@ class GestionHomeScreen extends StatelessWidget {
     );
   }
 
-  void _cerrarSesion(BuildContext context) {
-    context.read<SesionProvider>().cerrarSesion();
+  Future<void> _cerrarSesion(BuildContext context) async {
+    await context.read<SesionProvider>().cerrarSesion();
+    if (!context.mounted) return;
     Navigator.of(
       context,
     ).pushNamedAndRemoveUntil(LoginScreen.routeName, (_) => false);

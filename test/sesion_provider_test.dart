@@ -189,7 +189,6 @@ void main() {
       StudentKnowledgeDraft(
         actualizadoEn: DateTime(2026, 8, 17),
         colegio: 'Colegio Central',
-        profesorEvaluado: 'Laura',
         compromiso: '',
         periodo: 2,
         grado: 'Jardín',
@@ -198,11 +197,25 @@ void main() {
       ),
     );
     sesion.actualizarConfiguracionNotas(
-      const ConfiguracionNotas(puntosPorReforzar: 3.5),
+      const ConfiguracionNotas(
+        puntosPorReforzar: 3.5,
+        asistenciaMinimaProfesor: 85,
+        evaluacionPeriodosMinimaProfesor: 78,
+      ),
     );
 
     expect(sesion.borradorConocimiento?.grado, 'Jardín');
     expect(sesion.configuracionNotas.puntosPorReforzar, 3.5);
+    expect(sesion.configuracionNotas.asistenciaMinimaProfesor, 85);
+    expect(sesion.configuracionNotas.evaluacionPeriodosMinimaProfesor, 78);
+    sesion.iniciarSesion(usuario: 'coordinador', password: 'cambiar_esto');
+    expect(
+      sesion.actualizarConfiguracionNotas(
+        const ConfiguracionNotas(asistenciaMinimaProfesor: 60),
+      ),
+      isNotNull,
+    );
+    expect(sesion.configuracionNotas.asistenciaMinimaProfesor, 85);
     sesion.descartarBorradorConocimiento();
     expect(sesion.borradorConocimiento, isNull);
   });

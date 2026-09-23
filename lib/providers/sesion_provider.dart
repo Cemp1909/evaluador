@@ -1,37 +1,633 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import '../config/auth_config.dart';
 import '../models/profesor.dart';
 import '../models/evaluacion.dart';
+import '../models/estado_evaluacion_profesor.dart';
 import '../models/configuracion_notas.dart';
+import '../models/contacto_colegio.dart';
+import '../models/docente_colegio.dart';
 import '../models/student_knowledge_draft.dart';
 import '../models/student_knowledge_report.dart';
 import '../models/usuario_sesion.dart';
 import '../models/visita_programada.dart';
 import '../security/rbac.dart';
 import '../models/reemplazo_contenido.dart';
+import '../models/resumen_seguimiento_profesor.dart';
 import '../services/evaluacion_service.dart';
+import '../services/academico_repository.dart';
+import '../services/offline/offline_store.dart';
+import '../services/offline/store_busy.dart';
+import '../services/offline/offline_codec.dart';
+import '../services/offline/sync_engine.dart';
+
+part 'sesion_offline.dart';
 
 class SesionProvider extends ChangeNotifier {
-  SesionProvider(this._config)
-    : _profesores = [
-        for (final profesor in _config.profesoresIniciales)
-          Profesor(
-            nombre: profesor.nombre,
-            usuario: profesor.usuario,
-            password: profesor.password,
-            zona: profesor.zona,
-            aprobado: true,
-          ),
-      ];
+  SesionProvider(
+    this._config, {
+    SupabaseClient? supabaseClient,
+    this.offlineFactory,
+  }) : _supabaseClient = supabaseClient,
+       _profesores = [
+         for (final profesor in _config.profesoresIniciales)
+           Profesor(
+             nombre: profesor.nombre,
+             usuario: profesor.usuario,
+             password: profesor.password,
+             zona: profesor.zona,
+             aprobado: true,
+           ),
+       ];
 
+  final Map<String, List<DocenteColegio>> _docentesColegios = {};
+  final Map<String, String> _nombresColegios = {};
+  final Map<String, ContactoColegio> _contactosColegios = {};
+  String _claveColegio(String colegio) => colegio.trim().toLowerCase();
+  ContactoColegio contactoColegio(String colegio) =>
+      _contactosColegios[_claveColegio(colegio)] ?? const ContactoColegio();
+
+  Future<String?> guardarContactoColegio(
+    String colegio,
+    ContactoColegio contacto,
+  ) async {
+    final error = _requiere(Permiso.asignarProfesores);
+    if (error != null) return error;
+    final clave = _claveColegio(colegio);
+    if (!_nombresColegios.containsKey(clave)) {
+      return 'Primero registra el colegio.';
+    }
+    if (_repositorio != null) {
+      try {
+        await _repositorio.guardarContactoColegio(
+          _nombresColegios[clave]!,
+          contacto,
+        );
+      } catch (_) {
+        return 'No se pudieron guardar los datos del colegio en Supabase.';
+      }
+    }
+    _contactosColegios[clave] = contacto;
+    notifyListeners();
+    return null;
+  }
+
+  List<DocenteColegio> asignacionesDocentesColegio(
+    String colegio, {
+    bool incluirInactivas = false,
+  }) => List.unmodifiable(
+    (_docentesColegios[_claveColegio(colegio)] ?? []).where(
+      (asignacion) => incluirInactivas || asignacion.activo,
+    ),
+  );
+  List<DocenteColegio> historialAsignacionesDocente(String profesor) {
+    final claveProfesor = profesor.trim().toLowerCase();
+    final historial =
+        _docentesColegios.values
+            .expand((asignaciones) => asignaciones)
+            .where(
+              (asignacion) =>
+                  asignacion.nombre.trim().toLowerCase() == claveProfesor,
+            )
+            .toList()
+          ..sort((a, b) => b.fechaInicio.compareTo(a.fechaInicio));
+    return List.unmodifiable(historial);
+  }
+
+  List<String> docentesColegio(String colegio, {NivelDocente? nivel}) =>
+      List.unmodifiable(
+        asignacionesDocentesColegio(colegio)
+            .where((docente) => nivel == null || docente.nivel == nivel)
+            .map((docente) => docente.nombre),
+      );
+  NivelDocente? nivelDocenteColegio(String colegio, String profesor) =>
+      asignacionesDocentesColegio(colegio)
+          .where(
+            (docente) =>
+                docente.nombre.trim().toLowerCase() ==
+                profesor.trim().toLowerCase(),
+          )
+          .firstOrNull
+          ?.nivel;
+  List<String> get colegiosRegistrados =>
+      _nombresColegios.values.toList()..sort();
+
+  List<ResumenSeguimientoProfesor> seguimientoProfesores(String colegio) {
+    final claveColegio = _claveColegio(colegio);
+    final asignaciones = asignacionesDocentesColegio(
+      colegio,
+      incluirInactivas: true,
+    );
+    final evaluaciones = _borradoresEvaluacion.values
+        .where(
+          (evaluacion) => _claveColegio(evaluacion.colegio) == claveColegio,
+        )
+        .toList(growable: false);
+    final nombres = <String, String>{};
+    for (final asignacion in asignaciones) {
+      nombres[asignacion.nombre.trim().toLowerCase()] = asignacion.nombre
+          .trim();
+    }
+    for (final evaluacion in evaluaciones) {
+      for (final clase in evaluacion.clases) {
+        for (final nombre in clase.asistencia.keys) {
+          nombres.putIfAbsent(nombre.trim().toLowerCase(), () => nombre.trim());
+        }
+      }
+    }
+    final resumenes = <ResumenSeguimientoProfesor>[];
+    for (final entry in nombres.entries) {
+      final asignacionesProfesor = asignaciones
+          .where((item) => item.nombre.trim().toLowerCase() == entry.key)
+          .toList(growable: false);
+      bool correspondeEvaluacion(Evaluacion evaluacion) =>
+          asignacionesProfesor.isEmpty ||
+          asignacionesProfesor.any(
+            (item) =>
+                item.estabaAsignadoEn(evaluacion.fechaCreacion) &&
+                _evaluacionCorrespondeNivel(evaluacion, item.nivel),
+          );
+      var asistidas = 0;
+      var inasistencias = 0;
+      var pendientes = 0;
+      var ensenados = 0;
+      var contenidosPendientes = 0;
+      var reemplazados = 0;
+      final observaciones = <String>[];
+      for (final evaluacion in evaluaciones) {
+        if (!correspondeEvaluacion(evaluacion)) continue;
+        for (final clase in evaluacion.clases) {
+          final asistencia = clase.asistencia.entries
+              .where((item) => item.key.trim().toLowerCase() == entry.key)
+              .firstOrNull
+              ?.value;
+          if (asistencia == true) {
+            asistidas++;
+            for (final bloque in clase.bloquesEvaluables) {
+              if (bloque.itemsMarcados.isEmpty) {
+                bloque.marcado ? ensenados++ : contenidosPendientes++;
+              } else {
+                ensenados += bloque.itemsMarcados.values
+                    .where((valor) => valor)
+                    .length;
+                contenidosPendientes += bloque.itemsMarcados.values
+                    .where((valor) => !valor)
+                    .length;
+              }
+            }
+            reemplazados += evaluacion.reemplazos
+                .where((item) => item.claseId == '${clase.claseNumero}')
+                .length;
+            if (clase.observaciones.trim().isNotEmpty) {
+              observaciones.add(
+                'Clase ${clase.claseNumero}: ${clase.observaciones.trim()}',
+              );
+            }
+          } else if (asistencia == false) {
+            inasistencias++;
+          } else {
+            pendientes++;
+          }
+        }
+      }
+      resumenes.add(
+        ResumenSeguimientoProfesor(
+          profesor: entry.value,
+          colegio: colegio,
+          nivel:
+              asignacionesProfesor
+                  .where((item) => item.activo)
+                  .firstOrNull
+                  ?.nivel ??
+              asignacionesProfesor.lastOrNull?.nivel,
+          clasesAsistidas: asistidas,
+          inasistencias: inasistencias,
+          clasesPendientes: pendientes,
+          contenidosEnsenados: ensenados,
+          contenidosPendientes: contenidosPendientes,
+          contenidosReemplazados: reemplazados,
+          avancesSalon: _reportesConocimiento
+              .where(
+                (reporte) =>
+                    _claveColegio(reporte.colegio) == claveColegio &&
+                    (asignacionesProfesor.isEmpty ||
+                        asignacionesProfesor.any(
+                          (item) => item.estabaAsignadoEn(reporte.fechaHora),
+                        )) &&
+                    reporte.profesorResponsableSalon.trim().toLowerCase() ==
+                        entry.key,
+              )
+              .map(
+                (reporte) =>
+                    '${reporte.grado} · Período ${reporte.periodo}: '
+                    '${reporte.notaFinal.toStringAsFixed(1)} (${reporte.desempeno})',
+              )
+              .toList(growable: false),
+          observaciones: observaciones.toSet().toList(growable: false),
+        ),
+      );
+    }
+    resumenes.sort((a, b) => a.profesor.compareTo(b.profesor));
+    return List.unmodifiable(resumenes);
+  }
+
+  List<EstadoEvaluacionProfesor> estadoEvaluacionesProfesores() {
+    final estados = <EstadoEvaluacionProfesor>[];
+    for (final colegio in colegiosRegistrados) {
+      final claveColegio = _claveColegio(colegio);
+      for (final asignacion in asignacionesDocentesColegio(
+        colegio,
+        incluirInactivas: true,
+      )) {
+        final profesor = asignacion.nombre;
+        final claveProfesor = profesor.trim().toLowerCase();
+        final clasesProgramadas = _visitas.where(
+          (visita) =>
+              _claveColegio(visita.colegio) == claveColegio &&
+              visita.numeroClase != null &&
+              !visita.cancelada &&
+              asignacion.estabaAsignadoEn(visita.fecha) &&
+              _visitaCorrespondeNivel(visita, asignacion.nivel),
+        );
+        final totalClases = clasesProgramadas.length;
+        final clasesCompletadas = clasesProgramadas
+            .where(
+              (visita) =>
+                  visita.completada || visita.estado == EstadoVisita.realizada,
+            )
+            .length;
+        final reportesProfesor = _reportesConocimiento
+            .where(
+              (reporte) =>
+                  _claveColegio(reporte.colegio) == claveColegio &&
+                  asignacion.estabaAsignadoEn(reporte.fechaHora) &&
+                  reporte.profesorResponsableSalon.trim().toLowerCase() ==
+                      claveProfesor,
+            )
+            .toList(growable: false);
+        final periodos = reportesProfesor
+            .map((reporte) => reporte.periodo)
+            .toSet();
+        final promedioSalones = reportesProfesor.isEmpty
+            ? 0.0
+            : reportesProfesor.fold<double>(
+                    0,
+                    (total, reporte) => total + reporte.notaFinal,
+                  ) /
+                  reportesProfesor.length;
+        final porcentajeEvaluacionesPeriodos = reportesProfesor.isEmpty
+            ? 0.0
+            : reportesProfesor.fold<double>(0, (total, reporte) {
+                    final puntajeMaximo =
+                        reporte.configuracionNotas.puntosLogrado;
+                    if (puntajeMaximo <= 0) return total;
+                    return total +
+                        (reporte.notaFinal * 100 / puntajeMaximo)
+                            .clamp(0, 100)
+                            .toDouble();
+                  }) /
+                  reportesProfesor.length;
+        var asistidas = 0;
+        var inasistencias = 0;
+        for (final evaluacion in _borradoresEvaluacion.values.where(
+          (item) =>
+              _claveColegio(item.colegio) == claveColegio &&
+              asignacion.estabaAsignadoEn(item.fechaCreacion) &&
+              _evaluacionCorrespondeNivel(item, asignacion.nivel),
+        )) {
+          for (final clase in evaluacion.clases) {
+            final asistencia = clase.asistencia.entries
+                .where((item) => item.key.trim().toLowerCase() == claveProfesor)
+                .firstOrNull
+                ?.value;
+            if (asistencia == true) asistidas++;
+            if (asistencia == false) inasistencias++;
+          }
+        }
+        estados.add(
+          EstadoEvaluacionProfesor(
+            profesor: profesor,
+            colegio: colegio,
+            nivel: asignacion.nivel,
+            fechaInicio: asignacion.fechaInicio,
+            fechaFin: asignacion.fechaFin,
+            periodosCompletos: Set.unmodifiable(periodos),
+            clasesProgramadas: totalClases,
+            clasesCompletadas: clasesCompletadas,
+            contenidosEvaluables: _contenidosEnsenadosAProfesor(
+              colegio,
+              asignacion,
+            ),
+            clasesAsistidas: asistidas,
+            inasistencias: inasistencias,
+            evaluacionesSalon: reportesProfesor.length,
+            promedioSalones: promedioSalones,
+            porcentajeEvaluacionesPeriodos: porcentajeEvaluacionesPeriodos,
+            asistenciaMinima: _configuracionNotas.asistenciaMinimaProfesor,
+            evaluacionPeriodosMinima:
+                _configuracionNotas.evaluacionPeriodosMinimaProfesor,
+          ),
+        );
+      }
+    }
+    estados.sort((a, b) {
+      final colegio = a.colegio.compareTo(b.colegio);
+      return colegio != 0 ? colegio : a.profesor.compareTo(b.profesor);
+    });
+    return List.unmodifiable(estados);
+  }
+
+  bool _visitaCorrespondeNivel(VisitaProgramada visita, NivelDocente nivel) {
+    final tipo = visita.tipo.toLowerCase();
+    if (tipo.contains('preescolar')) return nivel == NivelDocente.preescolar;
+    if (tipo.contains('primaria')) return nivel == NivelDocente.primaria;
+    return true;
+  }
+
+  bool _evaluacionCorrespondeNivel(Evaluacion evaluacion, NivelDocente nivel) {
+    final tipo = evaluacion.evaluadorTipo.toLowerCase();
+    if (tipo.contains('preescolar')) return nivel == NivelDocente.preescolar;
+    if (tipo.contains('primaria')) return nivel == NivelDocente.primaria;
+    return true;
+  }
+
+  List<String> _contenidosEnsenadosAProfesor(
+    String colegio,
+    DocenteColegio asignacion,
+  ) {
+    final claveColegio = _claveColegio(colegio);
+    final claveProfesor = asignacion.nombre.trim().toLowerCase();
+    final contenidos = <String, String>{};
+    for (final evaluacion in _borradoresEvaluacion.values.where(
+      (item) =>
+          _claveColegio(item.colegio) == claveColegio &&
+          asignacion.estabaAsignadoEn(item.fechaCreacion) &&
+          _evaluacionCorrespondeNivel(item, asignacion.nivel),
+    )) {
+      for (final clase in evaluacion.clases) {
+        final asistio = clase.asistencia.entries
+            .where((item) => item.key.trim().toLowerCase() == claveProfesor)
+            .firstOrNull
+            ?.value;
+        if (asistio != true) continue;
+        for (final bloque in clase.bloquesEvaluables) {
+          for (final item in bloque.itemsMarcados.entries.where(
+            (item) => item.value,
+          )) {
+            final contenidoId = clase.contenidoId(
+              bloque.bloqueNombre,
+              item.key,
+            );
+            final reemplazo = evaluacion.reemplazos
+                .where((cambio) => cambio.contenidoId == contenidoId)
+                .firstOrNull;
+            final nombre = reemplazo?.nombreTemporal.trim() ?? item.key.trim();
+            contenidos.putIfAbsent(nombre.toLowerCase(), () => nombre);
+          }
+        }
+      }
+    }
+    return List.unmodifiable(contenidos.values);
+  }
+
+  String? asignarDocentesColegio(String colegio, List<String> docentes) {
+    return asignarDocentesColegioPorNivel(
+      colegio,
+      preescolar: docentes,
+      primaria: const [],
+    );
+  }
+
+  String? asignarDocentesColegioPorNivel(
+    String colegio, {
+    required List<String> preescolar,
+    required List<String> primaria,
+    DateTime? fechaInicio,
+  }) {
+    final error = _requiere(Permiso.asignarProfesores);
+    if (error != null) return error;
+    return _guardarDocentesColegioPorNivel(
+      colegio,
+      preescolar: preescolar,
+      primaria: primaria,
+      fechaInicio: fechaInicio,
+    );
+  }
+
+  Future<String?> asignarDocentesColegioPorNivelPersistente(
+    String colegio, {
+    required List<String> preescolar,
+    required List<String> primaria,
+    DateTime? fechaInicio,
+  }) => _guardarAsignacionesPersistentes(
+    () => asignarDocentesColegioPorNivel(
+      colegio,
+      preescolar: preescolar,
+      primaria: primaria,
+      fechaInicio: fechaInicio,
+    ),
+  );
+
+  bool puedeRegistrarDocentesEnClase(Evaluacion evaluacion) {
+    if (tienePermiso(Permiso.asignarProfesores)) return true;
+    final usuario = _usuarioActual;
+    return usuario?.rol == RolUsuario.profesor &&
+        evaluacion.responsableNombre?.trim().toLowerCase() ==
+            usuario!.nombre.trim().toLowerCase();
+  }
+
+  String? registrarDocentesDesdeClase(
+    Evaluacion evaluacion, {
+    required List<String> preescolar,
+    required List<String> primaria,
+  }) {
+    if (!puedeRegistrarDocentesEnClase(evaluacion)) {
+      return 'Solo el responsable de la clase, el coordinador o el administrador pueden registrar docentes.';
+    }
+    return _guardarDocentesColegioPorNivel(
+      evaluacion.colegio,
+      preescolar: preescolar,
+      primaria: primaria,
+      fechaInicio: DateTime.now(),
+    );
+  }
+
+  Future<String?> registrarDocentesDesdeClasePersistente(
+    Evaluacion evaluacion, {
+    required List<String> preescolar,
+    required List<String> primaria,
+  }) => _guardarAsignacionesPersistentes(
+    () => registrarDocentesDesdeClase(
+      evaluacion,
+      preescolar: preescolar,
+      primaria: primaria,
+    ),
+  );
+
+  Future<String?> _guardarAsignacionesPersistentes(
+    String? Function() modificarLocal,
+  ) async {
+    final anterioresNombres = Map<String, String>.from(_nombresColegios);
+    final anterioresAsignaciones = <String, List<DocenteColegio>>{
+      for (final item in _docentesColegios.entries)
+        item.key: List<DocenteColegio>.from(item.value),
+    };
+    final error = modificarLocal();
+    if (error != null || _supabaseClient == null) return error;
+    try {
+      await _repositorio!.guardarAsignaciones(
+        _nombresColegios,
+        _docentesColegios,
+      );
+      return null;
+    } catch (_) {
+      _nombresColegios
+        ..clear()
+        ..addAll(anterioresNombres);
+      _docentesColegios
+        ..clear()
+        ..addAll(anterioresAsignaciones);
+      notifyListeners();
+      return 'No se pudieron guardar los docentes en Supabase. Revisa los permisos e inténtalo de nuevo.';
+    }
+  }
+
+  String? transferirDocente({
+    required String profesor,
+    required String colegioDestino,
+    required NivelDocente nivel,
+    required DateTime fecha,
+  }) {
+    final error = _requiere(Permiso.asignarProfesores);
+    if (error != null) return error;
+    if (profesor.trim().isEmpty) return 'Escribe el nombre del profesor.';
+    final actuales = asignacionesDocentesColegio(colegioDestino);
+    return _guardarDocentesColegioPorNivel(
+      colegioDestino,
+      preescolar: [
+        ...actuales
+            .where((item) => item.nivel == NivelDocente.preescolar)
+            .map((item) => item.nombre),
+        if (nivel == NivelDocente.preescolar) profesor,
+      ],
+      primaria: [
+        ...actuales
+            .where((item) => item.nivel == NivelDocente.primaria)
+            .map((item) => item.nombre),
+        if (nivel == NivelDocente.primaria) profesor,
+      ],
+      fechaInicio: fecha,
+    );
+  }
+
+  String? _guardarDocentesColegioPorNivel(
+    String colegio, {
+    required List<String> preescolar,
+    required List<String> primaria,
+    DateTime? fechaInicio,
+  }) {
+    if (colegio.trim().isEmpty) return 'Escribe el nombre del colegio.';
+    final fecha = fechaInicio ?? DateTime.now();
+    final deseados = <String, DocenteColegio>{};
+    void agregar(Iterable<String> docentes, NivelDocente nivel) {
+      for (final nombre in docentes) {
+        if (nombre.trim().isNotEmpty) {
+          deseados[nombre.trim().toLowerCase()] = DocenteColegio(
+            nombre: nombre.trim(),
+            nivel: nivel,
+            fechaInicio: fecha,
+          );
+        }
+      }
+    }
+
+    agregar(preescolar, NivelDocente.preescolar);
+    agregar(primaria, NivelDocente.primaria);
+    final claveDestino = _claveColegio(colegio);
+
+    for (final entry in _docentesColegios.entries) {
+      for (final asignacion in entry.value.where((item) => item.activo)) {
+        final claveProfesor = asignacion.nombre.trim().toLowerCase();
+        final deseado = deseados[claveProfesor];
+        final permanece =
+            entry.key == claveDestino &&
+            deseado != null &&
+            deseado.nivel == asignacion.nivel;
+        final debeCerrar =
+            !permanece && (entry.key == claveDestino || deseado != null);
+        if (debeCerrar && fecha.isBefore(asignacion.fechaInicio)) {
+          return 'La fecha del cambio no puede ser anterior al inicio de la asignación de ${asignacion.nombre}.';
+        }
+      }
+    }
+
+    _nombresColegios[claveDestino] = colegio.trim();
+
+    for (final entry in _docentesColegios.entries) {
+      for (var i = 0; i < entry.value.length; i++) {
+        final asignacion = entry.value[i];
+        final claveProfesor = asignacion.nombre.trim().toLowerCase();
+        final deseado = deseados[claveProfesor];
+        final permanece =
+            entry.key == claveDestino &&
+            deseado != null &&
+            deseado.nivel == asignacion.nivel;
+        if (asignacion.activo && permanece) {
+          entry.value[i] = DocenteColegio(
+            nombre: deseado.nombre,
+            nivel: asignacion.nivel,
+            fechaInicio: asignacion.fechaInicio,
+          );
+        }
+        if (asignacion.activo &&
+            !permanece &&
+            (entry.key == claveDestino || deseado != null)) {
+          entry.value[i] = asignacion.cerrar(fecha);
+        }
+      }
+    }
+
+    final historialDestino = _docentesColegios.putIfAbsent(
+      claveDestino,
+      () => [],
+    );
+    for (final entry in deseados.entries) {
+      final yaExiste = historialDestino.any(
+        (asignacion) =>
+            asignacion.activo &&
+            asignacion.nombre.trim().toLowerCase() == entry.key &&
+            asignacion.nivel == entry.value.nivel,
+      );
+      if (!yaExiste) historialDestino.add(entry.value);
+    }
+    notifyListeners();
+    return null;
+  }
+
+  final Future<OfflineStore> Function(String usuario)? offlineFactory;
+  OfflineStore? _offline;
+  SyncEngine? _sync;
+  String? _offlineUid;
+  DateTime? _validadoEn;
+  bool _saliendo = false;
+  bool _restaurando = false;
+  void _notificarOffline() => notifyListeners();
   final AuthConfig _config;
+  final SupabaseClient? _supabaseClient;
+  late final AcademicoRepository? _repositorio = _supabaseClient == null
+      ? null
+      : AcademicoRepository(_supabaseClient);
   final List<Profesor> _profesores;
+  List<Profesor> _profesoresRemotos = const [];
   final List<StudentKnowledgeReport> _reportesConocimiento = [];
   final Map<String, Evaluacion> _borradoresEvaluacion = {};
   final List<VisitaProgramada> _visitas = [];
   final Set<DateTime> _fechasBloqueadas = {};
   StudentKnowledgeDraft? _borradorConocimiento;
+  Future<void> _colaBorradores = Future<void>.value();
   ConfiguracionNotas _configuracionNotas = const ConfiguracionNotas();
   UsuarioSesion? _usuarioActual;
 
@@ -39,6 +635,8 @@ class SesionProvider extends ChangeNotifier {
   List<StudentKnowledgeReport> get reportesConocimiento =>
       List.unmodifiable(_reportesConocimiento);
   UsuarioSesion? get usuarioActual => _usuarioActual;
+  bool get usaSupabase => _supabaseClient != null;
+  bool get tieneSesionRemota => _supabaseClient?.auth.currentSession != null;
   bool get estaAutenticado => _usuarioActual != null;
   StudentKnowledgeDraft? get borradorConocimiento => _borradorConocimiento;
   ConfiguracionNotas get configuracionNotas => _configuracionNotas;
@@ -51,7 +649,15 @@ class SesionProvider extends ChangeNotifier {
   Set<DateTime> get fechasBloqueadas => Set.unmodifiable(_fechasBloqueadas);
   bool tienePermiso(Permiso permiso) => Rbac.tiene(_usuarioActual, permiso);
 
-  String? _requiere(Permiso permiso) => tienePermiso(permiso)
+  String? _requiere(Permiso permiso) => _saliendo || _restaurando
+      ? 'Espera a que termine el cambio de sesión.'
+      : sinConexion &&
+            !{
+              Permiso.crearEvaluaciones,
+              Permiso.verResultadosAsignados,
+            }.contains(permiso)
+      ? 'Esta acción requiere conexión a internet.'
+      : tienePermiso(permiso)
       ? null
       : _usuarioActual == null
       ? 'Debes iniciar sesión para realizar esta acción.'
@@ -92,6 +698,18 @@ class SesionProvider extends ChangeNotifier {
     return null;
   }
 
+  Future<String?> bloquearFechaPersistente(DateTime fecha) async {
+    final error = _requiereAdministrarAgenda();
+    if (error != null) return error;
+    if (_supabaseClient == null) return bloquearFecha(fecha);
+    try {
+      await _repositorio!.bloquearFecha(fecha);
+      return bloquearFecha(fecha);
+    } catch (_) {
+      return 'No se pudo bloquear la fecha en Supabase.';
+    }
+  }
+
   String? desbloquearFecha(DateTime fecha) {
     final error = _requiereAdministrarAgenda();
     if (error != null) return error;
@@ -111,6 +729,9 @@ class SesionProvider extends ChangeNotifier {
     return null;
   }
 
+  Future<String?> programarVisitaPersistente(VisitaProgramada visita) =>
+      _guardarVisitasPersistentes(() => programarVisita(visita));
+
   String? programarSerieClases(
     VisitaProgramada inicial, {
     int intervaloDias = 7,
@@ -129,7 +750,7 @@ class SesionProvider extends ChangeNotifier {
     final serieId = inicial.id;
     for (var clase = inicial.numeroClase!; clase <= total; clase++) {
       final visita = VisitaProgramada(
-        id: '${inicial.id}-$clase',
+        id: const Uuid().v4(),
         fecha: inicial.fecha.add(
           Duration(days: intervaloDias * (clase - inicial.numeroClase!)),
         ),
@@ -153,6 +774,38 @@ class SesionProvider extends ChangeNotifier {
     _ordenarVisitas();
     notifyListeners();
     return null;
+  }
+
+  Future<String?> programarSerieClasesPersistente(
+    VisitaProgramada inicial, {
+    int intervaloDias = 7,
+  }) => _guardarVisitasPersistentes(
+    () => programarSerieClases(inicial, intervaloDias: intervaloDias),
+  );
+
+  Future<String?> _guardarVisitasPersistentes(
+    String? Function() modificarLocal,
+  ) async {
+    final anteriores = List<VisitaProgramada>.from(_visitas);
+    final anterioresPorId = {
+      for (final visita in anteriores) visita.id: visita,
+    };
+    final error = modificarLocal();
+    if (error != null || _supabaseClient == null) return error;
+    final modificadas = _visitas
+        .where((visita) => !identical(anterioresPorId[visita.id], visita))
+        .toList(growable: false);
+    if (modificadas.isEmpty) return null;
+    try {
+      await _repositorio!.guardarVisitas(modificadas);
+      return null;
+    } catch (_) {
+      _visitas
+        ..clear()
+        ..addAll(anteriores);
+      notifyListeners();
+      return 'No se pudo guardar la agenda en Supabase. Revisa la conexión y los permisos.';
+    }
   }
 
   String? _validarVisita(
@@ -427,6 +1080,42 @@ class SesionProvider extends ChangeNotifier {
     return null;
   }
 
+  Future<String?> actualizarEstadoVisitaPersistente(
+    String id,
+    EstadoVisita estado,
+  ) => _guardarVisitasPersistentes(() => actualizarEstadoVisita(id, estado));
+
+  Future<String?> actualizarResponsablesVisitaPersistente({
+    required String id,
+    required String profesor,
+    required List<String> acompanantes,
+    required String ubicacion,
+  }) => _guardarVisitasPersistentes(
+    () => actualizarResponsablesVisita(
+      id: id,
+      profesor: profesor,
+      acompanantes: acompanantes,
+      ubicacion: ubicacion,
+    ),
+  );
+
+  Future<String?> actualizarVisitaPersistente(VisitaProgramada visita) =>
+      _guardarVisitasPersistentes(() => actualizarVisita(visita));
+
+  Future<String?> cancelarVisitaPersistente(String id, String motivo) =>
+      _guardarVisitasPersistentes(() => cancelarVisita(id, motivo));
+
+  Future<String?> posponerSerieDesdePersistente(String id, String motivo) =>
+      _guardarVisitasPersistentes(() => posponerSerieDesde(id, motivo));
+
+  Future<String?> reprogramarSerieDesdePersistente(
+    String id,
+    DateTime nuevaFecha, {
+    String? motivo,
+  }) => _guardarVisitasPersistentes(
+    () => reprogramarSerieDesde(id, nuevaFecha, motivo: motivo),
+  );
+
   List<VisitaProgramada> actividadesProximas(
     DateTime ahora, {
     Duration ventana = const Duration(days: 7),
@@ -449,7 +1138,20 @@ class SesionProvider extends ChangeNotifier {
       )
       .toList(growable: false);
 
-  Evaluacion? borradorEvaluacion(String tipo) => _borradoresEvaluacion[tipo];
+  Evaluacion? borradorEvaluacion(String tipo, {String? colegio}) {
+    final candidatas =
+        _borradoresEvaluacion.values
+            .where(
+              (evaluacion) =>
+                  evaluacion.evaluadorTipo == tipo &&
+                  (colegio == null ||
+                      _claveColegio(evaluacion.colegio) ==
+                          _claveColegio(colegio)),
+            )
+            .toList()
+          ..sort((a, b) => b.fechaCreacion.compareTo(a.fechaCreacion));
+    return candidatas.firstOrNull;
+  }
 
   List<Evaluacion> get evaluacionesCapacitacionVisibles {
     final evaluaciones = _borradoresEvaluacion.values.toList();
@@ -468,9 +1170,28 @@ class SesionProvider extends ChangeNotifier {
   String? guardarBorradorEvaluacion(Evaluacion evaluacion) {
     final error = _requiere(Permiso.crearEvaluaciones);
     if (error != null) return error;
-    _borradoresEvaluacion[evaluacion.evaluadorTipo] = evaluacion;
+    _borradoresEvaluacion[evaluacion.identificador] = evaluacion;
     notifyListeners();
     return null;
+  }
+
+  Future<String?> guardarBorradorEvaluacionPersistente(
+    Evaluacion evaluacion,
+  ) async {
+    final error = _requiere(Permiso.crearEvaluaciones);
+    if (error != null) return error;
+    if (_repositorio == null) {
+      return guardarBorradorEvaluacion(evaluacion);
+    }
+    if (evaluacion.colegio.trim().isEmpty) {
+      return 'Selecciona un colegio antes de guardar la evaluación.';
+    }
+    try {
+      await _guardarEvaluacionRemotaOLocal(evaluacion);
+      return guardarBorradorEvaluacion(evaluacion);
+    } catch (_) {
+      return 'No se pudo guardar la evaluación. Comprueba el espacio disponible y vuelve a intentarlo; conserva esta pantalla abierta.';
+    }
   }
 
   String? reemplazarContenidoClase({
@@ -516,7 +1237,7 @@ class SesionProvider extends ChangeNotifier {
       evaluacion: evaluacion,
       reemplazo: reemplazo,
     );
-    _borradoresEvaluacion[evaluacion.evaluadorTipo] = actualizada;
+    _borradoresEvaluacion[evaluacion.identificador] = actualizada;
     notifyListeners();
     return null;
   }
@@ -535,10 +1256,65 @@ class SesionProvider extends ChangeNotifier {
         evaluacion.responsableNombre != usuario.nombre) {
       return 'No tienes permiso para modificar una clase que no te pertenece.';
     }
-    _borradoresEvaluacion[evaluacion.evaluadorTipo] = EvaluacionService()
+    _borradoresEvaluacion[evaluacion.identificador] = EvaluacionService()
         .deshacerReemplazo(evaluacion: evaluacion, contenidoId: contenidoId);
     notifyListeners();
     return null;
+  }
+
+  Future<String?> reemplazarContenidoClasePersistente({
+    required Evaluacion evaluacion,
+    required int claseNumero,
+    required String bloque,
+    required String contenido,
+    required String nombreTemporal,
+  }) async {
+    final anterior = _borradoresEvaluacion[evaluacion.identificador];
+    final error = reemplazarContenidoClase(
+      evaluacion: evaluacion,
+      claseNumero: claseNumero,
+      bloque: bloque,
+      contenido: contenido,
+      nombreTemporal: nombreTemporal,
+    );
+    if (error != null || _repositorio == null) return error;
+    try {
+      await _guardarEvaluacionRemotaOLocal(
+        _borradoresEvaluacion[evaluacion.identificador]!,
+      );
+      return null;
+    } catch (_) {
+      if (anterior == null) {
+        _borradoresEvaluacion.remove(evaluacion.identificador);
+      } else {
+        _borradoresEvaluacion[evaluacion.identificador] = anterior;
+      }
+      notifyListeners();
+      return 'No se pudo guardar el reemplazo en Supabase.';
+    }
+  }
+
+  Future<String?> deshacerReemplazoContenidoPersistente(
+    Evaluacion evaluacion,
+    String contenidoId,
+  ) async {
+    final anterior = _borradoresEvaluacion[evaluacion.identificador];
+    final error = deshacerReemplazoContenido(evaluacion, contenidoId);
+    if (error != null || _repositorio == null) return error;
+    try {
+      await _guardarEvaluacionRemotaOLocal(
+        _borradoresEvaluacion[evaluacion.identificador]!,
+      );
+      return null;
+    } catch (_) {
+      if (anterior == null) {
+        _borradoresEvaluacion.remove(evaluacion.identificador);
+      } else {
+        _borradoresEvaluacion[evaluacion.identificador] = anterior;
+      }
+      notifyListeners();
+      return 'No se pudo guardar el cambio en Supabase.';
+    }
   }
 
   String? guardarBorradorConocimiento(StudentKnowledgeDraft borrador) {
@@ -554,18 +1330,131 @@ class SesionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<String?> guardarBorradorConocimientoPersistente(
+    StudentKnowledgeDraft borrador,
+  ) {
+    final usuarioId = _supabaseClient?.auth.currentUser?.id;
+    final tarea = _colaBorradores.then((_) async {
+      final error = _requiere(Permiso.crearEvaluaciones);
+      if (error != null) return error;
+      if (_repositorio == null) return guardarBorradorConocimiento(borrador);
+      if (usuarioId == null ||
+          _supabaseClient?.auth.currentUser?.id != usuarioId) {
+        return 'La sesión cambió. Inicia sesión para guardar el borrador.';
+      }
+      try {
+        if (_offline != null) {
+          await _encolar('borrador', usuarioId, {
+            'eliminado': false,
+            'datos': borrador.toJson(),
+          });
+        } else {
+          await _repositorio.guardarBorrador(borrador);
+        }
+        return guardarBorradorConocimiento(borrador);
+      } catch (_) {
+        return 'Borrador sin guardar: no se pudo confirmar el guardado en Supabase.';
+      }
+    });
+    _colaBorradores = tarea.then<void>((_) {});
+    return tarea;
+  }
+
+  Future<String?> descartarBorradorConocimientoPersistente() async {
+    await _colaBorradores;
+    try {
+      if (_offline != null) {
+        await _encolar('borrador', _offlineUid!, {
+          'eliminado': true,
+          'datos': <String, dynamic>{},
+        });
+      } else {
+        await _repositorio?.eliminarBorrador();
+      }
+      descartarBorradorConocimiento();
+      return null;
+    } catch (_) {
+      return 'El reporte se guardó, pero no se pudo eliminar el borrador. Inténtalo de nuevo.';
+    }
+  }
+
   String? actualizarConfiguracionNotas(ConfiguracionNotas configuracion) {
     final error = _requiere(Permiso.configurarSistema);
     if (error != null) return error;
+    if (configuracion.asistenciaMinimaProfesor < 0 ||
+        configuracion.asistenciaMinimaProfesor > 100 ||
+        configuracion.evaluacionPeriodosMinimaProfesor < 0 ||
+        configuracion.evaluacionPeriodosMinimaProfesor > 100) {
+      return 'Los porcentajes mínimos deben estar entre 0% y 100%.';
+    }
     _configuracionNotas = configuracion;
     notifyListeners();
     return null;
+  }
+
+  Future<String?> actualizarConfiguracionNotasPersistente(
+    ConfiguracionNotas configuracion,
+  ) async {
+    final error = _requiere(Permiso.configurarSistema);
+    if (error != null) return error;
+    if (_supabaseClient == null) {
+      return actualizarConfiguracionNotas(configuracion);
+    }
+    if (configuracion.asistenciaMinimaProfesor < 0 ||
+        configuracion.asistenciaMinimaProfesor > 100 ||
+        configuracion.evaluacionPeriodosMinimaProfesor < 0 ||
+        configuracion.evaluacionPeriodosMinimaProfesor > 100) {
+      return 'Los porcentajes mínimos deben estar entre 0% y 100%.';
+    }
+    try {
+      await _supabaseClient
+          .from('configuracion_academica')
+          .update({
+            'asistencia_minima_profesor':
+                configuracion.asistenciaMinimaProfesor,
+            'evaluacion_periodos_minima_profesor':
+                configuracion.evaluacionPeriodosMinimaProfesor,
+            'notas': configuracion.toJson(),
+            'actualizado_en': DateTime.now().toUtc().toIso8601String(),
+            'actualizado_por': _supabaseClient.auth.currentUser!.id,
+          })
+          .eq('id', true)
+          .select('id')
+          .single();
+      _configuracionNotas = configuracion;
+      notifyListeners();
+      return null;
+    } catch (_) {
+      return 'No se pudo guardar la configuración en Supabase. Revisa los permisos e inténtalo de nuevo.';
+    }
   }
 
   List<StudentKnowledgeReport> historialEstudiante(String nombre) {
     final buscado = nombre.trim().toLowerCase();
     return _reportesConocimiento
         .where((reporte) => reporte.profesorEvaluado.toLowerCase() == buscado)
+        .toList(growable: false)
+      ..sort((a, b) => b.fechaHora.compareTo(a.fechaHora));
+  }
+
+  List<StudentKnowledgeReport> historialSalon(
+    String colegio,
+    String grado, {
+    String? profesor,
+  }) {
+    final colegioBuscado = _claveColegio(colegio);
+    final gradoBuscado = grado.trim().toLowerCase();
+    final profesorBuscado = profesor?.trim().toLowerCase();
+    return _reportesConocimiento
+        .where(
+          (reporte) =>
+              _claveColegio(reporte.colegio) == colegioBuscado &&
+              reporte.grado.trim().toLowerCase() == gradoBuscado &&
+              (profesorBuscado == null ||
+                  profesorBuscado.isEmpty ||
+                  reporte.profesorResponsableSalon.trim().toLowerCase() ==
+                      profesorBuscado),
+        )
         .toList(growable: false)
       ..sort((a, b) => b.fechaHora.compareTo(a.fechaHora));
   }
@@ -578,10 +1467,32 @@ class SesionProvider extends ChangeNotifier {
     return null;
   }
 
+  Future<String?> guardarReporteConocimientoPersistente(
+    StudentKnowledgeReport reporte,
+  ) async {
+    final error = _requiere(Permiso.crearEvaluaciones);
+    if (error != null) return error;
+    if (_repositorio == null) return guardarReporteConocimiento(reporte);
+    try {
+      if (_offline != null) {
+        await _encolar('reporte', reporte.id, OfflineCodec.reporte(reporte));
+      } else {
+        await _repositorio.guardarReporte(reporte);
+      }
+      _reportesConocimiento.removeWhere((item) => item.id == reporte.id);
+      return guardarReporteConocimiento(reporte);
+    } catch (_) {
+      return 'No se pudo guardar el reporte en Supabase. Revisa la conexión y los permisos.';
+    }
+  }
+
   String? aprobarReporteConocimiento({
     required String reporteId,
     required String firma,
   }) {
+    if (sinConexion || cambiosPendientes > 0) {
+      return 'Conéctate y sincroniza los cambios antes de aprobar.';
+    }
     if (!tienePermiso(Permiso.publicarEvaluaciones)) {
       return 'Solo un coordinador o administrador puede aprobar este reporte.';
     }
@@ -598,7 +1509,35 @@ class SesionProvider extends ChangeNotifier {
     return null;
   }
 
+  Future<String?> aprobarReporteConocimientoPersistente({
+    required String reporteId,
+    required String firma,
+  }) async {
+    if (sinConexion || cambiosPendientes > 0) {
+      return 'Conéctate y sincroniza los cambios antes de aprobar.';
+    }
+    if (!tienePermiso(Permiso.publicarEvaluaciones)) {
+      return 'Solo un coordinador o administrador puede aprobar este reporte.';
+    }
+    if (_repositorio == null) {
+      return aprobarReporteConocimiento(reporteId: reporteId, firma: firma);
+    }
+    try {
+      await _repositorio.aprobarReporte(
+        codigo: reporteId,
+        firma: firma,
+        nombreCoordinador: _usuarioActual!.nombre,
+      );
+      return aprobarReporteConocimiento(reporteId: reporteId, firma: firma);
+    } catch (_) {
+      return 'No se pudo aprobar el reporte en Supabase. Revisa la conexión y los permisos.';
+    }
+  }
+
   String? iniciarSesion({required String usuario, required String password}) {
+    if (usaSupabase) {
+      return 'Ingresa con tu correo y contraseña de Supabase.';
+    }
     final usuarioNormalizado = usuario.trim().toLowerCase();
     _usuarioActual = null;
 
@@ -667,12 +1606,163 @@ class SesionProvider extends ChangeNotifier {
     return 'No existe un profesor con ese usuario en esta sesión. Un administrador debe crearlo primero.';
   }
 
+  Future<String?> iniciarSesionSupabase({
+    required String correo,
+    required String password,
+  }) async {
+    final client = _supabaseClient;
+    if (client == null) return 'Supabase no está configurado.';
+    await suspenderPersistencia();
+    _saliendo = false;
+    _usuarioActual = null;
+    notifyListeners();
+    try {
+      final respuesta = await client.auth.signInWithPassword(
+        email: correo.trim(),
+        password: password,
+      );
+      if (respuesta.user == null) return 'No se pudo iniciar sesión.';
+      return await restaurarSesionSupabase();
+    } on AuthException {
+      return 'Correo o contraseña incorrectos, o cuenta sin confirmar.';
+    } catch (_) {
+      return 'No se pudo conectar con Supabase. Revisa la conexión y la configuración.';
+    }
+  }
+
+  Future<String?> restaurarSesionSupabase() async {
+    final client = _supabaseClient;
+    final id = client?.auth.currentUser?.id;
+    if (client == null || id == null) return 'No hay una sesión activa.';
+    _restaurando = true;
+    try {
+      await _abrirOffline(id);
+      await _sync?.cerrar();
+      _sync = null;
+      final perfil = await client
+          .from('perfiles')
+          .select('nombre, rol, zona, activo')
+          .eq('id', id)
+          .maybeSingle();
+      if (perfil == null || perfil['activo'] != true) {
+        await client.auth.signOut(scope: SignOutScope.local);
+        return 'Tu perfil no existe o está inactivo en Supabase.';
+      }
+      final rol = switch (perfil['rol']) {
+        'administrador' => RolUsuario.administrador,
+        'coordinador' => RolUsuario.coordinador,
+        'profesor' => RolUsuario.profesor,
+        _ => null,
+      };
+      if (rol == null) {
+        await client.auth.signOut(scope: SignOutScope.local);
+        return 'El rol de tu perfil no es válido.';
+      }
+      _usuarioActual = UsuarioSesion(
+        rol: rol,
+        nombre: perfil['nombre'] as String,
+        zona: perfil['zona'] as String?,
+      );
+      if (_offline != null) {
+        final version = await client.rpc<int>(
+          'version_sincronizacion_academica',
+        );
+        if (version != 1) {
+          throw StateError(
+            'Actualiza la base de datos antes de usar esta versión.',
+          );
+        }
+      }
+      final configuracion = await client
+          .from('configuracion_academica')
+          .select(
+            'asistencia_minima_profesor, evaluacion_periodos_minima_profesor, notas',
+          )
+          .eq('id', true)
+          .single();
+      _configuracionNotas = ConfiguracionNotas.fromDatabase(configuracion);
+      final colegios = await _repositorio!.cargarColegios();
+      _nombresColegios
+        ..clear()
+        ..addAll(colegios.nombres);
+      _docentesColegios
+        ..clear()
+        ..addAll(colegios.asignaciones);
+      _contactosColegios
+        ..clear()
+        ..addAll(colegios.contactos);
+      final perfiles = await client
+          .from('perfiles')
+          .select('id, nombre, zona, activo, rol');
+      _profesoresRemotos = [
+        for (final perfil in perfiles)
+          if (perfil['rol'] == 'profesor')
+            Profesor(
+              nombre: perfil['nombre'] as String,
+              usuario: perfil['id'] as String,
+              password: '',
+              zona: perfil['zona'] as String? ?? '',
+              aprobado: perfil['activo'] == true,
+            ),
+      ];
+      _visitas
+        ..clear()
+        ..addAll(await _repositorio.cargarVisitas());
+      _fechasBloqueadas
+        ..clear()
+        ..addAll(await _repositorio.cargarFechasBloqueadas());
+      final evaluaciones = await _repositorio.cargarEvaluaciones();
+      _borradoresEvaluacion
+        ..clear()
+        ..addEntries(
+          evaluaciones.map(
+            (evaluacion) => MapEntry(evaluacion.identificador, evaluacion),
+          ),
+        );
+      _reportesConocimiento
+        ..clear()
+        ..addAll(await _repositorio.cargarReportes());
+      _borradorConocimiento = await _repositorio.cargarBorrador();
+      _validadoEn = DateTime.now();
+      if (_offline != null) {
+        await _offline!.guardar('sesion', _snapshot());
+        await _offline!.limpiarConfirmados();
+        await _aplicarPendientes();
+        await _iniciarSync();
+      }
+      notifyListeners();
+      return null;
+    } catch (error) {
+      if (error is OfflineStoreBusy) {
+        _usuarioActual = null;
+        return error.toString();
+      }
+      if (errorDeRed(error) && await _restaurarOffline()) {
+        notifyListeners();
+        return null;
+      }
+      _usuarioActual = null;
+      notifyListeners();
+      try {
+        await client.auth.signOut(scope: SignOutScope.local);
+      } catch (_) {
+        // La sesión de la app ya está cerrada aunque falle el cierre remoto.
+      }
+      return 'No se pudieron cargar los datos de Supabase. Verifica la conexión y aplica la versión actualizada de actualizar_base_existente.sql.';
+    } finally {
+      _restaurando = false;
+    }
+  }
+
   String? crearProfesor({
     required String nombre,
     required String usuario,
     required String password,
     required String zona,
   }) {
+    if (usaSupabase) {
+      return 'Las cuentas de Supabase se crean en Authentication > Users. Después puedes activar el perfil desde esta app.';
+    }
     if (!Rbac.puedeCrearProfesores(_usuarioActual)) {
       return 'No tienes permiso para crear profesores.';
     }
@@ -692,6 +1782,9 @@ class SesionProvider extends ChangeNotifier {
     required String password,
     required String zona,
   }) {
+    if (usaSupabase) {
+      return 'El registro público de Supabase todavía no está habilitado en esta pantalla.';
+    }
     if (!Rbac.puedeRegistrarSolicitudProfesor(_usuarioActual)) {
       return 'Acceso no autorizado: no puedes registrar profesores.';
     }
@@ -756,6 +1849,9 @@ class SesionProvider extends ChangeNotifier {
   }
 
   String? aprobarProfesor(String usuario) {
+    if (usaSupabase) {
+      return 'Usa la aprobación conectada a Supabase.';
+    }
     if (!tienePermiso(Permiso.administrarUsuarios)) {
       return 'Solo el administrador puede aprobar profesores.';
     }
@@ -768,8 +1864,39 @@ class SesionProvider extends ChangeNotifier {
     return null;
   }
 
+  Future<String?> aprobarProfesorPersistente(String usuario) async {
+    if (!usaSupabase) return aprobarProfesor(usuario);
+    if (!tienePermiso(Permiso.administrarUsuarios)) {
+      return 'Solo el administrador puede aprobar profesores.';
+    }
+    try {
+      await _supabaseClient!
+          .from('perfiles')
+          .update({'activo': true})
+          .eq('id', usuario)
+          .eq('rol', 'profesor')
+          .select('id')
+          .single();
+      final index = _profesoresRemotos.indexWhere(
+        (profesor) => profesor.usuario == usuario,
+      );
+      if (index >= 0) {
+        _profesoresRemotos[index] = _profesoresRemotos[index].copyWith(
+          aprobado: true,
+        );
+        notifyListeners();
+      }
+      return null;
+    } catch (_) {
+      return 'No se pudo activar el profesor en Supabase.';
+    }
+  }
+
   List<Profesor> profesoresVisibles() {
     final actual = _usuarioActual;
+    if (_supabaseClient != null) {
+      return List.unmodifiable(_profesoresRemotos);
+    }
     if (actual?.rol == RolUsuario.administrador) return profesores;
     if (actual?.rol == RolUsuario.coordinador) {
       return profesores
@@ -783,8 +1910,50 @@ class SesionProvider extends ChangeNotifier {
     return const [];
   }
 
-  void cerrarSesion() {
+  /// Cierra los recursos sin borrar los pendientes ni la sesión del SDK.
+  Future<void> suspenderPersistencia() async {
+    await _colaBorradores;
+    _saliendo = true;
+    _sync?.removeListener(_notificarOffline);
+    await _sync?.cerrar();
+    _sync = null;
+    await _offline?.cerrar();
+    _offline = null;
+    _offlineUid = null;
+  }
+
+  @override
+  void dispose() {
+    _sync?.removeListener(_notificarOffline);
+    unawaited(suspenderPersistencia());
+    super.dispose();
+  }
+
+  Future<void> cerrarSesion() async {
+    await _colaBorradores;
+    _saliendo = true;
+    await _sync?.cerrar();
+    _sync = null;
+    await _offline?.cerrar();
+    _offline = null;
+    _offlineUid = null;
     _usuarioActual = null;
+    if (usaSupabase) {
+      _borradorConocimiento = null;
+      _borradoresEvaluacion.clear();
+      _reportesConocimiento.clear();
+      _visitas.clear();
+      _fechasBloqueadas.clear();
+      _docentesColegios.clear();
+      _nombresColegios.clear();
+      _contactosColegios.clear();
+      _profesoresRemotos = [];
+      _repositorio?.archivos.limpiarCache();
+    }
     notifyListeners();
+    if (_supabaseClient != null) {
+      await _supabaseClient.auth.signOut(scope: SignOutScope.local);
+    }
+    _saliendo = false;
   }
 }

@@ -41,6 +41,20 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
   @override
   Widget build(BuildContext context) {
     final sesion = context.watch<SesionProvider>();
+    if (sesion.usaSupabase) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Crear profesor')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Crea la cuenta con correo y contraseña en Supabase → Authentication → Users. El perfil se crea automáticamente con rol de profesor. El administrador puede desactivarlo o cambiar su rol desde un proceso autorizado.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
     final autorizado = widget.solicitudPublica
         ? Rbac.puedeRegistrarSolicitudProfesor(sesion.usuarioActual)
         : Rbac.puedeCrearProfesores(sesion.usuarioActual);

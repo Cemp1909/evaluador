@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/visita_programada.dart';
 import '../models/usuario_sesion.dart';
@@ -358,9 +359,16 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
                 ? null
                 : PopupMenuButton<EstadoVisita>(
                     tooltip: 'Cambiar estado',
-                    onSelected: (estado) => context
-                        .read<SesionProvider>()
-                        .actualizarEstadoVisita(visita.id, estado),
+                    onSelected: (estado) async {
+                      final error = await context
+                          .read<SesionProvider>()
+                          .actualizarEstadoVisitaPersistente(visita.id, estado);
+                      if (error != null && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(error)),
+                        );
+                      }
+                    },
                     itemBuilder: (_) => EstadoVisita.values
                         .where((estado) => estado != EstadoVisita.cancelada)
                         .map(
@@ -404,11 +412,19 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
                   ),
                 if (esProfesor && !visita.cancelada && !visita.completada)
                   FilledButton.icon(
-                    onPressed: () =>
-                        context.read<SesionProvider>().actualizarEstadoVisita(
-                          visita.id,
-                          EstadoVisita.realizada,
-                        ),
+                    onPressed: () async {
+                      final error = await context
+                          .read<SesionProvider>()
+                          .actualizarEstadoVisitaPersistente(
+                            visita.id,
+                            EstadoVisita.realizada,
+                          );
+                      if (error != null && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(error)),
+                        );
+                      }
+                    },
                     icon: const Icon(Icons.task_alt_rounded),
                     label: const Text('Marcar como realizada'),
                   ),
@@ -504,9 +520,12 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
       helpText: 'Bloquear día no disponible',
     );
     if (fecha == null || !context.mounted) return;
-    context.read<SesionProvider>().bloquearFecha(fecha);
+    final error = await context
+        .read<SesionProvider>()
+        .bloquearFechaPersistente(fecha);
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${_fecha(fecha)} quedó bloqueado.')),
+      SnackBar(content: Text(error ?? '${_fecha(fecha)} quedó bloqueado.')),
     );
   }
 
@@ -582,12 +601,19 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
     );
     if (guardar == true && profesor.isNotEmpty && context.mounted) {
       acompanantes.remove(profesor);
-      context.read<SesionProvider>().actualizarResponsablesVisita(
+      final error = await context
+          .read<SesionProvider>()
+          .actualizarResponsablesVisitaPersistente(
         id: visita.id,
         profesor: profesor,
         acompanantes: acompanantes.toList(),
         ubicacion: ubicacion.text,
       );
+      if (error != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error)),
+        );
+      }
     }
     Future<void>.delayed(const Duration(milliseconds: 400), () {
       ubicacion.dispose();
@@ -804,9 +830,10 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
           observacion: observacion.text.trim(),
           ultimaNovedad: 'Actividad editada',
         );
-        final error = context.read<SesionProvider>().actualizarVisita(
+        final error = await context.read<SesionProvider>().actualizarVisitaPersistente(
           actualizada,
         );
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(error ?? 'Actividad actualizada correctamente.'),
@@ -879,11 +906,12 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
       } else if (accion == 'reprogramar') {
         final fechaConHora = await _seleccionarFechaHora(context, visita.fecha);
         if (fechaConHora != null && context.mounted) {
-          final error = context.read<SesionProvider>().reprogramarSerieDesde(
+          final error = await context.read<SesionProvider>().reprogramarSerieDesdePersistente(
             visita.id,
             fechaConHora,
             motivo: motivo.text,
           );
+          if (!context.mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -895,9 +923,16 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
         }
       } else {
         if (visita.serieId == null) {
-          context.read<SesionProvider>().cancelarVisita(visita.id, motivo.text);
+          final error = await context
+              .read<SesionProvider>()
+              .cancelarVisitaPersistente(visita.id, motivo.text);
+          if (error != null && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(error)),
+            );
+          }
         } else {
-          final error = context.read<SesionProvider>().posponerSerieDesde(
+          final error = await context.read<SesionProvider>().posponerSerieDesdePersistente(
             visita.id,
             motivo.text,
           );
@@ -918,10 +953,11 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
   ) async {
     final fechaConHora = await _seleccionarFechaHora(context, visita.fecha);
     if (fechaConHora == null || !context.mounted) return;
-    final error = context.read<SesionProvider>().reprogramarSerieDesde(
+    final error = await context.read<SesionProvider>().reprogramarSerieDesdePersistente(
       visita.id,
       fechaConHora,
     );
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -1233,7 +1269,7 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
       final esCapacitacion =
           tipo == 'Capacitación preescolar' || tipo == 'Capacitación primaria';
       final visita = VisitaProgramada(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        id: const Uuid().v4(),
         fecha: fecha,
         colegio: colegio.text.trim(),
         tipo: tipo,
@@ -1248,8 +1284,8 @@ class _AgendaVisitasScreenState extends State<AgendaVisitasScreen> {
       );
       final sesion = context.read<SesionProvider>();
       final error = esCapacitacion && programarSerie
-          ? sesion.programarSerieClases(visita, intervaloDias: intervaloDias)
-          : sesion.programarVisita(visita);
+          ? await sesion.programarSerieClasesPersistente(visita, intervaloDias: intervaloDias)
+          : await sesion.programarVisitaPersistente(visita);
       if (error != null && context.mounted) {
         ScaffoldMessenger.of(
           context,

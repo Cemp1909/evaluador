@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 abstract final class AppColors {
   static const primary = Color(0xFF0A122C);
@@ -111,79 +110,92 @@ abstract final class AppTheme {
     );
 
     final base = ThemeData(brightness: brightness, useMaterial3: true);
-    final typography = GoogleFonts.interTextTheme(base.textTheme).copyWith(
-      displaySmall: GoogleFonts.inter(
-        fontSize: 34,
-        height: 1.12,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -1.1,
-        color: scheme.onSurface,
-      ),
-      headlineSmall: GoogleFonts.inter(
-        fontSize: 24,
-        height: 1.2,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.6,
-        color: scheme.onSurface,
-      ),
-      titleLarge: GoogleFonts.inter(
-        fontSize: 19,
-        height: 1.26,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.3,
-        color: scheme.onSurface,
-      ),
-      titleMedium: GoogleFonts.inter(
-        fontSize: 16,
-        height: 1.35,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.15,
-        color: scheme.onSurface,
-      ),
-      titleSmall: GoogleFonts.inter(
-        fontSize: 14,
-        height: 1.35,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.05,
-        color: scheme.onSurface,
-      ),
-      bodyLarge: GoogleFonts.inter(
-        fontSize: 15,
-        height: 1.48,
-        fontWeight: FontWeight.w500,
-        color: scheme.onSurface,
-      ),
-      bodyMedium: GoogleFonts.inter(
-        fontSize: 14,
-        height: 1.46,
-        fontWeight: FontWeight.w400,
-        color: scheme.onSurfaceVariant,
-      ),
-      bodySmall: GoogleFonts.inter(
-        fontSize: 12,
-        height: 1.4,
-        fontWeight: FontWeight.w500,
-        color: scheme.onSurfaceVariant,
-      ),
-      labelLarge: GoogleFonts.inter(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.0,
-        color: scheme.onSurface,
-      ),
-      labelMedium: GoogleFonts.inter(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.1,
-        color: scheme.onSurface,
-      ),
-      labelSmall: GoogleFonts.inter(
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.2,
-        color: scheme.onSurface,
-      ),
-    );
+    final typography = base.textTheme
+        .apply(fontFamily: 'Inter')
+        .copyWith(
+          displaySmall: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 34,
+            height: 1.12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -1.1,
+            color: scheme.onSurface,
+          ),
+          headlineSmall: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 24,
+            height: 1.2,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.6,
+            color: scheme.onSurface,
+          ),
+          titleLarge: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 19,
+            height: 1.26,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.3,
+            color: scheme.onSurface,
+          ),
+          titleMedium: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 16,
+            height: 1.35,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.15,
+            color: scheme.onSurface,
+          ),
+          titleSmall: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            height: 1.35,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.05,
+            color: scheme.onSurface,
+          ),
+          bodyLarge: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 15,
+            height: 1.48,
+            fontWeight: FontWeight.w500,
+            color: scheme.onSurface,
+          ),
+          bodyMedium: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            height: 1.46,
+            fontWeight: FontWeight.w400,
+            color: scheme.onSurfaceVariant,
+          ),
+          bodySmall: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 12,
+            height: 1.4,
+            fontWeight: FontWeight.w500,
+            color: scheme.onSurfaceVariant,
+          ),
+          labelLarge: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.0,
+            color: scheme.onSurface,
+          ),
+          labelMedium: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.1,
+            color: scheme.onSurface,
+          ),
+          labelSmall: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+            color: scheme.onSurface,
+          ),
+        );
 
     return ThemeData(
       useMaterial3: true,

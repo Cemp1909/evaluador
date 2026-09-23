@@ -106,7 +106,7 @@ void main() {
     },
   );
 
-  test('crea un nombre profesional para el reporte estudiantil', () {
+  test('crea un nombre profesional para el reporte del salón', () {
     final reporte = StudentKnowledgeReport(
       fechaHora: DateTime(2026, 8, 17),
       docente: 'Laura',
@@ -128,7 +128,7 @@ void main() {
     );
     expect(
       nombre,
-      startsWith('CourseChild_maria_perez_transicion_P3_20260817'),
+      startsWith('CourseChild_colegio_central_transicion_P3_20260817'),
     );
     expect(nombre, endsWith('_resumido.pdf'));
   });

@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../config/plan_estudio_parvulos.dart';
 import '../config/planes_estudio_adicionales.dart';
 import '../models/student_knowledge_report.dart';
+import '../models/docente_colegio.dart';
 import '../models/student_knowledge_draft.dart';
 import '../providers/sesion_provider.dart';
 import '../theme/app_theme.dart';
@@ -15,6 +16,7 @@ import '../widgets/report_signature_card.dart';
 import '../widgets/evidence_photos_card.dart';
 import '../widgets/signature_capture_dialog.dart';
 import '../widgets/app_brand_title.dart';
+import '../widgets/selector_registro.dart';
 import 'pdf_preview_screen.dart';
 
 class StudentKnowledgeReportScreen extends StatefulWidget {
@@ -31,13 +33,16 @@ class _StudentKnowledgeReportScreenState
     extends State<StudentKnowledgeReportScreen> {
   final _formKey = GlobalKey<FormState>();
   final _colegioController = TextEditingController();
-  final _profesorEvaluadoController = TextEditingController();
+  final _profesorResponsableController = TextEditingController();
   final _compromisoController = TextEditingController();
   final DateTime _fechaHora = DateTime.now();
   late final String _reporteId =
       'CC-${_fechaHora.millisecondsSinceEpoch.toRadixString(36).toUpperCase()}';
   int _periodo = 1;
   String _grado = 'Párvulos';
+  PeriodoPlanEstudio get _planActual =>
+      planesEstudioPorGrado[_grado]![_periodo]!;
+
   final Map<String, ResultadoContenido> _resultados = {};
   final Set<String> _itemsHabilitados = {};
   final Map<String, String> _comentariosContenido = {};
@@ -48,6 +53,8 @@ class _StudentKnowledgeReportScreenState
   final List<String> _fotosEvidencia = [];
   final List<String?> _referenciasFotos = [];
   bool _restaurandoBorrador = false;
+  int _guardadosPendientes = 0;
+  String? _errorBorrador;
   bool _modoRapido = true;
 
   @override
@@ -55,14 +62,14 @@ class _StudentKnowledgeReportScreenState
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _restaurarBorrador());
     _colegioController.addListener(_guardarBorrador);
-    _profesorEvaluadoController.addListener(_guardarBorrador);
+    _profesorResponsableController.addListener(_guardarBorrador);
     _compromisoController.addListener(_guardarBorrador);
   }
 
   @override
   void dispose() {
     _colegioController.dispose();
-    _profesorEvaluadoController.dispose();
+    _profesorResponsableController.dispose();
     _compromisoController.dispose();
     super.dispose();
   }
@@ -93,359 +100,411 @@ class _StudentKnowledgeReportScreenState
         ..clear()
         ..addAll(borrador.referenciasFotos);
       _colegioController.text = borrador.colegio;
-      _profesorEvaluadoController.text = borrador.profesorEvaluado;
+      _profesorResponsableController.text = borrador.profesorResponsableSalon;
       _compromisoController.text = borrador.compromiso;
     });
     _restaurandoBorrador = false;
     _mensaje('Borrador restaurado · ${_hora(borrador.actualizadoEn)}');
   }
 
-  void _guardarBorrador() {
+  Future<void> _guardarBorrador() async {
     if (!mounted || _restaurandoBorrador) return;
-    context.read<SesionProvider>().guardarBorradorConocimiento(
-      StudentKnowledgeDraft(
-        actualizadoEn: DateTime.now(),
-        colegio: _colegioController.text,
-        profesorEvaluado: _profesorEvaluadoController.text,
-        compromiso: _compromisoController.text,
-        periodo: _periodo,
-        grado: _grado,
-        resultados: Map.unmodifiable(_resultados),
-        itemsHabilitados: Set.unmodifiable(_itemsHabilitados),
-        firmaColegio: _firmaColegio,
-        firmaDocenteColegio: _firmaDocenteColegio,
-        firmaCourseChild: _firmaCourseChild,
-        fotosEvidencia: List.unmodifiable(_fotosEvidencia),
-        comentariosContenido: Map.unmodifiable(_comentariosContenido),
-        referenciasFotos: List.unmodifiable(_referenciasFotos),
-      ),
-    );
+    setState(() => _guardadosPendientes++);
+    final error = await context
+        .read<SesionProvider>()
+        .guardarBorradorConocimientoPersistente(
+          StudentKnowledgeDraft(
+            actualizadoEn: DateTime.now(),
+            colegio: _colegioController.text,
+            profesorResponsableSalon: _profesorResponsableController.text,
+            compromiso: _compromisoController.text,
+            periodo: _periodo,
+            grado: _grado,
+            resultados: Map.unmodifiable(_resultados),
+            itemsHabilitados: Set.unmodifiable(_itemsHabilitados),
+            firmaColegio: _firmaColegio,
+            firmaDocenteColegio: _firmaDocenteColegio,
+            firmaCourseChild: _firmaCourseChild,
+            fotosEvidencia: List.unmodifiable(_fotosEvidencia),
+            comentariosContenido: Map.unmodifiable(_comentariosContenido),
+            referenciasFotos: List.unmodifiable(_referenciasFotos),
+          ),
+        );
+    if (!mounted) return;
+    setState(() {
+      _guardadosPendientes--;
+      _errorBorrador = error;
+    });
+  }
+
+  void _limpiarCalificaciones() {
+    _resultados.clear();
+    _itemsHabilitados.clear();
+    _comentariosContenido.clear();
+    for (var i = 0; i < _referenciasFotos.length; i++) {
+      _referenciasFotos[i] = null;
+    }
+  }
+
+  Future<void> _salirConBorrador() async {
+    await _guardarBorrador();
+    if (!mounted || _errorBorrador != null) return;
+    Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final usuario = context.watch<SesionProvider>().usuarioActual;
     final docente = usuario?.nombre ?? 'Sin sesión activa';
-    final plan = planesEstudioPorGrado[_grado]![_periodo]!;
+    final plan = _planActual;
 
-    return Scaffold(
-      appBar: AppBar(title: const AppBrandTitle(compact: true)),
-      bottomNavigationBar: _ProgressFooter(
-        evaluados: _resultados.length,
-        total: _totalContenidos(plan),
-        nota: _notaFinal,
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.sm,
-            AppSpacing.lg,
-            AppSpacing.xl,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _salirConBorrador();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _salirConBorrador,
           ),
-          children: [
-            Text(
-              'Evaluación de conocimiento del salón',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              'Selecciona el grado y el período para cargar el plan de estudio correspondiente.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              'Información de la visita',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Card(
-              clipBehavior: Clip.antiAlias,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md + 2),
-                child: Column(
-                  children: [
-                    _InfoRow(
-                      icon: Icons.calendar_today_outlined,
-                      label: 'Fecha',
-                      value: _fecha(_fechaHora),
-                    ),
-                    const Divider(height: AppSpacing.lg),
-                    _InfoRow(
-                      icon: Icons.schedule_rounded,
-                      label: 'Hora',
-                      value: _hora(_fechaHora),
-                    ),
-                    const Divider(height: AppSpacing.lg),
-                    _InfoRow(
-                      icon: Icons.person_outline_rounded,
-                      label: 'Docente de Course Child',
-                      value: docente,
-                    ),
-                  ],
-                ),
+          title: const AppBrandTitle(compact: true),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(36),
+            child: TextButton(
+              onPressed: _guardadosPendientes > 0 ? null : _guardarBorrador,
+              child: Text(
+                _guardadosPendientes > 0
+                    ? 'Guardando borrador…'
+                    : _errorBorrador ?? 'Guardar borrador',
               ),
             ),
-            const SizedBox(height: 18),
-            DropdownButtonFormField<int>(
-              initialValue: _periodo,
-              decoration: const InputDecoration(
-                labelText: 'Período de evaluación',
-                prefixIcon: Icon(Icons.calendar_view_month_outlined),
+          ),
+        ),
+        bottomNavigationBar: _ProgressFooter(
+          evaluados: _resultados.length,
+          total: _totalContenidos(plan),
+          nota: _notaFinal,
+        ),
+        body: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.sm,
+              AppSpacing.lg,
+              AppSpacing.xl,
+            ),
+            children: [
+              Text(
+                'Evaluación de conocimiento del salón',
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
-              items: [
-                for (var periodo = 1; periodo <= 4; periodo++)
-                  DropdownMenuItem(
-                    value: periodo,
-                    child: Text('Período $periodo'),
-                  ),
-              ],
-              onChanged: (value) => setState(() {
-                _periodo = value ?? 1;
-                _resultados.clear();
-                _itemsHabilitados.clear();
-                _guardarBorrador();
-              }),
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _profesorEvaluadoController,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Docente evaluado',
-                prefixIcon: Icon(Icons.person_search_outlined),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                'Selecciona el grado y el período para cargar el plan de estudio correspondiente.',
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
-              validator: _requerido,
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _colegioController,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Colegio',
-                prefixIcon: Icon(Icons.school_outlined),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Información de la visita',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-              validator: _requerido,
-            ),
-            const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              initialValue: _grado,
-              decoration: const InputDecoration(
-                labelText: 'Grado',
-                prefixIcon: Icon(Icons.class_outlined),
-              ),
-              items: const [
-                DropdownMenuItem(value: 'Párvulos', child: Text('Párvulos')),
-                DropdownMenuItem(value: 'Prejardín', child: Text('Prejardín')),
-                DropdownMenuItem(value: 'Jardín', child: Text('Jardín')),
-                DropdownMenuItem(
-                  value: 'Transición',
-                  child: Text('Transición'),
-                ),
-              ],
-              onChanged: (value) => setState(() {
-                _grado = value ?? 'Párvulos';
-                _resultados.clear();
-                _itemsHabilitados.clear();
-                _guardarBorrador();
-              }),
-            ),
-            const SizedBox(height: 28),
-            Card(
-              child: SwitchListTile(
-                value: _modoRapido,
-                onChanged: (value) => setState(() => _modoRapido = value),
-                secondary: const Icon(Icons.bolt_rounded),
-                title: const Text('Modo de evaluación rápida'),
-                subtitle: const Text(
-                  'Muestra las tres calificaciones directamente y reduce los toques necesarios.',
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Plan de estudio · Período $_periodo',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Selecciona el resultado observado en cada contenido. Los contenidos no evaluados no afectan la nota.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            if (_pendientesPeriodoAnterior().isNotEmpty) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.sm),
               Card(
-                color: Theme.of(context).colorScheme.tertiaryContainer,
+                clipBehavior: Clip.antiAlias,
                 child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
+                  padding: const EdgeInsets.all(AppSpacing.md + 2),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Pendientes del período anterior',
-                        style: Theme.of(context).textTheme.titleMedium,
+                      _InfoRow(
+                        icon: Icons.calendar_today_outlined,
+                        label: 'Fecha',
+                        value: _fecha(_fechaHora),
                       ),
-                      const SizedBox(height: 8),
-                      for (final contenido in _pendientesPeriodoAnterior())
-                        Text('• $contenido'),
+                      const Divider(height: AppSpacing.lg),
+                      _InfoRow(
+                        icon: Icons.schedule_rounded,
+                        label: 'Hora',
+                        value: _hora(_fechaHora),
+                      ),
+                      const Divider(height: AppSpacing.lg),
+                      _InfoRow(
+                        icon: Icons.person_outline_rounded,
+                        label: 'Docente de Course Child',
+                        value: docente,
+                      ),
                     ],
                   ),
                 ),
               ),
-            ],
-            const SizedBox(height: 14),
-            for (final categoria in plan.categorias) ...[
-              _CategoriaPlanCard(
-                categoria: categoria,
-                periodo: _periodo,
-                resultados: _resultados,
-                comentarios: _comentariosContenido,
-                itemsHabilitados: _itemsHabilitados,
-                modoRapido: _modoRapido,
-                onHabilitar: (id) => setState(() {
-                  _itemsHabilitados.add(id);
+              const SizedBox(height: 18),
+              DropdownButtonFormField<int>(
+                initialValue: _periodo,
+                decoration: const InputDecoration(
+                  labelText: 'Período de evaluación',
+                  prefixIcon: Icon(Icons.calendar_view_month_outlined),
+                ),
+                items: [
+                  for (var periodo = 1; periodo <= 4; periodo++)
+                    DropdownMenuItem(
+                      value: periodo,
+                      child: Text('Período $periodo'),
+                    ),
+                ],
+                onChanged: (value) => setState(() {
+                  _periodo = value ?? 1;
+                  _limpiarCalificaciones();
                   _guardarBorrador();
                 }),
-                onChanged: (id, resultado) => setState(() {
-                  if (resultado == null) {
-                    _resultados.remove(id);
-                    _itemsHabilitados.remove(id);
-                  } else {
-                    _itemsHabilitados.add(id);
-                    _resultados[id] = resultado;
-                  }
-                  _guardarBorrador();
-                }),
-                onMarcarTodos: (resultado) =>
-                    _marcarCategoria(categoria, resultado),
-                onLimpiar: () => _limpiarCategoria(categoria),
-                onComentario: (id, item) => _editarComentario(id, item),
               ),
               const SizedBox(height: 14),
+              SelectorRegistro(
+                controller: _colegioController,
+                opciones: context.watch<SesionProvider>().colegiosRegistrados,
+                etiqueta: 'Colegio',
+                icono: Icons.school_outlined,
+                validator: _requerido,
+                onChanged: (_) => setState(() {
+                  _profesorResponsableController.clear();
+                  _limpiarCalificaciones();
+                  _guardarBorrador();
+                }),
+              ),
+              const SizedBox(height: 14),
+              SelectorRegistro(
+                controller: _profesorResponsableController,
+                opciones: context.watch<SesionProvider>().docentesColegio(
+                  _colegioController.text,
+                  nivel: NivelDocente.preescolar,
+                ),
+                etiqueta: 'Profesor responsable del salón',
+                icono: Icons.person_outline,
+                validator: _requerido,
+                onChanged: (_) => _guardarBorrador(),
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: _grado,
+                decoration: const InputDecoration(
+                  labelText: 'Grado',
+                  prefixIcon: Icon(Icons.class_outlined),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'Párvulos', child: Text('Párvulos')),
+                  DropdownMenuItem(
+                    value: 'Prejardín',
+                    child: Text('Prejardín'),
+                  ),
+                  DropdownMenuItem(value: 'Jardín', child: Text('Jardín')),
+                  DropdownMenuItem(
+                    value: 'Transición',
+                    child: Text('Transición'),
+                  ),
+                ],
+                onChanged: (value) => setState(() {
+                  _grado = value ?? 'Párvulos';
+                  _limpiarCalificaciones();
+                  _guardarBorrador();
+                }),
+              ),
+              const SizedBox(height: 28),
+              Card(
+                child: SwitchListTile(
+                  value: _modoRapido,
+                  onChanged: (value) => setState(() => _modoRapido = value),
+                  secondary: const Icon(Icons.bolt_rounded),
+                  title: const Text('Modo de evaluación rápida'),
+                  subtitle: const Text(
+                    'Muestra las tres calificaciones directamente y reduce los toques necesarios.',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Plan de estudio · Período $_periodo',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Selecciona el resultado observado en cada contenido. Los contenidos no evaluados no afectan la nota.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              if (_pendientesPeriodoAnterior().isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Card(
+                  color: Theme.of(context).colorScheme.tertiaryContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pendientes del período anterior',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        for (final contenido in _pendientesPeriodoAnterior())
+                          Text('• $contenido'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+              for (final categoria in plan.categorias) ...[
+                _CategoriaPlanCard(
+                  categoria: categoria,
+                  periodo: _periodo,
+                  resultados: _resultados,
+                  comentarios: _comentariosContenido,
+                  itemsHabilitados: _itemsHabilitados,
+                  modoRapido: _modoRapido,
+                  onHabilitar: (id) => setState(() {
+                    _itemsHabilitados.add(id);
+                    _guardarBorrador();
+                  }),
+                  onChanged: (id, resultado) => setState(() {
+                    if (resultado == null) {
+                      _resultados.remove(id);
+                      _itemsHabilitados.remove(id);
+                    } else {
+                      _itemsHabilitados.add(id);
+                      _resultados[id] = resultado;
+                    }
+                    _guardarBorrador();
+                  }),
+                  onMarcarTodos: (resultado) =>
+                      _marcarCategoria(categoria, resultado),
+                  onLimpiar: () => _limpiarCategoria(categoria),
+                  onComentario: (id, item) => _editarComentario(id, item),
+                ),
+                const SizedBox(height: 14),
+              ],
+              Text(
+                'Contenido no evaluado',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(AppRadius.medium),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
+                child: Text(
+                  _observacionAutomatica(plan),
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Sugerencias automáticas',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(AppRadius.medium),
+                  border: Border.all(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: .25),
+                  ),
+                ),
+                child: Text(
+                  _sugerenciasAutomaticas(plan),
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              TextFormField(
+                controller: _compromisoController,
+                minLines: 3,
+                maxLines: 5,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Recomendaciones y compromiso',
+                  alignLabelWithHint: true,
+                  prefixIcon: Icon(Icons.handshake_outlined),
+                ),
+                validator: _requerido,
+              ),
+              const SizedBox(height: 28),
+              Text(
+                'Resultado automático',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 12),
+              _NotaCard(
+                nota: _notaFinal,
+                desempeno: _desempeno,
+                evaluados: _resultados.length,
+                total: _totalContenidos(plan),
+              ),
+              const SizedBox(height: 28),
+              Text('Firmas', style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 12),
+              ReportSignatureCard(
+                titulo: 'Firma del colegio',
+                firmaBase64: _firmaColegio,
+                onFirmar: () => _firmar(
+                  'Firma del colegio',
+                  (firma) => _firmaColegio = firma,
+                  firmaActual: _firmaColegio,
+                ),
+              ),
+              const SizedBox(height: 14),
+              ReportSignatureCard(
+                titulo: 'Docente del colegio',
+                firmaBase64: _firmaDocenteColegio,
+                onFirmar: () => _firmar(
+                  'Firma del docente del colegio',
+                  (firma) => _firmaDocenteColegio = firma,
+                  firmaActual: _firmaDocenteColegio,
+                ),
+              ),
+              const SizedBox(height: 14),
+              ReportSignatureCard(
+                titulo: 'Docente de Course Child',
+                nombre: docente,
+                firmaBase64: _firmaCourseChild,
+                onFirmar: () => _firmar(
+                  'Firma de $docente',
+                  (firma) => _firmaCourseChild = firma,
+                  firmaActual: _firmaCourseChild,
+                ),
+              ),
+              const SizedBox(height: 18),
+              EvidencePhotosCard(
+                fotosBase64: _fotosEvidencia,
+                onAdd: _seleccionarOrigenFoto,
+                onRemove: _confirmarEliminarFoto,
+              ),
+              const SizedBox(height: 18),
+              _ValidationCard(pendientes: _validacionesPendientes()),
+              const SizedBox(height: 28),
+              FilledButton.icon(
+                onPressed: () => _guardar(docente),
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('Guardar reporte'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => _exportarPdf(docente),
+                icon: const Icon(Icons.picture_as_pdf_outlined),
+                label: const Text('Generar PDF'),
+              ),
             ],
-            Text(
-              'Contenido no evaluado',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(AppRadius.medium),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-              ),
-              child: Text(
-                _observacionAutomatica(plan),
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              'Sugerencias automáticas',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(AppRadius.medium),
-                border: Border.all(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: .25),
-                ),
-              ),
-              child: Text(
-                _sugerenciasAutomaticas(plan),
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            TextFormField(
-              controller: _compromisoController,
-              minLines: 3,
-              maxLines: 5,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Recomendaciones y compromiso',
-                alignLabelWithHint: true,
-                prefixIcon: Icon(Icons.handshake_outlined),
-              ),
-              validator: _requerido,
-            ),
-            const SizedBox(height: 28),
-            Text(
-              'Resultado automático',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 12),
-            _NotaCard(
-              nota: _notaFinal,
-              desempeno: _desempeno,
-              evaluados: _resultados.length,
-              total: _totalContenidos(plan),
-            ),
-            const SizedBox(height: 28),
-            Text('Firmas', style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 12),
-            ReportSignatureCard(
-              titulo: 'Firma del colegio',
-              firmaBase64: _firmaColegio,
-              onFirmar: () => _firmar(
-                'Firma del colegio',
-                (firma) => _firmaColegio = firma,
-                firmaActual: _firmaColegio,
-              ),
-            ),
-            const SizedBox(height: 14),
-            ReportSignatureCard(
-              titulo: 'Docente del colegio',
-              firmaBase64: _firmaDocenteColegio,
-              onFirmar: () => _firmar(
-                'Firma del docente del colegio',
-                (firma) => _firmaDocenteColegio = firma,
-                firmaActual: _firmaDocenteColegio,
-              ),
-            ),
-            const SizedBox(height: 14),
-            ReportSignatureCard(
-              titulo: 'Docente de Course Child',
-              nombre: docente,
-              firmaBase64: _firmaCourseChild,
-              onFirmar: () => _firmar(
-                'Firma de $docente',
-                (firma) => _firmaCourseChild = firma,
-                firmaActual: _firmaCourseChild,
-              ),
-            ),
-            const SizedBox(height: 18),
-            EvidencePhotosCard(
-              fotosBase64: _fotosEvidencia,
-              onAdd: _seleccionarOrigenFoto,
-              onRemove: _confirmarEliminarFoto,
-            ),
-            const SizedBox(height: 18),
-            _ValidationCard(pendientes: _validacionesPendientes()),
-            const SizedBox(height: 28),
-            FilledButton.icon(
-              onPressed: () => _guardar(docente),
-              icon: const Icon(Icons.save_outlined),
-              label: const Text('Guardar reporte'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => _exportarPdf(docente),
-              icon: const Icon(Icons.picture_as_pdf_outlined),
-              label: const Text('Generar PDF'),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -599,8 +658,22 @@ class _StudentKnowledgeReportScreenState
 
     final reporte = _crearReporte(docente);
     if (!await _confirmarRevision(reporte) || !mounted) return;
-    context.read<SesionProvider>().guardarReporteConocimiento(reporte);
-    context.read<SesionProvider>().descartarBorradorConocimiento();
+    final error = await context
+        .read<SesionProvider>()
+        .guardarReporteConocimientoPersistente(reporte);
+    if (!mounted) return;
+    if (error != null) {
+      _mensaje(error);
+      return;
+    }
+    final errorBorrador = await context
+        .read<SesionProvider>()
+        .descartarBorradorConocimientoPersistente();
+    if (!mounted) return;
+    if (errorBorrador != null) {
+      _mensaje(errorBorrador);
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Reporte guardado correctamente.')),
     );
@@ -617,8 +690,10 @@ class _StudentKnowledgeReportScreenState
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Docente evaluado: ${reporte.profesorEvaluado}'),
                 Text('Colegio: ${reporte.colegio}'),
+                Text(
+                  'Profesor responsable: ${reporte.profesorResponsableSalon}',
+                ),
                 Text('${reporte.grado} · Período ${reporte.periodo}'),
                 const Divider(height: 24),
                 Text('Nota: ${reporte.notaFinal.toStringAsFixed(1)} / 5,0'),
@@ -658,7 +733,7 @@ class _StudentKnowledgeReportScreenState
         id: _reporteId,
         fechaHora: _fechaHora,
         docente: docente,
-        profesorEvaluado: _profesorEvaluadoController.text.trim(),
+        profesorEvaluado: _profesorResponsableController.text.trim(),
         colegio: _colegioController.text.trim(),
         grado: _grado,
         periodo: _periodo,
@@ -666,13 +741,13 @@ class _StudentKnowledgeReportScreenState
         compromiso: _compromisoController.text.trim(),
         nota: _notaFinal,
         contenidosEvaluados: _resultados.length,
-        totalContenidos: _totalContenidos(
-          planesEstudioPorGrado[_grado]![_periodo]!,
-        ),
+        totalContenidos: _totalContenidos(_planActual),
         configuracionNotas: context.read<SesionProvider>().configuracionNotas,
-        firmaColegio: _firmaColegio!,
-        firmaDocenteColegio: _firmaDocenteColegio!,
-        firmaDocenteCourseChild: _firmaCourseChild!,
+        // La vista previa puede generarse antes de firmar. Guardar el reporte
+        // definitivo sigue validando las tres firmas en _guardar().
+        firmaColegio: _firmaColegio ?? '',
+        firmaDocenteColegio: _firmaDocenteColegio ?? '',
+        firmaDocenteCourseChild: _firmaCourseChild ?? '',
         fotosEvidencia: List.unmodifiable(_fotosEvidencia),
         resultadosContenido: Map.unmodifiable(_resultados),
         nombresContenido: _nombresContenido(),
@@ -681,7 +756,7 @@ class _StudentKnowledgeReportScreenState
       );
 
   Map<String, String> _resumenEvaluacion() {
-    final plan = planesEstudioPorGrado[_grado]![_periodo]!;
+    final plan = _planActual;
     return {
       for (final categoria in plan.categorias)
         categoria.nombre: _resumenCategoria(categoria),
@@ -881,13 +956,8 @@ class _StudentKnowledgeReportScreenState
       _mensaje('Evalúa al menos un contenido para calcular la nota.');
       return;
     }
-    if (_firmaColegio == null ||
-        _firmaDocenteColegio == null ||
-        _firmaCourseChild == null) {
-      _mensaje('Debes completar las tres firmas.');
-      return;
-    }
     final reporte = _crearReporte(docente);
+    final firmasFaltantes = 3 - reporte.cantidadFirmas;
     final continuar = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -897,19 +967,31 @@ class _StudentKnowledgeReportScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Docente: ${reporte.profesorEvaluado}'),
               Text('Colegio: ${reporte.colegio}'),
+              Text('Profesor responsable: ${reporte.profesorResponsableSalon}'),
               Text('${reporte.grado} · Período ${reporte.periodo}'),
               Text('Nota: ${reporte.notaFinal.toStringAsFixed(1)} / 5,0'),
               Text('Desempeño: ${reporte.desempeno}'),
               Text(
                 'Cobertura: ${reporte.contenidosEvaluados} de ${reporte.totalContenidos}',
               ),
-              Text('Firmas: completas'),
+              Text(
+                firmasFaltantes == 0
+                    ? 'Firmas: completas'
+                    : 'Vista previa: faltan $firmasFaltantes ${firmasFaltantes == 1 ? 'firma' : 'firmas'}',
+                style: TextStyle(
+                  color: firmasFaltantes == 0 ? null : Colors.orange.shade800,
+                  fontWeight: firmasFaltantes == 0
+                      ? FontWeight.normal
+                      : FontWeight.w700,
+                ),
+              ),
               Text('Fotografías: ${reporte.fotosEvidencia.length} de 2'),
               const SizedBox(height: 12),
-              const Text(
-                'Podrás elegir un informe resumido o detallado en la vista previa.',
+              Text(
+                firmasFaltantes == 0
+                    ? 'Podrás elegir un informe resumido o detallado en la vista previa.'
+                    : 'El PDF se generará como borrador y mostrará “Sin firma” en los espacios pendientes. Para guardar el reporte definitivo sí debes completar las tres firmas.',
               ),
             ],
           ),
@@ -1036,7 +1118,7 @@ class _StudentKnowledgeReportScreenState
   }
 
   Map<String, String> _nombresContenido() {
-    final plan = planesEstudioPorGrado[_grado]![_periodo]!;
+    final plan = _planActual;
     return {
       for (final categoria in plan.categorias)
         for (final item in categoria.items)
@@ -1085,11 +1167,11 @@ class _StudentKnowledgeReportScreenState
 
   List<String> _validacionesPendientes() {
     final pendientes = <String>[];
-    if (_profesorEvaluadoController.text.trim().isEmpty) {
-      pendientes.add('Falta el nombre del docente evaluado.');
-    }
     if (_colegioController.text.trim().isEmpty) {
       pendientes.add('Falta el colegio.');
+    }
+    if (_profesorResponsableController.text.trim().isEmpty) {
+      pendientes.add('Falta el profesor responsable del salón.');
     }
     if (_resultados.isEmpty) {
       pendientes.add('No hay contenidos calificados.');
@@ -1116,11 +1198,13 @@ class _StudentKnowledgeReportScreenState
   }
 
   List<String> _pendientesPeriodoAnterior() {
-    if (_periodo <= 1 || _profesorEvaluadoController.text.trim().isEmpty) {
+    if (_periodo <= 1 || _colegioController.text.trim().isEmpty) {
       return const [];
     }
-    final reportes = context.read<SesionProvider>().historialEstudiante(
-      _profesorEvaluadoController.text,
+    final reportes = context.read<SesionProvider>().historialSalon(
+      _colegioController.text,
+      _grado,
+      profesor: _profesorResponsableController.text,
     );
     StudentKnowledgeReport? anterior;
     for (final reporte in reportes) {

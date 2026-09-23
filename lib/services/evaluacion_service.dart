@@ -4,10 +4,12 @@ import '../models/evaluacion_clase.dart';
 import '../models/evaluador_tipo.dart';
 import '../models/firma_docente.dart';
 import '../models/reemplazo_contenido.dart';
+import 'package:uuid/uuid.dart';
 
-/// Estado local temporal. La persistencia offline y Supabase se conectarán aquí.
+/// Transformaciones de evaluaciones; el proveedor confirma los cambios en Supabase.
 class EvaluacionService {
   Evaluacion crearDesdePlantilla(EvaluadorTipo tipo) => Evaluacion(
+    id: const Uuid().v4(),
     evaluadorTipo: tipo.codigo,
     colegio: '',
     fechaCreacion: DateTime.now(),
@@ -26,7 +28,11 @@ class EvaluacionService {
             ),
           )
           .toList();
-      return EvaluacionClase(claseNumero: clase.numero, bloques: bloques);
+      return EvaluacionClase(
+        id: const Uuid().v4(),
+        claseNumero: clase.numero,
+        bloques: bloques,
+      );
     }).toList(),
   );
 

@@ -45,7 +45,7 @@ class _HistorialEstudiantesScreenState
           TextField(
             onChanged: (value) => setState(() => _busqueda = value),
             decoration: const InputDecoration(
-              labelText: 'Buscar por docente o colegio',
+              labelText: 'Buscar por colegio o profesor responsable',
               prefixIcon: Icon(Icons.search_rounded),
             ),
           ),
@@ -149,12 +149,12 @@ class _HistorialEstudiantesScreenState
                     ),
                   ),
                   title: Text(
-                    reporte.profesorEvaluado,
+                    '${reporte.colegio} · ${reporte.grado}',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   subtitle: Text(
-                    '${reporte.grado} · Período ${reporte.periodo}\n'
-                    '${reporte.colegio} · ${reporte.desempeno}',
+                    'Profesor responsable: ${reporte.profesorResponsableSalon}\n'
+                    'Período ${reporte.periodo} · ${reporte.desempeno}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   isThreeLine: true,
@@ -186,8 +186,8 @@ class _HistorialEstudiantesScreenState
     final texto = _busqueda.trim().toLowerCase();
     final coincideTexto =
         texto.isEmpty ||
-        reporte.profesorEvaluado.toLowerCase().contains(texto) ||
-        reporte.colegio.toLowerCase().contains(texto);
+        reporte.colegio.toLowerCase().contains(texto) ||
+        reporte.profesorResponsableSalon.toLowerCase().contains(texto);
     return coincideTexto &&
         (_grado == null || reporte.grado == _grado) &&
         (_periodo == null || reporte.periodo == _periodo);
