@@ -28,6 +28,7 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
   bool _ocultarPassword = true;
   String? _error;
   bool _creado = false;
+  bool _cargando = false;
 
   @override
   void dispose() {
@@ -42,18 +43,7 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
   Widget build(BuildContext context) {
     final sesion = context.watch<SesionProvider>();
     if (sesion.usaSupabase) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Crear profesor')),
-        body: const Center(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Text(
-              'Crea la cuenta con correo y contraseña en Supabase → Authentication → Users. El perfil se crea automáticamente con rol de profesor. El administrador puede desactivarlo o cambiar su rol desde un proceso autorizado.',
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      );
+      return _registroSupabase();
     }
     final autorizado = widget.solicitudPublica
         ? Rbac.puedeRegistrarSolicitudProfesor(sesion.usuarioActual)
@@ -312,6 +302,170 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
         ),
       ),
     );
+  }
+
+  Widget _registroSupabase() => Scaffold(
+    appBar: AppBar(title: const Text('Crear cuenta de profesor')),
+    body: SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Crear cuenta',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      const Text(
+                        'La cuenta se crea con rol de profesor. Un administrador podrá asignar su zona y gestionar el acceso.',
+                      ),
+                      if (_creado) ...[
+                        const SizedBox(height: AppSpacing.lg),
+                        Container(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          decoration: BoxDecoration(
+                            color: AppColors.successContainer,
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.button,
+                            ),
+                          ),
+                          child: const Text(
+                            'Cuenta creada. Si recibes un correo de confirmación, ábrelo antes de iniciar sesión.',
+                            style: TextStyle(
+                              color: AppColors.success,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.lg),
+                      TextFormField(
+                        controller: _nombreController,
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Nombre completo',
+                          prefixIcon: Icon(Icons.badge_outlined),
+                        ),
+                        validator: _campoObligatorio,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      TextFormField(
+                        controller: _usuarioController,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autocorrect: false,
+                        decoration: const InputDecoration(
+                          labelText: 'Correo electrónico',
+                          prefixIcon: Icon(Icons.email_outlined),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Escribe tu correo electrónico.';
+                          }
+                          if (!value.contains('@')) {
+                            return 'Escribe un correo válido.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _ocultarPassword,
+                        onFieldSubmitted: (_) => _crearCuentaSupabase(),
+                        decoration: InputDecoration(
+                          labelText: 'Contraseña',
+                          helperText: 'Mínimo 8 caracteres',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            onPressed: () => setState(
+                              () => _ocultarPassword = !_ocultarPassword,
+                            ),
+                            icon: Icon(
+                              _ocultarPassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Escribe una contraseña.';
+                          }
+                          if (value.length < 8) {
+                            return 'Usa mínimo 8 caracteres.';
+                          }
+                          return null;
+                        },
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.lg),
+                      FilledButton.icon(
+                        onPressed: _cargando ? null : _crearCuentaSupabase,
+                        icon: const Icon(Icons.person_add_alt_1_rounded),
+                        label: Text(
+                          _cargando ? 'Creando cuenta…' : 'Crear cuenta',
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _cargando
+                            ? null
+                            : () => Navigator.pop(context),
+                        child: const Text('Volver a iniciar sesión'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  Future<void> _crearCuentaSupabase() async {
+    if (_cargando || !_formKey.currentState!.validate()) return;
+    setState(() {
+      _cargando = true;
+      _error = null;
+      _creado = false;
+    });
+    final error = await context.read<SesionProvider>().registrarCuentaSupabase(
+      nombre: _nombreController.text,
+      correo: _usuarioController.text,
+      password: _passwordController.text,
+    );
+    if (!mounted) return;
+    setState(() {
+      _cargando = false;
+      _error = error;
+      _creado = error == null;
+    });
+    if (error == null) {
+      _nombreController.clear();
+      _usuarioController.clear();
+      _passwordController.clear();
+    }
   }
 
   String? _campoObligatorio(String? value) =>

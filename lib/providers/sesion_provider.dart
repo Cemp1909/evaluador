@@ -1630,6 +1630,53 @@ class SesionProvider extends ChangeNotifier {
     }
   }
 
+  Future<String?> registrarCuentaSupabase({
+    required String nombre,
+    required String correo,
+    required String password,
+  }) async {
+    final client = _supabaseClient;
+    if (client == null) return 'Supabase no está configurado.';
+    final nombreLimpio = nombre.trim();
+    final correoLimpio = correo.trim().toLowerCase();
+    if (nombreLimpio.isEmpty || correoLimpio.isEmpty || password.isEmpty) {
+      return 'Todos los campos son obligatorios.';
+    }
+    if (!correoLimpio.contains('@')) return 'Escribe un correo válido.';
+    if (password.length < 8) {
+      return 'La contraseña debe tener mínimo 8 caracteres.';
+    }
+    try {
+      final respuesta = await client.auth.signUp(
+        email: correoLimpio,
+        password: password,
+        data: {'full_name': nombreLimpio},
+      );
+      if (respuesta.user == null) return 'No se pudo crear la cuenta.';
+      // Si la confirmación de correo está desactivada, signUp inicia sesión.
+      // La cerramos para que el usuario vuelva al acceso normal y se cargue el
+      // perfil completo creado por el trigger de Supabase.
+      if (respuesta.session != null) {
+        await client.auth.signOut(scope: SignOutScope.local);
+      }
+      return null;
+    } on AuthException catch (error) {
+      final mensaje = error.message.toLowerCase();
+      if (mensaje.contains('already') || mensaje.contains('registered')) {
+        return 'Ya existe una cuenta con ese correo.';
+      }
+      if (mensaje.contains('password')) {
+        return 'La contraseña no cumple los requisitos de seguridad.';
+      }
+      if (mensaje.contains('signup') || mensaje.contains('disabled')) {
+        return 'El registro de cuentas está desactivado en Supabase.';
+      }
+      return 'No se pudo crear la cuenta: ${error.message}';
+    } catch (_) {
+      return 'No se pudo conectar con Supabase. Revisa la conexión.';
+    }
+  }
+
   Future<String?> restaurarSesionSupabase() async {
     final client = _supabaseClient;
     final id = client?.auth.currentUser?.id;

@@ -234,14 +234,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           label: Text(_cargando ? 'Conectando...' : 'Sign in'),
                         ),
                         const SizedBox(height: AppSpacing.sm),
-                        if (!usaSupabase)
-                          OutlinedButton.icon(
-                            onPressed: () => Navigator.of(
-                              context,
-                            ).pushNamed(CrearProfesorScreen.solicitudRoute),
-                            icon: const Icon(Icons.person_add_alt_1_rounded),
-                            label: const Text('Request teacher access'),
+                        OutlinedButton.icon(
+                          onPressed: _cargando
+                              ? null
+                              : () => Navigator.of(
+                                  context,
+                                ).pushNamed(CrearProfesorScreen.solicitudRoute),
+                          icon: const Icon(Icons.person_add_alt_1_rounded),
+                          label: Text(
+                            usaSupabase
+                                ? 'Crear cuenta de profesor'
+                                : 'Request teacher access',
                           ),
+                        ),
                         const SizedBox(height: AppSpacing.lg),
                         Text(
                           usaSupabase
