@@ -1536,7 +1536,7 @@ class SesionProvider extends ChangeNotifier {
 
   String? iniciarSesion({required String usuario, required String password}) {
     if (usaSupabase) {
-      return 'Ingresa con tu correo y contraseña de Supabase.';
+      return 'Ingresa con tu usuario y contraseña.';
     }
     final usuarioNormalizado = usuario.trim().toLowerCase();
     _usuarioActual = null;
@@ -1607,7 +1607,7 @@ class SesionProvider extends ChangeNotifier {
   }
 
   Future<String?> iniciarSesionSupabase({
-    required String correo,
+    required String usuario,
     required String password,
   }) async {
     final client = _supabaseClient;
@@ -1618,13 +1618,13 @@ class SesionProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final respuesta = await client.auth.signInWithPassword(
-        email: correo.trim(),
+        email: _identificadorAuth(usuario),
         password: password,
       );
       if (respuesta.user == null) return 'No se pudo iniciar sesión.';
       return await restaurarSesionSupabase();
     } on AuthException {
-      return 'Correo o contraseña incorrectos, o cuenta sin confirmar.';
+      return 'Usuario o contraseña incorrectos.';
     } catch (_) {
       return 'No se pudo conectar con Supabase. Revisa la conexión y la configuración.';
     }
@@ -1632,30 +1632,31 @@ class SesionProvider extends ChangeNotifier {
 
   Future<String?> registrarCuentaSupabase({
     required String nombre,
-    required String correo,
+    required String usuario,
     required String password,
   }) async {
     final client = _supabaseClient;
     if (client == null) return 'Supabase no está configurado.';
     final nombreLimpio = nombre.trim();
-    final correoLimpio = correo.trim().toLowerCase();
-    if (nombreLimpio.isEmpty || correoLimpio.isEmpty || password.isEmpty) {
+    final usuarioLimpio = usuario.trim().toLowerCase();
+    if (nombreLimpio.isEmpty || usuarioLimpio.isEmpty || password.isEmpty) {
       return 'Todos los campos son obligatorios.';
     }
-    if (!correoLimpio.contains('@')) return 'Escribe un correo válido.';
+    if (!RegExp(r'^[a-z0-9._-]{3,30}$').hasMatch(usuarioLimpio)) {
+      return 'El usuario debe tener de 3 a 30 letras, números, puntos, guiones o guion bajo.';
+    }
     if (password.length < 8) {
       return 'La contraseña debe tener mínimo 8 caracteres.';
     }
     try {
       final respuesta = await client.auth.signUp(
-        email: correoLimpio,
+        email: _identificadorAuth(usuarioLimpio),
         password: password,
-        data: {'full_name': nombreLimpio},
+        data: {'full_name': nombreLimpio, 'username': usuarioLimpio},
       );
       if (respuesta.user == null) return 'No se pudo crear la cuenta.';
-      // Si la confirmación de correo está desactivada, signUp inicia sesión.
-      // La cerramos para que el usuario vuelva al acceso normal y se cargue el
-      // perfil completo creado por el trigger de Supabase.
+      // El identificador técnico no es un correo del profesor, por lo que la
+      // confirmación de correo debe permanecer desactivada en Supabase.
       if (respuesta.session != null) {
         await client.auth.signOut(scope: SignOutScope.local);
       }
@@ -1663,7 +1664,7 @@ class SesionProvider extends ChangeNotifier {
     } on AuthException catch (error) {
       final mensaje = error.message.toLowerCase();
       if (mensaje.contains('already') || mensaje.contains('registered')) {
-        return 'Ya existe una cuenta con ese correo.';
+        return 'Ese nombre de usuario ya está ocupado.';
       }
       if (mensaje.contains('password')) {
         return 'La contraseña no cumple los requisitos de seguridad.';
@@ -1675,6 +1676,12 @@ class SesionProvider extends ChangeNotifier {
     } catch (_) {
       return 'No se pudo conectar con Supabase. Revisa la conexión.';
     }
+  }
+
+  String _identificadorAuth(String usuario) {
+    final valor = usuario.trim().toLowerCase();
+    // Conserva compatibilidad con cuentas antiguas que ingresaban por correo.
+    return valor.contains('@') ? valor : '$valor@usuarios.evaluador.app';
   }
 
   Future<String?> restaurarSesionSupabase() async {

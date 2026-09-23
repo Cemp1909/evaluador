@@ -339,7 +339,7 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
                             ),
                           ),
                           child: const Text(
-                            'Cuenta creada. Si recibes un correo de confirmación, ábrelo antes de iniciar sesión.',
+                            'Cuenta creada. Ya puedes volver e iniciar sesión con tu usuario y contraseña.',
                             style: TextStyle(
                               color: AppColors.success,
                               fontWeight: FontWeight.w600,
@@ -361,19 +361,21 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
                       const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: _usuarioController,
-                        keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         autocorrect: false,
                         decoration: const InputDecoration(
-                          labelText: 'Correo electrónico',
-                          prefixIcon: Icon(Icons.email_outlined),
+                          labelText: 'Usuario',
+                          helperText: 'Ejemplo: maria.gomez',
+                          prefixIcon: Icon(Icons.person_outline_rounded),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Escribe tu correo electrónico.';
+                            return 'Escribe un nombre de usuario.';
                           }
-                          if (!value.contains('@')) {
-                            return 'Escribe un correo válido.';
+                          if (!RegExp(
+                            r'^[a-zA-Z0-9._-]{3,30}$',
+                          ).hasMatch(value.trim())) {
+                            return 'Usa de 3 a 30 letras, números, puntos o guiones.';
                           }
                           return null;
                         },
@@ -452,7 +454,7 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
     });
     final error = await context.read<SesionProvider>().registrarCuentaSupabase(
       nombre: _nombreController.text,
-      correo: _usuarioController.text,
+      usuario: _usuarioController.text,
       password: _passwordController.text,
     );
     if (!mounted) return;

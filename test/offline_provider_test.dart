@@ -27,7 +27,7 @@ void main() {
       );
       expect(
         await sesion.iniciarSesionSupabase(
-          correo: 'test@test.test',
+          usuario: 'test@test.test',
           password: 'prueba',
         ),
         isNull,

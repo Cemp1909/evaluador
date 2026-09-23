@@ -208,7 +208,7 @@ Future<SesionProvider> entrar(ServidorPrueba servidor) async {
   addTearDown(provider.dispose);
   expect(
     await provider.iniciarSesionSupabase(
-      correo: 'prueba@example.test',
+      usuario: 'prueba@example.test',
       password: 'prueba',
     ),
     isNull,

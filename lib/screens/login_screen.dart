@@ -137,21 +137,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           textInputAction: TextInputAction.next,
                           autocorrect: false,
                           decoration: InputDecoration(
-                            labelText: usaSupabase
-                                ? 'Correo electrónico'
-                                : 'Username',
+                            labelText: usaSupabase ? 'Usuario' : 'Username',
                             prefixIcon: const Icon(
                               Icons.person_outline_rounded,
                             ),
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
-                              return usaSupabase
-                                  ? 'Escribe tu correo electrónico.'
-                                  : 'Enter your username.';
-                            }
-                            if (usaSupabase && !value.contains('@')) {
-                              return 'Escribe un correo válido.';
+                              return 'Escribe tu usuario.';
                             }
                             return null;
                           },
@@ -290,7 +283,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     final error = sesion.usaSupabase
         ? await sesion.iniciarSesionSupabase(
-            correo: _usuarioController.text,
+            usuario: _usuarioController.text,
             password: _passwordController.text,
           )
         : sesion.iniciarSesion(
