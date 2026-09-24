@@ -5,20 +5,39 @@ import '../config/evaluadores_config.dart';
 import '../services/evaluacion_service.dart';
 import '../services/pdf_export_service.dart';
 import '../providers/sesion_provider.dart';
+import '../security/rbac.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_brand_title.dart';
 import '../widgets/home_action_card.dart';
 import '../widgets/local_mode_banner.dart';
 import 'clases_screen.dart';
+import 'panel_colegios_screen.dart';
 import 'reporte_capacitaciones_preview_screen.dart';
 
-class EvaluadorSelectionScreen extends StatelessWidget {
+class EvaluadorSelectionScreen extends StatefulWidget {
   const EvaluadorSelectionScreen({super.key});
 
   static const routeName = '/evaluaciones';
 
   @override
+  State<EvaluadorSelectionScreen> createState() =>
+      _EvaluadorSelectionScreenState();
+}
+
+class _EvaluadorSelectionScreenState extends State<EvaluadorSelectionScreen> {
+  String? _colegioSeleccionado;
+
+  @override
   Widget build(BuildContext context) {
+    final sesion = context.watch<SesionProvider>();
+    final colegios = sesion.colegiosRegistrados;
+    if (_colegioSeleccionado != null &&
+        !colegios.contains(_colegioSeleccionado)) {
+      _colegioSeleccionado = null;
+    }
+    if (_colegioSeleccionado == null && colegios.length == 1) {
+      _colegioSeleccionado = colegios.single;
+    }
     return Scaffold(
       appBar: AppBar(title: const AppBrandTitle()),
       body: ListView(
@@ -41,6 +60,57 @@ class EvaluadorSelectionScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           const LocalModeBanner(),
           const SizedBox(height: AppSpacing.md),
+          if (sesion.usaSupabase) ...[
+            if (colegios.isEmpty)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'No hay colegios disponibles',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        sesion.tienePermiso(Permiso.asignarProfesores)
+                            ? 'Registra un colegio y sus docentes antes de comenzar la capacitación.'
+                            : 'El administrador o coordinador debe asignarte una visita a un colegio.',
+                      ),
+                      if (sesion.tienePermiso(Permiso.asignarProfesores)) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        FilledButton.icon(
+                          onPressed: () => Navigator.pushNamed(
+                            context,
+                            PanelColegiosScreen.routeName,
+                          ),
+                          icon: const Icon(Icons.add_business_outlined),
+                          label: const Text('Registrar o asignar colegio'),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              )
+            else
+              DropdownButtonFormField<String>(
+                key: ValueKey(_colegioSeleccionado),
+                initialValue: _colegioSeleccionado,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Colegio de la capacitación',
+                  prefixIcon: Icon(Icons.school_outlined),
+                ),
+                items: [
+                  for (final colegio in colegios)
+                    DropdownMenuItem(value: colegio, child: Text(colegio)),
+                ],
+                onChanged: (value) =>
+                    setState(() => _colegioSeleccionado = value),
+              ),
+            const SizedBox(height: AppSpacing.md),
+          ],
           OutlinedButton.icon(
             onPressed: () => _generarReporteQuincenal(context),
             icon: const Icon(Icons.summarize_outlined),
@@ -66,43 +136,38 @@ class EvaluadorSelectionScreen extends StatelessWidget {
               onTap: () async {
                 final tipo = evaluadoresDisponibles[index];
                 final sesion = context.read<SesionProvider>();
+                final colegio = _colegioSeleccionado?.trim() ?? '';
+                if (sesion.usaSupabase && colegio.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        colegios.isEmpty
+                            ? 'Primero registra o asigna un colegio.'
+                            : 'Selecciona un colegio en el menú superior.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
                 var evaluacion =
-                    sesion.borradorEvaluacion(tipo.codigo) ??
+                    sesion.borradorEvaluacion(
+                      tipo.codigo,
+                      colegio: sesion.usaSupabase ? colegio : null,
+                    ) ??
                     EvaluacionService()
                         .crearDesdePlantilla(tipo)
                         .copyWith(
                           responsableNombre: sesion.usuarioActual?.nombre,
+                          colegio: colegio,
                         );
-                if (sesion.usaSupabase && evaluacion.colegio.trim().isEmpty) {
-                  if (sesion.colegiosRegistrados.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Primero registra o asigna un colegio.')),
-                    );
-                    return;
-                  }
-                  final colegio = await showDialog<String>(
-                    context: context,
-                    builder: (ctx) => SimpleDialog(
-                      title: const Text('Colegio de la capacitación'),
-                      children: [
-                        for (final nombre in sesion.colegiosRegistrados)
-                          SimpleDialogOption(
-                            onPressed: () => Navigator.pop(ctx, nombre),
-                            child: Text(nombre),
-                          ),
-                      ],
-                    ),
-                  );
-                  if (colegio == null || !context.mounted) return;
-                  evaluacion = evaluacion.copyWith(colegio: colegio);
-                }
-                final error = await sesion
-                    .guardarBorradorEvaluacionPersistente(evaluacion);
+                final error = await sesion.guardarBorradorEvaluacionPersistente(
+                  evaluacion,
+                );
                 if (!context.mounted) return;
                 if (error != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(error)),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(error)));
                   return;
                 }
                 Navigator.of(context).push(
