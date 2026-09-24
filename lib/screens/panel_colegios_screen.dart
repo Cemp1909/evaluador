@@ -32,8 +32,19 @@ class PanelColegiosScreen extends StatelessWidget {
     }
     final entradas = colegios.entries.toList()
       ..sort((a, b) => a.key.compareTo(b.key));
+    final puedeGestionar = sesion.tienePermiso(Permiso.asignarProfesores);
     return Scaffold(
-      appBar: AppBar(title: const Text('Panel de colegios')),
+      appBar: AppBar(
+        title: const Text('Panel de colegios'),
+        actions: [
+          if (puedeGestionar)
+            TextButton.icon(
+              onPressed: () => _agregarColegio(context),
+              icon: const Icon(Icons.add_business_outlined),
+              label: const Text('Agregar colegio'),
+            ),
+        ],
+      ),
       floatingActionButton: sesion.tienePermiso(Permiso.asignarProfesores)
           ? FloatingActionButton.extended(
               onPressed: () => editarDocentesColegio(context),
@@ -65,9 +76,19 @@ class PanelColegiosScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      'Aún no hay evaluaciones para consolidar.',
+                      puedeGestionar
+                          ? 'Aún no hay colegios registrados.'
+                          : 'Aún no hay evaluaciones para consolidar.',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
+                    if (puedeGestionar) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      FilledButton.icon(
+                        onPressed: () => _agregarColegio(context),
+                        icon: const Icon(Icons.add_business_outlined),
+                        label: const Text('Agregar primer colegio'),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -132,16 +153,29 @@ class PanelColegiosScreen extends StatelessWidget {
                     ),
                     children: [
                       if (sesion.contactoColegio(entrada.key).ciudad.isNotEmpty)
-                        Text('Ciudad: ${sesion.contactoColegio(entrada.key).ciudad}'),
-                      if (sesion.contactoColegio(entrada.key).direccion.isNotEmpty)
-                        Text('Dirección: ${sesion.contactoColegio(entrada.key).direccion}'),
-                      if (sesion.contactoColegio(entrada.key).telefono.isNotEmpty)
-                        Text('Teléfono: ${sesion.contactoColegio(entrada.key).telefono}'),
+                        Text(
+                          'Ciudad: ${sesion.contactoColegio(entrada.key).ciudad}',
+                        ),
+                      if (sesion
+                          .contactoColegio(entrada.key)
+                          .direccion
+                          .isNotEmpty)
+                        Text(
+                          'Dirección: ${sesion.contactoColegio(entrada.key).direccion}',
+                        ),
+                      if (sesion
+                          .contactoColegio(entrada.key)
+                          .telefono
+                          .isNotEmpty)
+                        Text(
+                          'Teléfono: ${sesion.contactoColegio(entrada.key).telefono}',
+                        ),
                       if (sesion.tienePermiso(Permiso.asignarProfesores))
                         Align(
                           alignment: Alignment.centerLeft,
                           child: TextButton.icon(
-                            onPressed: () => _editarContactoColegio(context, entrada.key),
+                            onPressed: () =>
+                                _editarContactoColegio(context, entrada.key),
                             icon: const Icon(Icons.edit_location_alt_outlined),
                             label: const Text('Editar datos del colegio'),
                           ),
@@ -225,7 +259,100 @@ class PanelColegiosScreen extends StatelessWidget {
   }
 }
 
-Future<void> _editarContactoColegio(BuildContext context, String colegio) async {
+Future<void> _agregarColegio(BuildContext context) async {
+  final nombre = TextEditingController();
+  final zona = TextEditingController();
+  final ciudad = TextEditingController();
+  final direccion = TextEditingController();
+  final telefono = TextEditingController();
+  try {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Agregar colegio'),
+        content: SizedBox(
+          width: 460,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nombre,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre del colegio *',
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: zona,
+                  decoration: const InputDecoration(labelText: 'Zona *'),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: ciudad,
+                  decoration: const InputDecoration(
+                    labelText: 'Ciudad o municipio',
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: direccion,
+                  decoration: const InputDecoration(labelText: 'Dirección'),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: telefono,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(labelText: 'Teléfono'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final error = await context.read<SesionProvider>().crearColegio(
+                nombre: nombre.text,
+                zona: zona.text,
+                contacto: ContactoColegio(
+                  ciudad: ciudad.text,
+                  direccion: direccion.text,
+                  telefono: telefono.text,
+                ),
+              );
+              if (!dialogContext.mounted) return;
+              if (error != null) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(error)));
+                return;
+              }
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Guardar colegio'),
+          ),
+        ],
+      ),
+    );
+  } finally {
+    nombre.dispose();
+    zona.dispose();
+    ciudad.dispose();
+    direccion.dispose();
+    telefono.dispose();
+  }
+}
+
+Future<void> _editarContactoColegio(
+  BuildContext context,
+  String colegio,
+) async {
   final sesion = context.read<SesionProvider>();
   final actual = sesion.contactoColegio(colegio);
   final ciudad = TextEditingController(text: actual.ciudad);
@@ -243,7 +370,9 @@ Future<void> _editarContactoColegio(BuildContext context, String colegio) async 
             children: [
               TextField(
                 controller: ciudad,
-                decoration: const InputDecoration(labelText: 'Ciudad o municipio'),
+                decoration: const InputDecoration(
+                  labelText: 'Ciudad o municipio',
+                ),
               ),
               TextField(
                 controller: direccion,
@@ -274,9 +403,9 @@ Future<void> _editarContactoColegio(BuildContext context, String colegio) async 
               );
               if (!dialogContext.mounted) return;
               if (error != null) {
-                ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  SnackBar(content: Text(error)),
-                );
+                ScaffoldMessenger.of(
+                  dialogContext,
+                ).showSnackBar(SnackBar(content: Text(error)));
                 return;
               }
               Navigator.pop(dialogContext);

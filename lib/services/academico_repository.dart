@@ -132,6 +132,24 @@ class AcademicoRepository {
         .single();
   }
 
+  Future<void> crearColegio({
+    required String nombre,
+    required String zona,
+    required ContactoColegio contacto,
+  }) async {
+    await client
+        .from('colegios')
+        .insert({
+          'nombre': nombre.trim(),
+          'zona': zona.trim(),
+          'ciudad': contacto.ciudad.trim(),
+          'direccion': contacto.direccion.trim(),
+          'telefono': contacto.telefono.trim(),
+        })
+        .select('id')
+        .single();
+  }
+
   Future<void> guardarAsignaciones(
     Map<String, String> nombres,
     Map<String, List<DocenteColegio>> asignaciones,

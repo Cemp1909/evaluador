@@ -75,6 +75,42 @@ class SesionProvider extends ChangeNotifier {
     return null;
   }
 
+  Future<String?> crearColegio({
+    required String nombre,
+    required String zona,
+    required ContactoColegio contacto,
+  }) async {
+    final error = _requiere(Permiso.asignarProfesores);
+    if (error != null) return error;
+    final nombreLimpio = nombre.trim();
+    final zonaLimpia = _usuarioActual?.rol == RolUsuario.coordinador
+        ? (_usuarioActual?.zona ?? '').trim()
+        : zona.trim();
+    if (nombreLimpio.isEmpty || zonaLimpia.isEmpty) {
+      return 'El nombre y la zona del colegio son obligatorios.';
+    }
+    final clave = _claveColegio(nombreLimpio);
+    if (_nombresColegios.containsKey(clave)) {
+      return 'Ya existe un colegio con ese nombre.';
+    }
+    if (_repositorio != null) {
+      try {
+        await _repositorio.crearColegio(
+          nombre: nombreLimpio,
+          zona: zonaLimpia,
+          contacto: contacto,
+        );
+      } catch (_) {
+        return 'No se pudo crear el colegio en Supabase. Revisa que el nombre no esté repetido.';
+      }
+    }
+    _nombresColegios[clave] = nombreLimpio;
+    _docentesColegios.putIfAbsent(clave, () => []);
+    _contactosColegios[clave] = contacto;
+    notifyListeners();
+    return null;
+  }
+
   List<DocenteColegio> asignacionesDocentesColegio(
     String colegio, {
     bool incluirInactivas = false,
