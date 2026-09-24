@@ -13,7 +13,7 @@ create table public.perfiles (
   nombre text not null check (length(btrim(nombre)) > 0),
   rol text not null check (rol in ('administrador', 'coordinador', 'profesor')),
   zona text,
-  activo boolean not null default true,
+  activo boolean not null default false,
   creado_en timestamptz not null default now()
 );
 
@@ -207,7 +207,8 @@ revoke all on table public.configuracion_academica from anon, authenticated;
 -- El rol no se lee de los metadatos enviados durante el registro.
 
 alter table public.perfiles
-  alter column rol set default 'profesor';
+  alter column rol set default 'profesor',
+  alter column activo set default false;
 
 create or replace function public.crear_perfil_profesor_por_defecto()
 returns trigger
@@ -215,14 +216,16 @@ language plpgsql
 security definer set search_path = ''
 as $$
 begin
-  insert into public.perfiles (id, nombre)
+  insert into public.perfiles (id, nombre, rol, activo)
   values (
     new.id,
     coalesce(
       nullif(btrim(new.raw_user_meta_data ->> 'full_name'), ''),
       nullif(btrim(new.email), ''),
       'Profesor'
-    )
+    ),
+    'profesor',
+    false
   )
   on conflict (id) do nothing;
   return new;
@@ -239,14 +242,16 @@ for each row execute function public.crear_perfil_profesor_por_defecto();
 
 -- Completa perfiles faltantes de cuentas creadas antes de esta migración,
 -- sin cambiar los roles que ya se hubieran asignado.
-insert into public.perfiles (id, nombre)
+insert into public.perfiles (id, nombre, rol, activo)
 select
   usuario.id,
   coalesce(
     nullif(btrim(usuario.raw_user_meta_data ->> 'full_name'), ''),
     nullif(btrim(usuario.email), ''),
     'Profesor'
-  )
+  ),
+  'profesor',
+  false
 from auth.users as usuario
 on conflict (id) do nothing;
 

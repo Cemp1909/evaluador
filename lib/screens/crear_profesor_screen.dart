@@ -339,7 +339,7 @@ class _CrearProfesorScreenState extends State<CrearProfesorScreen> {
                             ),
                           ),
                           child: const Text(
-                            'Cuenta creada. Ya puedes volver e iniciar sesión con tu usuario y contraseña.',
+                            'Solicitud creada. El administrador debe aprobarla antes de que puedas iniciar sesión.',
                             style: TextStyle(
                               color: AppColors.success,
                               fontWeight: FontWeight.w600,

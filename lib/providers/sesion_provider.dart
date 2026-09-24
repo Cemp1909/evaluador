@@ -1748,9 +1748,15 @@ class SesionProvider extends ChangeNotifier {
           .select('nombre, rol, zona, activo')
           .eq('id', id)
           .maybeSingle();
-      if (perfil == null || perfil['activo'] != true) {
+      if (perfil == null) {
         await client.auth.signOut(scope: SignOutScope.local);
-        return 'Tu perfil no existe o está inactivo en Supabase.';
+        return 'Tu perfil no existe en Supabase.';
+      }
+      if (perfil['activo'] != true) {
+        await client.auth.signOut(scope: SignOutScope.local);
+        return perfil['rol'] == 'profesor'
+            ? 'Tu solicitud está pendiente de aprobación del administrador.'
+            : 'Tu cuenta está inactiva.';
       }
       final rol = switch (perfil['rol']) {
         'administrador' => RolUsuario.administrador,
