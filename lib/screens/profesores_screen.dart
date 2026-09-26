@@ -19,6 +19,7 @@ class ProfesoresScreen extends StatefulWidget {
 class _ProfesoresScreenState extends State<ProfesoresScreen> {
   String _busqueda = '';
   bool? _aprobado;
+  final Set<String> _eliminando = {};
 
   @override
   Widget build(BuildContext context) {
@@ -58,13 +59,13 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Teacher Roster',
+                  'Usuarios',
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
                   puedeAprobar
-                      ? 'Manage and approve field educators across zones.'
+                      ? 'Administra profesores y coordinadores.'
                       : 'Consulta los profesores de tu zona.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
@@ -117,12 +118,12 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
                           ),
                           const SizedBox(height: AppSpacing.md),
                           Text(
-                            'No teachers registered',
+                            'No hay usuarios registrados',
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
                           const SizedBox(height: AppSpacing.xxs),
                           Text(
-                            'Teachers registered during this session will appear here.',
+                            'Los profesores y coordinadores aparecerán aquí.',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
@@ -178,7 +179,7 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          profesor.nombre,
+                                          '${profesor.nombre} · ${profesor.rol == RolUsuario.coordinador ? 'Coordinador' : 'Profesor'}',
                                           style: Theme.of(
                                             context,
                                           ).textTheme.titleMedium,
@@ -215,17 +216,31 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
                                         ),
                                         label: const Text('Approve'),
                                       ),
+                                    if (profesor.rol == RolUsuario.profesor)
+                                      OutlinedButton.icon(
+                                        onPressed: () => _hacerCoordinador(
+                                          context,
+                                          profesor.usuario,
+                                          profesor.nombre,
+                                          profesor.zona,
+                                        ),
+                                        icon: const Icon(
+                                          Icons.manage_accounts_outlined,
+                                        ),
+                                        label: const Text('Hacer coordinador'),
+                                      ),
                                     OutlinedButton.icon(
-                                      onPressed: () => _hacerCoordinador(
-                                        context,
-                                        profesor.usuario,
-                                        profesor.nombre,
-                                        profesor.zona,
-                                      ),
-                                      icon: const Icon(
-                                        Icons.manage_accounts_outlined,
-                                      ),
-                                      label: const Text('Hacer coordinador'),
+                                      onPressed:
+                                          _eliminando.contains(profesor.usuario)
+                                          ? null
+                                          : () => _eliminarUsuario(
+                                              context,
+                                              profesor.usuario,
+                                              profesor.nombre,
+                                              profesor.rol,
+                                            ),
+                                      icon: const Icon(Icons.delete_outline),
+                                      label: const Text('Eliminar'),
                                     ),
                                   ],
                                 ),
@@ -239,6 +254,46 @@ class _ProfesoresScreenState extends State<ProfesoresScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _eliminarUsuario(
+    BuildContext context,
+    String usuario,
+    String nombre,
+    RolUsuario rol,
+  ) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Eliminar a $nombre'),
+        content: Text(
+          'Se eliminará permanentemente la cuenta de ${rol == RolUsuario.coordinador ? 'coordinador' : 'profesor'}. Los registros académicos históricos se conservarán.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Eliminar definitivamente'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true || !context.mounted) return;
+    setState(() => _eliminando.add(usuario));
+    final error = await context
+        .read<SesionProvider>()
+        .eliminarUsuarioPersistente(usuario);
+    if (!context.mounted) return;
+    setState(() => _eliminando.remove(usuario));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error ?? 'Usuario eliminado correctamente.')),
     );
   }
 

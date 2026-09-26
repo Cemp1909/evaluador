@@ -182,6 +182,31 @@ void main() {
     );
   });
 
+  test('solo el administrador puede eliminar profesores', () async {
+    final sesion = SesionProvider(AuthConfig.test)
+      ..iniciarSesion(usuario: 'admin', password: 'cambiar_esto');
+    sesion.crearProfesor(
+      nombre: 'Laura',
+      usuario: 'laura',
+      password: '123456',
+      zona: 'Centro',
+    );
+
+    sesion.iniciarSesion(usuario: 'coordinador', password: 'cambiar_esto');
+    expect(
+      await sesion.eliminarUsuarioPersistente('laura'),
+      contains('Solo el administrador'),
+    );
+
+    sesion.iniciarSesion(usuario: 'admin', password: 'cambiar_esto');
+    expect(await sesion.eliminarUsuarioPersistente('laura'), isNull);
+    expect(sesion.profesores.any((p) => p.usuario == 'laura'), isFalse);
+    expect(
+      sesion.iniciarSesion(usuario: 'laura', password: '123456'),
+      contains('No existe un profesor'),
+    );
+  });
+
   test('conserva borrador y configuración durante la sesión', () {
     final sesion = SesionProvider(AuthConfig.test);
     sesion.iniciarSesion(usuario: 'admin', password: 'cambiar_esto');

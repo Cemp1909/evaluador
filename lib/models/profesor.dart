@@ -1,3 +1,5 @@
+import 'usuario_sesion.dart';
+
 class Profesor {
   const Profesor({
     required this.nombre,
@@ -5,6 +7,7 @@ class Profesor {
     required this.password,
     required this.zona,
     this.aprobado = false,
+    this.rol = RolUsuario.profesor,
   });
 
   final String nombre;
@@ -12,12 +15,14 @@ class Profesor {
   final String password;
   final String zona;
   final bool aprobado;
+  final RolUsuario rol;
 
-  Profesor copyWith({bool? aprobado}) => Profesor(
+  Profesor copyWith({bool? aprobado, RolUsuario? rol}) => Profesor(
     nombre: nombre,
     usuario: usuario,
     password: password,
     zona: zona,
     aprobado: aprobado ?? this.aprobado,
+    rol: rol ?? this.rol,
   );
 }

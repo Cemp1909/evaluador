@@ -1806,13 +1806,16 @@ class SesionProvider extends ChangeNotifier {
           .select('id, nombre, zona, activo, rol');
       _profesoresRemotos = [
         for (final perfil in perfiles)
-          if (perfil['rol'] == 'profesor')
+          if (perfil['rol'] == 'profesor' || perfil['rol'] == 'coordinador')
             Profesor(
               nombre: perfil['nombre'] as String,
               usuario: perfil['id'] as String,
               password: '',
               zona: perfil['zona'] as String? ?? '',
               aprobado: perfil['activo'] == true,
+              rol: perfil['rol'] == 'coordinador'
+                  ? RolUsuario.coordinador
+                  : RolUsuario.profesor,
             ),
       ];
       _visitas
@@ -2019,12 +2022,50 @@ class SesionProvider extends ChangeNotifier {
           .eq('rol', 'profesor')
           .select('id')
           .single();
-      _profesoresRemotos.removeWhere((profesor) => profesor.usuario == usuario);
+      final index = _profesoresRemotos.indexWhere(
+        (profesor) => profesor.usuario == usuario,
+      );
+      if (index >= 0) {
+        _profesoresRemotos[index] = _profesoresRemotos[index].copyWith(
+          aprobado: true,
+          rol: RolUsuario.coordinador,
+        );
+      }
       notifyListeners();
       return null;
     } catch (_) {
       return 'No se pudo convertir el profesor en coordinador.';
     }
+  }
+
+  Future<String?> eliminarUsuarioPersistente(String usuario) async {
+    if (!tienePermiso(Permiso.administrarUsuarios)) {
+      return 'Solo el administrador puede eliminar usuarios.';
+    }
+    if (usaSupabase) {
+      try {
+        await _supabaseClient!.rpc<void>(
+          'eliminar_usuario_gestionado',
+          params: {'p_usuario': usuario},
+        );
+        _profesoresRemotos.removeWhere(
+          (profesor) => profesor.usuario == usuario,
+        );
+        notifyListeners();
+        return null;
+      } catch (_) {
+        return 'No se pudo eliminar el usuario. Verifica que la base de datos esté actualizada.';
+      }
+    }
+    final cantidadAnterior = _profesores.length;
+    _profesores.removeWhere(
+      (profesor) => profesor.usuario.toLowerCase() == usuario.toLowerCase(),
+    );
+    if (_profesores.length == cantidadAnterior) {
+      return 'Usuario no encontrado.';
+    }
+    notifyListeners();
+    return null;
   }
 
   List<Profesor> profesoresVisibles() {
